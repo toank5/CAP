@@ -12,8 +12,7 @@ Cổng thông tin điều phối & thẩm định nhà ở xã hội — **Intel
 ```bash
 cd FE
 npm install
-cp .env.example .env.development
 npm run dev
 ```
 
-Cấu hình `VITE_API_BASE_URL` và `VITE_GOOGLE_CLIENT_ID` trong `.env.development`.
+Chỉnh `VITE_API_BASE_URL` và `VITE_GOOGLE_CLIENT_ID` trong `FE/.env` nếu cần.

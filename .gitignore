@@ -2,10 +2,8 @@
 FE/node_modules/
 FE/dist/
 
-# Env (secrets / local config)
-FE/.env.development
-FE/.env.local
-FE/.env.production
+# Env local (chỉnh URL / Client ID trên máy bạn)
+FE/.env
 
 # Logs & OS
 *.log
