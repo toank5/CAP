@@ -5,7 +5,6 @@ Cổng thông tin điều phối & thẩm định nhà ở xã hội — **Intel
 ## Thư mục
 
 - `FE/` — Ứng dụng Vite + TypeScript
-- `swagger.json` — OpenAPI spec (tham chiếu API)
 
 ## Chạy FE
 
