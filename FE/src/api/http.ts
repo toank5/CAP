@@ -22,7 +22,8 @@ export async function request<T = unknown>(
   init: RequestInit & { auth?: boolean } = {},
 ): Promise<T> {
   const headers = new Headers(init.headers)
-  if (init.body != null && !headers.has('Content-Type')) {
+  // Don't set Content-Type for FormData (browser will handle it)
+  if (init.body != null && !(init.body instanceof FormData) && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json')
   }
   if (init.auth) {
