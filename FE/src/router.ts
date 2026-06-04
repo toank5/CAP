@@ -9,6 +9,14 @@ export type RouteId =
   | 'dashboard'
   | 'profile'
   | 'change-password'
+  | 'projects'
+  | 'project-detail'
+  | 'create-project'
+  | 'payments'
+  | 'create-payment'
+  | 'admin-staff'
+  | 'create-staff'
+  | 'staff-detail'
 
 export type NavGroup = 'access' | 'security' | 'workspace'
 
@@ -111,6 +119,78 @@ export const routes: RouteConfig[] = [
     title: 'Đổi mật khẩu',
     subtitle: 'Đặt mật khẩu mới để bảo vệ tài khoản.',
     cta: 'Cập nhật mật khẩu',
+  },
+  {
+    id: 'projects',
+    label: 'Dự án',
+    group: 'workspace',
+    auth: true,
+    title: 'Danh sách dự án nhà ở',
+    subtitle: 'Quản lý các dự án nhà ở xã hội.',
+    cta: 'Tạo dự án mới',
+  },
+  {
+    id: 'create-project',
+    label: 'Tạo dự án',
+    group: 'workspace',
+    auth: true,
+    title: 'Tạo dự án nhà ở',
+    subtitle: 'Tạo một dự án nhà ở xã hội mới.',
+    cta: 'Tạo dự án',
+  },
+  {
+    id: 'project-detail',
+    label: 'Chi tiết dự án',
+    group: 'workspace',
+    auth: true,
+    title: 'Chi tiết dự án',
+    subtitle: 'Xem và cập nhật thông tin dự án.',
+    cta: 'Cập nhật',
+  },
+  {
+    id: 'payments',
+    label: 'Thanh toán',
+    group: 'workspace',
+    auth: true,
+    title: 'Lịch sử thanh toán',
+    subtitle: 'Xem lịch sử các giao dịch thanh toán của bạn.',
+    cta: 'Tạo thanh toán mới',
+  },
+  {
+    id: 'create-payment',
+    label: 'Tạo thanh toán',
+    group: 'workspace',
+    auth: true,
+    title: 'Tạo giao dịch thanh toán',
+    subtitle: 'Tạo một giao dịch thanh toán mới cho dự án.',
+    cta: 'Tạo thanh toán',
+  },
+  {
+    id: 'admin-staff',
+    label: 'Quản lý cán bộ',
+    group: 'workspace',
+    auth: true,
+    title: 'Danh sách cán bộ',
+    subtitle: 'Quản lý danh sách cán bộ trong hệ thống.',
+    cta: 'Thêm cán bộ mới',
+  },
+  {
+    id: 'create-staff',
+    label: 'Thêm cán bộ',
+    group: 'workspace',
+    auth: true,
+    title: 'Thêm cán bộ mới',
+    subtitle: 'Tạo một tài khoản cán bộ mới trong hệ thống.',
+    cta: 'Tạo cán bộ',
+  },
+  {
+    id: 'staff-detail',
+    label: 'Chi tiết cán bộ',
+    group: 'workspace',
+    auth: true,
+    title: 'Chi tiết cán bộ',
+    subtitle: 'Xem và cập nhật thông tin cán bộ.',
+    cta: 'Cập nhật',
   },
 ]
 
