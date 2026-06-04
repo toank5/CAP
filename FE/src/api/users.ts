@@ -11,6 +11,22 @@ export const usersApi = {
       auth: true,
     }),
 
+  uploadProfileImage: (file: File) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return request<ApiResult>('/api/Users/profile/image', {
+      method: 'POST',
+      body: fd,
+      auth: true,
+    })
+  },
+
+  deleteProfileImage: () =>
+    request<ApiResult>('/api/Users/profile/image', {
+      method: 'DELETE',
+      auth: true,
+    }),
+
   adminOnly: () => request<ApiResult>('/api/Users/admin-only', { auth: true }),
 
   officerOnly: () => request<ApiResult>('/api/Users/officer-only', { auth: true }),
