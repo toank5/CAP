@@ -10,11 +10,62 @@ export function profileView(): HTMLElement {
   const result = el('div', { class: 'panel-result', 'aria-live': 'polite' })
   const getBtn = el('button', { type: 'button', class: 'btn-secondary' }, 'Xem hồ sơ')
 
+  const imagePreview = el('img', {
+    style: 'max-width: 150px; max-height: 150px; border-radius: 8px; margin-bottom: 16px; display: none;',
+  })
+
+  const imageInput = el('input', { type: 'file', name: 'profileImage', accept: 'image/*', style: 'margin-bottom: 8px;' })
+
+  const uploadImageBtn = el('button', { type: 'button', class: 'btn-secondary', style: 'margin-right: 8px;' }, 'Upload ảnh')
+  const deleteImageBtn = el('button', { type: 'button', class: 'btn-danger', style: 'background: #dc3545; display: none;' }, 'Xóa ảnh')
+
+  uploadImageBtn.addEventListener('click', async (e) => {
+    e.preventDefault()
+    const file = imageInput.files?.[0]
+    if (!file) {
+      alert('Vui lòng chọn file ảnh')
+      return
+    }
+    uploadImageBtn.setAttribute('disabled', 'true')
+    try {
+      const data = await usersApi.uploadProfileImage(file)
+      showResult(result, data)
+      deleteImageBtn.style.display = 'block'
+    } catch (err) {
+      showResult(result, null, err)
+    } finally {
+      uploadImageBtn.removeAttribute('disabled')
+    }
+  })
+
+  deleteImageBtn.addEventListener('click', async (e) => {
+    e.preventDefault()
+    if (!confirm('Xóa ảnh đại diện?')) return
+    deleteImageBtn.setAttribute('disabled', 'true')
+    try {
+      const data = await usersApi.deleteProfileImage()
+      showResult(result, data)
+      imagePreview.style.display = 'none'
+      deleteImageBtn.style.display = 'none'
+      imageInput.value = ''
+    } catch (err) {
+      showResult(result, null, err)
+    } finally {
+      deleteImageBtn.removeAttribute('disabled')
+    }
+  })
+
   const form = el(
     'form',
     { class: 'form-card' },
+    el('div', { style: 'margin-bottom: 16px;' }, imagePreview),
+    el('div', { style: 'margin-bottom: 8px;' }, 
+      el('label', {}, 'Ảnh đại diện:'),
+      imageInput,
+    ),
+    el('div', { style: 'margin-bottom: 16px;' }, uploadImageBtn, deleteImageBtn),
     field('Họ và tên', 'fullName'),
-    field('Số điện thoại', 'phoneNumber', 'tel'),
+    field('Số điện thoại', 'phoneNumber', 'tel', {}),
     el('button', { type: 'submit', class: 'btn-primary' }, m.cta),
   )
 
@@ -22,7 +73,7 @@ export function profileView(): HTMLElement {
     getBtn.setAttribute('disabled', 'true')
     try {
       const data = await usersApi.getProfile()
-      const user = (data as { user?: { fullName?: string; phoneNumber?: string } })?.user
+      const user = (data as { user?: { fullName?: string; phoneNumber?: string; profileImageUrl?: string } })?.user
       if (user?.fullName) {
         const nameInput = form.querySelector<HTMLInputElement>('[name=fullName]')
         if (nameInput) nameInput.value = user.fullName
@@ -30,6 +81,11 @@ export function profileView(): HTMLElement {
       if (user?.phoneNumber) {
         const phoneInput = form.querySelector<HTMLInputElement>('[name=phoneNumber]')
         if (phoneInput) phoneInput.value = user.phoneNumber
+      }
+      if (user?.profileImageUrl) {
+        imagePreview.src = user.profileImageUrl
+        imagePreview.style.display = 'block'
+        deleteImageBtn.style.display = 'block'
       }
       showResult(result, data)
     } catch (err) {
