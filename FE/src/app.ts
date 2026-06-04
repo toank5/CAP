@@ -20,6 +20,9 @@ import {
   verifyOtpView,
 } from './views/auth'
 import { dashboardView, profileView } from './views/users'
+import { createProjectView, projectDetailView, projectsView } from './views/projects'
+import { createPaymentView, paymentsView } from './views/payment'
+import { adminStaffView, createStaffView, staffDetailView } from './views/admin'
 import { el } from './ui/helpers'
 import { appFooter, brandLogo, govTricolorBar, marketingHero } from './ui/shell'
 
@@ -34,6 +37,14 @@ const viewMap: Record<RouteId, () => HTMLElement> = {
   dashboard: dashboardView,
   profile: profileView,
   'change-password': changePasswordView,
+  projects: projectsView,
+  'create-project': createProjectView,
+  'project-detail': projectDetailView,
+  payments: paymentsView,
+  'create-payment': createPaymentView,
+  'admin-staff': adminStaffView,
+  'create-staff': createStaffView,
+  'staff-detail': staffDetailView,
 }
 
 const GROUP_ORDER: NavGroup[] = ['access', 'security', 'workspace']
@@ -44,6 +55,7 @@ function renderNav(nav: HTMLElement, activeId: RouteId): void {
   const visible = routes.filter((r) => {
     if (r.auth && !logged) return false
     if (!r.auth && logged && ['login', 'register'].includes(r.id)) return false
+    if (['create-project', 'project-detail', 'create-payment', 'create-staff', 'staff-detail'].includes(r.id)) return false
     return true
   })
 
