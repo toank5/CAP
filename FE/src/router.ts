@@ -6,6 +6,11 @@ export type RouteId =
   | 'google-login'
   | 'forgot-password'
   | 'reset-password'
+  | 'home-admin'
+  | 'home-ward'
+  | 'home-verifier'
+  | 'home-user'
+  | 'quan-tam'
   | 'dashboard'
   | 'profile'
   | 'change-password'
@@ -25,6 +30,7 @@ export interface RouteConfig {
   label: string
   group: NavGroup
   auth?: boolean
+  roles?: string[]
   title: string
   subtitle: string
   cta: string
@@ -92,6 +98,56 @@ export const routes: RouteConfig[] = [
     title: 'Đặt lại mật khẩu',
     subtitle: 'Nhập mã OTP và mật khẩu mới từ email khôi phục.',
     cta: 'Cập nhật mật khẩu',
+  },
+  {
+    id: 'home-admin',
+    label: 'Trang chủ',
+    group: 'workspace',
+    auth: true,
+    roles: ['System Administrator'],
+    title: 'Trang quản trị hệ thống',
+    subtitle: 'Toàn quyền quản lý người dùng, dự án và vận hành nền tảng.',
+    cta: '',
+  },
+  {
+    id: 'home-ward',
+    label: 'Trang chủ',
+    group: 'workspace',
+    auth: true,
+    roles: ['Ward Manager'],
+    title: 'Trang quản lý phường',
+    subtitle: 'Theo dõi và điều phối các dự án nhà ở trên địa bàn phường.',
+    cta: '',
+  },
+  {
+    id: 'home-verifier',
+    label: 'Trang chủ',
+    group: 'workspace',
+    auth: true,
+    roles: ['Verification Officer'],
+    title: 'Trang cán bộ thẩm định',
+    subtitle: 'Tiếp nhận và thẩm định hồ sơ, dự án theo quy trình.',
+    cta: '',
+  },
+  {
+    id: 'home-user',
+    label: 'Trang chủ',
+    group: 'workspace',
+    auth: true,
+    roles: ['Applicant'],
+    title: 'Trang người dùng',
+    subtitle: 'Khám phá dự án nhà ở xã hội và quản lý hồ sơ của bạn.',
+    cta: '',
+  },
+  {
+    id: 'quan-tam',
+    label: 'Quan tâm',
+    group: 'workspace',
+    auth: true,
+    roles: ['Applicant'],
+    title: 'Dự án quan tâm',
+    subtitle: 'Những dự án nhà ở bạn đã lưu để theo dõi.',
+    cta: '',
   },
   {
     id: 'dashboard',
@@ -216,4 +272,85 @@ export function onRouteChange(cb: (id: RouteId) => void): void {
 
 export function isLoggedIn(): boolean {
   return !!localStorage.getItem('accessToken')
+}
+
+export function getRole(): string {
+  return localStorage.getItem('userRole') ?? ''
+}
+
+export function setRole(role: string): void {
+  if (role) localStorage.setItem('userRole', role)
+}
+
+export function clearRole(): void {
+  localStorage.removeItem('userRole')
+}
+
+export const ADMIN_ROLE = 'System Administrator'
+
+export function roleHome(role: string): RouteId {
+  switch (role.trim()) {
+    case 'System Administrator':
+      return 'home-admin'
+    case 'Ward Manager':
+      return 'home-ward'
+    case 'Verification Officer':
+      return 'home-verifier'
+    case 'Applicant':
+      return 'home-user'
+    default:
+      return 'dashboard'
+  }
+}
+
+// Phân quyền theo cấp: Admin > Quản lý phường > Người dùng.
+// Admin có toàn bộ quyền (canAccess luôn true). Các role khác chỉ
+// truy cập được những route trong danh sách của mình.
+const ROLE_ACCESS: Record<string, RouteId[]> = {
+  'Ward Manager': [
+    'home-ward',
+    'projects',
+    'create-project',
+    'project-detail',
+    'payments',
+    'create-payment',
+    'profile',
+    'change-password',
+  ],
+  'Verification Officer': [
+    'home-verifier',
+    'projects',
+    'project-detail',
+    'dashboard',
+    'profile',
+    'change-password',
+  ],
+  Applicant: [
+    'home-user',
+    'quan-tam',
+    'projects',
+    'payments',
+    'create-payment',
+    'profile',
+    'change-password',
+  ],
+}
+
+export function canAccess(role: string, id: RouteId): boolean {
+  if (role === ADMIN_ROLE) return true
+  const list = ROLE_ACCESS[role]
+  if (!list) return true
+  return list.includes(id)
+}
+
+// Các mục hiển thị trên thanh điều hướng cho từng role (đúng thứ tự).
+const NAV_BY_ROLE: Record<string, RouteId[]> = {
+  'System Administrator': ['home-admin', 'admin-staff', 'projects', 'payments', 'dashboard', 'profile'],
+  'Ward Manager': ['home-ward', 'projects', 'payments', 'profile'],
+  'Verification Officer': ['home-verifier', 'projects', 'dashboard', 'profile'],
+  Applicant: ['home-user', 'quan-tam', 'profile'],
+}
+
+export function navRoutes(role: string): RouteId[] {
+  return NAV_BY_ROLE[role] ?? ['dashboard', 'profile']
 }
