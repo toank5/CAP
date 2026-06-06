@@ -1,12 +1,13 @@
 import { BRAND } from './brand'
 import {
+  canAccess,
+  getRole,
   getRouteConfig,
   isLoggedIn,
   navigate,
-  NAV_GROUP_LABELS,
+  navRoutes,
+  roleHome,
   onRouteChange,
-  routes,
-  type NavGroup,
   type RouteId,
 } from './router'
 import {
@@ -19,6 +20,13 @@ import {
   resetPasswordView,
   verifyOtpView,
 } from './views/auth'
+import {
+  adminHomeView,
+  interestedView,
+  userHomeView,
+  verifierHomeView,
+  wardHomeView,
+} from './views/home'
 import { dashboardView, profileView } from './views/users'
 import { createProjectView, projectDetailView, projectsView } from './views/projects'
 import { createPaymentView, paymentsView } from './views/payment'
@@ -34,6 +42,11 @@ const viewMap: Record<RouteId, () => HTMLElement> = {
   'google-login': googleLoginView,
   'forgot-password': forgotPasswordView,
   'reset-password': resetPasswordView,
+  'home-admin': adminHomeView,
+  'home-ward': wardHomeView,
+  'home-verifier': verifierHomeView,
+  'home-user': userHomeView,
+  'quan-tam': interestedView,
   dashboard: dashboardView,
   profile: profileView,
   'change-password': changePasswordView,
@@ -47,59 +60,42 @@ const viewMap: Record<RouteId, () => HTMLElement> = {
   'staff-detail': staffDetailView,
 }
 
-const GROUP_ORDER: NavGroup[] = ['access', 'security', 'workspace']
+function navIcon(id: RouteId): string {
+  if (id.startsWith('home-')) return '⌂'
+  if (id === 'quan-tam') return '♥'
+  if (id === 'profile') return '◉'
+  if (id === 'projects') return '▣'
+  if (id === 'payments') return '₫'
+  if (id === 'dashboard') return '◫'
+  if (id === 'admin-staff') return '⚙'
+  return '•'
+}
 
 function renderNav(nav: HTMLElement, activeId: RouteId): void {
   nav.replaceChildren()
-  const logged = isLoggedIn()
-  const visible = routes.filter((r) => {
-    if (r.auth && !logged) return false
-    if (!r.auth && logged && ['login', 'register'].includes(r.id)) return false
-    if (['create-project', 'project-detail', 'create-payment', 'create-staff', 'staff-detail'].includes(r.id)) return false
-    return true
-  })
+  if (!isLoggedIn()) return
+  const role = getRole()
 
-  for (const group of GROUP_ORDER) {
-    const items = visible.filter((r) => r.group === group)
-    if (!items.length) continue
-
-    const block = el('div', { class: 'nav-group' })
-    block.append(el('span', { class: 'nav-group-label' }, NAV_GROUP_LABELS[group]))
-    for (const r of items) {
-      const a = el(
-        'a',
-        {
-          href: `#/${r.id}`,
-          class: `nav-link${activeId === r.id ? ' active' : ''}`,
-        },
-        r.label,
-      )
-      a.addEventListener('click', (e) => {
-        e.preventDefault()
-        navigate(r.id)
-      })
-      block.append(a)
-    }
-    nav.append(block)
-  }
-
-  if (logged) {
-    const session = el('div', { class: 'nav-session' })
-    session.append(
-      el('span', { class: 'session-label' }, 'Trạng thái phiên'),
-      el('div', { class: 'session-status' },
-        el('span', { class: 'session-dot', 'aria-hidden': 'true' }),
-        'Đã xác thực',
-      ),
+  const links = el('div', { class: 'topnav-links' })
+  for (const id of navRoutes(role)) {
+    if (!canAccess(role, id)) continue
+    const cfg = getRouteConfig(id)
+    const a = el(
+      'a',
+      {
+        href: `#/${id}`,
+        class: `topnav-link${activeId === id ? ' active' : ''}`,
+      },
+      el('span', { class: 'topnav-icon', 'aria-hidden': 'true' }, navIcon(id)),
+      el('span', { class: 'topnav-label' }, cfg.label),
     )
-    const out = el('button', { type: 'button', class: 'btn-ghost' }, 'Kết thúc phiên')
-    out.addEventListener('click', () => {
-      localStorage.removeItem('accessToken')
-      localStorage.removeItem('refreshToken')
-      navigate('login')
+    a.addEventListener('click', (e) => {
+      e.preventDefault()
+      navigate(id)
     })
-    nav.append(session, out)
+    links.append(a)
   }
+  nav.append(links)
 }
 
 function renderBreadcrumb(host: HTMLElement, routeId: RouteId): void {
@@ -132,7 +128,7 @@ export function mountApp(root: HTMLElement): void {
     ),
   )
 
-  const nav = el('nav', { class: 'sidebar', 'aria-label': 'Menu chức năng' })
+  const nav = el('nav', { class: 'topnav', 'aria-label': 'Menu điều hướng' })
   const breadcrumb = el('div', { class: 'breadcrumb-bar' })
   const main = el('main', { class: 'main' })
   const pageHost = el('div', { class: 'page-host' })
@@ -140,9 +136,9 @@ export function mountApp(root: HTMLElement): void {
 
   const hero = marketingHero()
   const contentArea = el('div', { class: 'content-area' }, hero, main)
-  const layoutBody = el('div', { class: 'layout-body' }, nav, contentArea)
+  const layoutBody = el('div', { class: 'layout-body' }, contentArea)
 
-  root.append(header, layoutBody, appFooter())
+  root.append(header, nav, layoutBody, appFooter())
 
   onRouteChange((id) => {
     const config = getRouteConfig(id)
@@ -151,10 +147,16 @@ export function mountApp(root: HTMLElement): void {
       return
     }
 
+    if (config.auth && isLoggedIn() && !canAccess(getRole(), id)) {
+      navigate(roleHome(getRole()))
+      return
+    }
+
     const logged = isLoggedIn()
     hero.classList.toggle('is-hidden', logged)
     layoutBody.classList.toggle('is-authenticated', logged)
     document.body.dataset.route = id
+    document.body.classList.toggle('auth-screen', !logged)
 
     renderNav(nav, id)
     renderBreadcrumb(breadcrumb, id)
