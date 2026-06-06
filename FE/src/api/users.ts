@@ -13,7 +13,7 @@ export const usersApi = {
 
   uploadProfileImage: (file: File) => {
     const fd = new FormData()
-    fd.append('file', file)
+    fd.append('Image', file)
     return request<ApiResult>('/api/Users/profile/image', {
       method: 'POST',
       body: fd,
