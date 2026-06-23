@@ -70,29 +70,41 @@ export interface ProblemDetails {
 
 export interface HousingProjectDto {
   id?: string
-  name: string
-  location: string
+  projectName?: string
+  name?: string
   description?: string
-  totalUnits: number
-  availableUnits: number
-  pricePerUnit: number
-  constructionStartDate?: string
-  expectedCompletionDate?: string
-  status?: string
+  province?: string
+  district?: string
+  address?: string
+  location?: string
+  minPrice?: number
+  maxPrice?: number
+  minArea?: number
+  maxArea?: number
+  availableUnits?: number
+  thumbnailUrl?: string
   imageUrl?: string
+  status?: string
+  housingProjectStatusId?: string
   createdAt?: string
   updatedAt?: string
+  images?: { id: string; imageUrl: string; displayOrder: number }[]
 }
 
 export interface CreateHousingProjectRequestDto {
-  name: string
-  location: string
-  description?: string
-  totalUnits: number
+  projectName: string
+  description: string
+  province: string
+  district: string
+  address: string
+  minPrice: number
+  maxPrice: number
+  minArea: number
+  maxArea: number
   availableUnits: number
-  pricePerUnit: number
-  constructionStartDate?: string
-  expectedCompletionDate?: string
+  housingProjectStatusId: string
+  thumbnailUrl?: string
+  thumbnailFile?: File
 }
 
 export interface ProjectFilterDto {
@@ -105,22 +117,180 @@ export interface ProjectFilterDto {
 }
 
 export interface CreatePaymentDto {
-  projectId: string
   amount: number
-  description?: string
-  returnUrl?: string
+  orderInfo: string
+  orderType?: string
 }
 
 export interface PaymentInfoDto {
+  id?: string
   orderId: string
+  orderInfo: string
   amount: number
-  description?: string
   status?: string
+  vnpTransactionNo?: string
+  vnpBankCode?: string
   createdAt?: string
-  paymentUrl?: string
+  paidAt?: string
 }
 
 export interface PaymentResponseDto {
-  paymentUrl: string
-  orderId: string
+  success?: boolean
+  message?: string
+  data?: {
+    paymentUrl?: string
+    orderId?: string
+    amount?: number
+  }
+}
+
+export interface PagedResultDto<T> {
+  pageIndex?: number
+  pageSize?: number
+  totalCount?: number
+  totalPages?: number
+  hasPreviousPage?: boolean
+  hasNextPage?: boolean
+  items?: T[]
+}
+
+export interface ApplicationFilterDto {
+  pageIndex?: number
+  pageSize?: number
+  status?: string
+  projectId?: string
+  search?: string
+  submittedFrom?: string
+  submittedTo?: string
+}
+
+export interface CreateApplicationDto {
+  projectId: string
+  fullName: string
+  citizenId: string
+  occupation?: string | null
+  workPlace?: string | null
+  currentResidence: string
+  permanentAddress: string
+  housingStatus: string
+  estimatedMonthlyIncome: number
+}
+
+export interface ApplicationSummaryDto {
+  applicationId: string
+  projectId: string
+  projectName: string
+  applicantId: string
+  applicantFullName: string
+  citizenId: string
+  applicationStatus: string
+  createdAt: string
+  submittedAt: string
+  finalDecisionDate?: string | null
+  housingStatus: string
+  estimatedMonthlyIncome: number
+  documentCount: number
+}
+
+export interface ApplicationDocumentDto {
+  documentId: string
+  documentType: string
+  fileName: string
+  fileUrl: string
+  fileSizeBytes: number
+  verificationStatus: string
+  uploadedAt: string
+  uploadedBy: string
+}
+
+export interface ReviewHistoryDto {
+  historyId: string
+  action: string
+  oldStatus: string
+  newStatus: string
+  note?: string | null
+  changedAt: string
+  changedBy: string
+  changedByFullName: string
+}
+
+export interface ApplicationDetailDto {
+  applicationId: string
+  applicationStatus: string
+  priorityScore?: number
+  createdAt: string
+  submittedAt: string
+  finalDecisionDate?: string | null
+  updatedAt?: string | null
+  projectId: string
+  projectName: string
+  applicantId: string
+  fullName: string
+  citizenId: string
+  occupation?: string | null
+  workPlace?: string | null
+  currentResidence: string
+  permanentAddress: string
+  housingStatus: string
+  estimatedMonthlyIncome: number
+  officerId?: string | null
+  officerFullName?: string | null
+  documents?: ApplicationDocumentDto[]
+  reviewHistories?: ReviewHistoryDto[]
+}
+
+export interface ReviewRequestDto {
+  action: string
+  note?: string | null
+}
+
+export interface OcrResultDto {
+  id?: string
+  name?: string
+  dob?: string
+  sex?: string
+  nationality?: string
+  home?: string
+  address?: string
+  doe?: string
+  issueDate?: string
+  issueLoc?: string
+  type?: string
+  overallScore?: number
+}
+
+export interface FaceMatchResultDto {
+  isMatch?: boolean
+  similarity?: number
+  isBothImgIdCard?: boolean
+  fptMessage?: string
+}
+
+export interface LivenessResultDto {
+  isLive?: boolean
+  spoofProbability?: number
+  needToReview?: boolean
+  isDeepfake?: boolean
+  warning?: string
+  livenessCode?: string
+  livenessMessage?: string
+  fptMessage?: string
+}
+
+export interface WishlistItemDto {
+  wishlistId: string
+  projectId: string
+  projectName: string
+  description?: string
+  province?: string
+  district?: string
+  address?: string
+  minPrice?: number
+  maxPrice?: number
+  minArea?: number
+  maxArea?: number
+  availableUnits?: number
+  thumbnailUrl?: string
+  status?: string
+  addedAt?: string
 }

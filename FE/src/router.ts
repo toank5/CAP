@@ -1,9 +1,10 @@
 export type RouteId =
+  | 'landing'
+  | 'tra-cuu'
   | 'login'
   | 'register'
   | 'verify-otp'
   | 'resend-otp'
-  | 'google-login'
   | 'forgot-password'
   | 'reset-password'
   | 'home-admin'
@@ -22,6 +23,9 @@ export type RouteId =
   | 'admin-staff'
   | 'create-staff'
   | 'staff-detail'
+  | 'applications'
+  | 'create-application'
+  | 'application-detail'
 
 export type NavGroup = 'access' | 'security' | 'workspace'
 
@@ -43,6 +47,22 @@ export const NAV_GROUP_LABELS: Record<NavGroup, string> = {
 }
 
 export const routes: RouteConfig[] = [
+  {
+    id: 'landing',
+    label: 'Trang chủ',
+    group: 'access',
+    title: 'Hệ thống thông tin nhà ở xã hội',
+    subtitle: 'Nền tảng kết nối và điều phối nguồn cung nhà ở xã hội thông minh',
+    cta: '',
+  },
+  {
+    id: 'tra-cuu',
+    label: 'Tra cứu hồ sơ',
+    group: 'access',
+    title: 'Tra cứu hồ sơ',
+    subtitle: 'Nhập mã hồ sơ để xem trạng thái và tiến độ xử lý.',
+    cta: 'Tra cứu',
+  },
   {
     id: 'login',
     label: 'Đăng nhập',
@@ -76,14 +96,6 @@ export const routes: RouteConfig[] = [
     cta: 'Gửi lại mã',
   },
   {
-    id: 'google-login',
-    label: 'Google',
-    group: 'access',
-    title: 'Đăng nhập Google',
-    subtitle: 'Dùng tài khoản Google được cấp quyền truy cập hệ thống.',
-    cta: 'Tiếp tục với Google',
-  },
-  {
     id: 'forgot-password',
     label: 'Quên mật khẩu',
     group: 'security',
@@ -93,7 +105,7 @@ export const routes: RouteConfig[] = [
   },
   {
     id: 'reset-password',
-    label: 'Đặt lại MK',
+    label: 'Đặt lại mật khẩu',
     group: 'security',
     title: 'Đặt lại mật khẩu',
     subtitle: 'Nhập mã OTP và mật khẩu mới từ email khôi phục.',
@@ -106,7 +118,7 @@ export const routes: RouteConfig[] = [
     auth: true,
     roles: ['System Administrator'],
     title: 'Trang quản trị hệ thống',
-    subtitle: 'Toàn quyền quản lý người dùng, dự án và vận hành nền tảng.',
+    subtitle: 'Trung tâm điều hành — cán bộ, dự án, hồ sơ và thanh toán.',
     cta: '',
   },
   {
@@ -116,7 +128,7 @@ export const routes: RouteConfig[] = [
     auth: true,
     roles: ['Ward Manager'],
     title: 'Trang quản lý phường',
-    subtitle: 'Theo dõi và điều phối các dự án nhà ở trên địa bàn phường.',
+    subtitle: 'Phê duyệt hồ sơ và quản lý dự án trên địa bàn phường.',
     cta: '',
   },
   {
@@ -126,7 +138,7 @@ export const routes: RouteConfig[] = [
     auth: true,
     roles: ['Verification Officer'],
     title: 'Trang cán bộ thẩm định',
-    subtitle: 'Tiếp nhận và thẩm định hồ sơ, dự án theo quy trình.',
+    subtitle: 'Tiếp nhận, thẩm định và kết luận hồ sơ đăng ký nhà ở.',
     cta: '',
   },
   {
@@ -136,7 +148,7 @@ export const routes: RouteConfig[] = [
     auth: true,
     roles: ['Applicant'],
     title: 'Trang người dùng',
-    subtitle: 'Khám phá dự án nhà ở xã hội và quản lý hồ sơ của bạn.',
+    subtitle: 'Khám phá nhà ở xã hội, đăng ký hồ sơ và thanh toán trực tuyến.',
     cta: '',
   },
   {
@@ -248,6 +260,34 @@ export const routes: RouteConfig[] = [
     subtitle: 'Xem và cập nhật thông tin cán bộ.',
     cta: 'Cập nhật',
   },
+  {
+    id: 'applications',
+    label: 'Hồ sơ đăng ký',
+    group: 'workspace',
+    auth: true,
+    title: 'Hồ sơ đăng ký nhà ở',
+    subtitle: 'Quản lý hồ sơ đăng ký nhà ở xã hội.',
+    cta: 'Tạo hồ sơ mới',
+  },
+  {
+    id: 'create-application',
+    label: 'Tạo hồ sơ',
+    group: 'workspace',
+    auth: true,
+    roles: ['Applicant'],
+    title: 'Tạo hồ sơ đăng ký',
+    subtitle: 'Điền thông tin và tạo hồ sơ nháp để nộp sau.',
+    cta: 'Tạo hồ sơ nháp',
+  },
+  {
+    id: 'application-detail',
+    label: 'Chi tiết hồ sơ',
+    group: 'workspace',
+    auth: true,
+    title: 'Chi tiết hồ sơ đăng ký',
+    subtitle: 'Xem thông tin, tài liệu và trạng thái xét duyệt.',
+    cta: '',
+  },
 ]
 
 export function getRouteConfig(id: RouteId): RouteConfig {
@@ -255,9 +295,53 @@ export function getRouteConfig(id: RouteId): RouteConfig {
 }
 
 export function getRoute(): RouteId {
-  const hash = location.hash.replace(/^#\/?/, '') || 'login'
-  const found = routes.find((r) => r.id === hash)
-  return found?.id ?? 'login'
+  const hash = location.hash.replace(/^#\/?/, '')
+  if (!hash) {
+    return isLoggedIn() ? roleHome(getRole()) : 'landing'
+  }
+  const routePart = hash.split('?')[0].split('&')[0]
+  const found = routes.find((r) => r.id === routePart)
+  return found?.id ?? (isLoggedIn() ? roleHome(getRole()) : 'landing')
+}
+
+export type PaymentNotice = 'success' | 'failed' | 'cancelled' | 'error'
+
+export function parsePaymentFromLocation(): PaymentNotice | null {
+  const hash = location.hash.replace(/^#\/?/, '')
+  const qIdx = hash.indexOf('?')
+  const query = qIdx >= 0 ? hash.slice(qIdx + 1) : location.search.slice(1)
+  const payment = new URLSearchParams(query).get('payment')
+  if (payment === 'success' || payment === 'failed' || payment === 'cancelled' || payment === 'error') {
+    return payment
+  }
+  return null
+}
+
+export function consumePaymentNotice(): PaymentNotice | null {
+  const fromUrl = parsePaymentFromLocation()
+  if (!fromUrl) return null
+  stripPaymentFromHash()
+  return fromUrl
+}
+
+export function paymentNoticeMessage(notice: PaymentNotice): { text: string; className: string } {
+  switch (notice) {
+    case 'success':
+      return { text: 'Thanh toán thành công.', className: 'is-success' }
+    case 'cancelled':
+      return { text: 'Giao dịch đã bị hủy.', className: 'is-cancelled' }
+    case 'failed':
+      return { text: 'Thanh toán thất bại.', className: 'is-failed' }
+    default:
+      return { text: 'Không thể xác minh giao dịch.', className: 'is-error' }
+  }
+}
+
+function stripPaymentFromHash(): void {
+  const hash = location.hash.replace(/^#\/?/, '')
+  const routePart = hash.split('?')[0].split('&')[0]
+  const found = routes.find((r) => r.id === routePart)
+  if (found) location.hash = `#/${found.id}`
 }
 
 export function navigate(id: RouteId): void {
@@ -309,18 +393,22 @@ export function roleHome(role: string): RouteId {
 const ROLE_ACCESS: Record<string, RouteId[]> = {
   'Ward Manager': [
     'home-ward',
+    'applications',
     'projects',
     'create-project',
     'project-detail',
     'payments',
     'create-payment',
+    'application-detail',
     'profile',
     'change-password',
   ],
   'Verification Officer': [
     'home-verifier',
+    'applications',
     'projects',
     'project-detail',
+    'application-detail',
     'dashboard',
     'profile',
     'change-password',
@@ -328,6 +416,9 @@ const ROLE_ACCESS: Record<string, RouteId[]> = {
   Applicant: [
     'home-user',
     'quan-tam',
+    'applications',
+    'create-application',
+    'application-detail',
     'projects',
     'payments',
     'create-payment',
@@ -344,11 +435,26 @@ export function canAccess(role: string, id: RouteId): boolean {
 }
 
 // Các mục hiển thị trên thanh điều hướng cho từng role (đúng thứ tự).
+const PUBLIC_NAV: RouteId[] = ['landing', 'tra-cuu', 'login', 'register']
+
+export const AUTH_FORM_ROUTES = new Set<RouteId>([
+  'login',
+  'register',
+  'verify-otp',
+  'resend-otp',
+  'forgot-password',
+  'reset-password',
+])
+
+export function publicNavRoutes(): RouteId[] {
+  return PUBLIC_NAV
+}
+
 const NAV_BY_ROLE: Record<string, RouteId[]> = {
-  'System Administrator': ['home-admin', 'admin-staff', 'projects', 'payments', 'dashboard', 'profile'],
-  'Ward Manager': ['home-ward', 'projects', 'payments', 'profile'],
-  'Verification Officer': ['home-verifier', 'projects', 'dashboard', 'profile'],
-  Applicant: ['home-user', 'quan-tam', 'profile'],
+  'System Administrator': ['home-admin', 'admin-staff', 'applications', 'projects', 'payments', 'dashboard', 'profile'],
+  'Ward Manager': ['home-ward', 'applications', 'projects', 'payments', 'profile'],
+  'Verification Officer': ['home-verifier', 'applications', 'projects', 'dashboard', 'profile'],
+  Applicant: ['home-user', 'quan-tam', 'applications', 'payments', 'profile'],
 }
 
 export function navRoutes(role: string): RouteId[] {
