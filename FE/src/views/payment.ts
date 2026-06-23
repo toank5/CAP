@@ -1,65 +1,100 @@
-import { paymentApi } from '../api/payment'
+import { paymentApi, startVnPayPayment } from '../api/payment'
 import { getRouteConfig, navigate } from '../router'
-import { el, fdStr, field, onFormSubmit } from '../ui/helpers'
-import { pageWithContent } from '../ui/page'
+import type { PaymentInfoDto } from '../types'
+import { el, fdStr, field, onFormSubmit, showResult } from '../ui/helpers'
+import { pageHeader } from '../ui/page'
+
+const VNPAY_TEST_CARD = el(
+  'div',
+  { class: 'payment-sandbox-guide' },
+  el('h4', { class: 'payment-sandbox-title' }, 'Thẻ test VNPay Sandbox'),
+  el('ul', { class: 'payment-sandbox-list' },
+    el('li', {}, 'Ngân hàng: NCB'),
+    el('li', {}, 'Số thẻ: 9704198526191432198'),
+    el('li', {}, 'Ngày hết hạn: 07/15'),
+    el('li', {}, 'OTP: 123456'),
+  ),
+)
+
+function paymentStatusLabel(status?: string): { text: string; className: string } {
+  switch (status) {
+    case 'Success':
+      return { text: 'Thành công', className: 'is-success' }
+    case 'Pending':
+      return { text: 'Đang chờ', className: 'is-pending' }
+    case 'Cancelled':
+      return { text: 'Đã hủy', className: 'is-cancelled' }
+    case 'Failed':
+      return { text: 'Thất bại', className: 'is-failed' }
+    default:
+      return { text: status ?? 'Không rõ', className: 'is-pending' }
+  }
+}
+
+function parsePayments(data: unknown): PaymentInfoDto[] {
+  if (!data || typeof data !== 'object') return []
+  const o = data as Record<string, unknown>
+  const list = o.data ?? o.Data
+  return Array.isArray(list) ? (list as PaymentInfoDto[]) : []
+}
 
 export function paymentsView(): HTMLElement {
   const m = getRouteConfig('payments')
   const result = el('div', { class: 'panel-result', 'aria-live': 'polite' })
   const paymentsList = el('div', { class: 'payments-list' })
-  const createBtn = el('button', { type: 'button', class: 'btn-primary' }, 'Tạo thanh toán mới')
+  const createBtn = el('button', { type: 'button', class: 'btn-primary' }, 'Tạo thanh toán test')
 
   const loadPayments = async () => {
-    paymentsList.replaceChildren(el('p', {}, 'Đang tải...'))
+    paymentsList.replaceChildren(el('p', { class: 'payments-loading' }, 'Đang tải...'))
     try {
       const data = await paymentApi.getMyPayments()
-      const payments = (data as { data?: Array<any> })?.data ?? []
+      const payments = parsePayments(data)
 
       if (payments.length === 0) {
-        paymentsList.replaceChildren(el('p', {}, 'Không có giao dịch nào.'))
-      } else {
-        const items = payments.map((payment: any) =>
-          el(
-            'div',
-            { class: 'payment-card', style: 'padding: 16px; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 12px;' },
-            el('div', { style: 'display: flex; justify-content: space-between; align-items: center;' },
-              el('div', {},
-                el('h3', {}, payment.orderId || 'N/A'),
-                el('p', {}, `Số tiền: ${payment.amount?.toLocaleString('vi-VN') || '0'} VNĐ`),
-                el('p', {}, `Mô tả: ${payment.description || 'N/A'}`),
-              ),
-              el('div', { style: 'text-align: right;' },
-                el('p', { style: `color: ${payment.status === 'completed' ? 'green' : 'orange'};` }, 
-                  payment.status === 'completed' ? '✓ Hoàn thành' : '⏳ Đang chờ'
-                ),
-                el('p', { style: 'font-size: 0.9em; color: #666;' }, 
-                  new Date(payment.createdAt).toLocaleDateString('vi-VN')
-                ),
-              ),
-            ),
-          ),
+        paymentsList.replaceChildren(
+          el('p', { class: 'payments-empty' }, 'Chưa có giao dịch nào. Bấm "Tạo thanh toán test" để thử VNPay Sandbox.'),
         )
+      } else {
+        const items = payments.map((payment) => {
+          const st = paymentStatusLabel(payment.status)
+          return el(
+            'div',
+            { class: 'payment-card' },
+            el('div', { class: 'payment-card-head' },
+              el('div', {},
+                el('h3', { class: 'payment-order-id' }, payment.orderId),
+                el('p', { class: 'payment-order-info' }, payment.orderInfo),
+              ),
+              el('span', { class: `payment-status ${st.className}` }, st.text),
+            ),
+            el('div', { class: 'payment-card-meta' },
+              el('span', {}, `${Number(payment.amount).toLocaleString('vi-VN')} VNĐ`),
+              el('span', {}, new Date(payment.createdAt ?? '').toLocaleString('vi-VN')),
+            ),
+          )
+        })
         paymentsList.replaceChildren(...items)
       }
     } catch (err) {
-      paymentsList.replaceChildren(el('p', { style: 'color: red;' }, String(err)))
+      paymentsList.replaceChildren(el('p', { class: 'payments-error' }, String(err)))
     }
   }
 
-  createBtn.addEventListener('click', () => {
-    navigate('create-payment')
-  })
+  createBtn.addEventListener('click', () => navigate('create-payment'))
 
-  const toolbar = el('div', { class: 'toolbar' }, createBtn)
-  const page = pageWithContent(m, toolbar, paymentsList, result)
+  const page = el(
+    'article',
+    { class: 'page payment-page' },
+    pageHeader(m),
+    el('div', { class: 'card' },
+      el('div', { class: 'toolbar' }, createBtn),
+      paymentsList,
+      VNPAY_TEST_CARD,
+      result,
+    ),
+  )
 
-  const observer = new IntersectionObserver(([entry]) => {
-    if (entry.isIntersecting) {
-      loadPayments()
-    }
-  })
-  observer.observe(page)
-
+  void loadPayments()
   return page
 }
 
@@ -70,33 +105,31 @@ export function createPaymentView(): HTMLElement {
   const form = el(
     'form',
     { class: 'form-card' },
-    field('ID dự án', 'projectId'),
-    field('Số tiền', 'amount', 'number'),
-    field('Mô tả', 'description', 'text', {}),
-    field('URL quay về', 'returnUrl', 'url', {}),
-    el('button', { type: 'submit', class: 'btn-primary' }, m.cta),
+    field('Nội dung thanh toán', 'orderInfo', 'text', {
+      placeholder: 'Thanh toan dat coc nha o An Binh',
+      value: 'Thanh toan test VNPay Sandbox',
+    }),
+    field('Số tiền (VND)', 'amount', 'number', { value: '100000', min: '1000', max: '100000000' }),
+    el('button', { type: 'submit', class: 'btn-primary' }, 'Thanh toán qua VNPay'),
   )
 
   onFormSubmit(form, result, async (fd) => {
-    const response = await paymentApi.createPaymentUrl({
-      projectId: fdStr(fd, 'projectId'),
-      amount: parseFloat(fdStr(fd, 'amount')) || 0,
-      description: fdStr(fd, 'description') || undefined,
-      returnUrl: fdStr(fd, 'returnUrl') || undefined,
-    })
-
-    // Nếu có paymentUrl, redirect tới trang thanh toán
-    if (response && typeof response === 'object') {
-      const paymentUrl = (response as any).paymentUrl
-      if (paymentUrl) {
-        setTimeout(() => {
-          window.location.href = paymentUrl
-        }, 1500)
-      }
-    }
-
-    return response
+    const amount = parseFloat(fdStr(fd, 'amount')) || 0
+    const orderInfo = fdStr(fd, 'orderInfo')
+    const url = await startVnPayPayment(orderInfo, amount)
+    showResult(result, { success: true, message: 'Đang chuyển sang cổng VNPay...' })
+    window.location.href = url
+    return { success: true, data: { paymentUrl: url } }
   })
 
-  return pageWithContent(m, form, result)
+  return el(
+    'article',
+    { class: 'page payment-page' },
+    pageHeader(m),
+    el('div', { class: 'card' },
+      form,
+      VNPAY_TEST_CARD,
+      result,
+    ),
+  )
 }

@@ -1,13 +1,17 @@
 import { BRAND } from './brand'
 import {
   canAccess,
+  consumePaymentNotice,
   getRole,
   getRouteConfig,
   isLoggedIn,
   navigate,
   navRoutes,
+  paymentNoticeMessage,
   roleHome,
   onRouteChange,
+  publicNavRoutes,
+  AUTH_FORM_ROUTES,
   type RouteId,
 } from './router'
 import {
@@ -30,11 +34,20 @@ import {
 import { dashboardView, profileView } from './views/users'
 import { createProjectView, projectDetailView, projectsView } from './views/projects'
 import { createPaymentView, paymentsView } from './views/payment'
+import {
+  applicationDetailView,
+  applicationsView,
+  createApplicationView,
+} from './views/applications'
 import { adminStaffView, createStaffView, staffDetailView } from './views/admin'
+import { landingView } from './views/landing'
+import { traCuuView } from './views/lookup'
 import { el } from './ui/helpers'
 import { appFooter, brandLogo, govTricolorBar, marketingHero } from './ui/shell'
 
 const viewMap: Record<RouteId, () => HTMLElement> = {
+  landing: landingView,
+  'tra-cuu': traCuuView,
   login: loginView,
   register: registerView,
   'verify-otp': verifyOtpView,
@@ -58,14 +71,20 @@ const viewMap: Record<RouteId, () => HTMLElement> = {
   'admin-staff': adminStaffView,
   'create-staff': createStaffView,
   'staff-detail': staffDetailView,
+  applications: applicationsView,
+  'create-application': createApplicationView,
+  'application-detail': applicationDetailView,
 }
 
 function navIcon(id: RouteId): string {
+  if (id === 'landing') return '⌂'
+  if (id === 'tra-cuu') return '▤'
   if (id.startsWith('home-')) return '⌂'
   if (id === 'quan-tam') return '♥'
   if (id === 'profile') return '◉'
   if (id === 'projects') return '▣'
   if (id === 'payments') return '₫'
+  if (id === 'applications' || id === 'application-detail' || id === 'create-application') return '▤'
   if (id === 'dashboard') return '◫'
   if (id === 'admin-staff') return '⚙'
   return '•'
@@ -73,12 +92,12 @@ function navIcon(id: RouteId): string {
 
 function renderNav(nav: HTMLElement, activeId: RouteId): void {
   nav.replaceChildren()
-  if (!isLoggedIn()) return
-  const role = getRole()
-
   const links = el('div', { class: 'topnav-links' })
-  for (const id of navRoutes(role)) {
-    if (!canAccess(role, id)) continue
+
+  const routeIds = isLoggedIn() ? navRoutes(getRole()) : publicNavRoutes()
+
+  for (const id of routeIds) {
+    if (isLoggedIn() && !canAccess(getRole(), id)) continue
     const cfg = getRouteConfig(id)
     const a = el(
       'a',
@@ -130,15 +149,39 @@ export function mountApp(root: HTMLElement): void {
 
   const nav = el('nav', { class: 'topnav', 'aria-label': 'Menu điều hướng' })
   const breadcrumb = el('div', { class: 'breadcrumb-bar' })
+  const paymentBanner = el('div', { class: 'payment-notice', 'aria-live': 'polite' })
   const main = el('main', { class: 'main' })
   const pageHost = el('div', { class: 'page-host' })
-  main.append(breadcrumb, pageHost)
+  main.append(paymentBanner, breadcrumb, pageHost)
 
   const hero = marketingHero()
   const contentArea = el('div', { class: 'content-area' }, hero, main)
   const layoutBody = el('div', { class: 'layout-body' }, contentArea)
 
   root.append(header, nav, layoutBody, appFooter())
+
+  let activePaymentNotice = consumePaymentNotice()
+
+  const renderPaymentBanner = (): void => {
+    if (!activePaymentNotice) {
+      paymentBanner.replaceChildren()
+      paymentBanner.classList.remove('is-visible')
+      return
+    }
+    const msg = paymentNoticeMessage(activePaymentNotice)
+    paymentBanner.className = `payment-notice is-visible ${msg.className}`
+    paymentBanner.replaceChildren(
+      el('p', { class: 'payment-notice-text' }, msg.text),
+      el('button', { type: 'button', class: 'payment-notice-close', 'aria-label': 'Đóng' }, '×'),
+    )
+    paymentBanner.querySelector('.payment-notice-close')?.addEventListener('click', () => {
+      activePaymentNotice = null
+      paymentBanner.replaceChildren()
+      paymentBanner.classList.remove('is-visible')
+    })
+  }
+
+  renderPaymentBanner()
 
   onRouteChange((id) => {
     const config = getRouteConfig(id)
@@ -153,14 +196,22 @@ export function mountApp(root: HTMLElement): void {
     }
 
     const logged = isLoggedIn()
-    hero.classList.toggle('is-hidden', logged)
+    const isPublicPage = id === 'landing' || id === 'tra-cuu'
+    hero.classList.toggle('is-hidden', logged || isPublicPage)
     layoutBody.classList.toggle('is-authenticated', logged)
+    layoutBody.classList.toggle('is-public-page', !logged && isPublicPage)
     document.body.dataset.route = id
-    document.body.classList.toggle('auth-screen', !logged)
+    document.body.classList.toggle('auth-screen', AUTH_FORM_ROUTES.has(id))
 
     renderNav(nav, id)
-    renderBreadcrumb(breadcrumb, id)
+    if (!isPublicPage && !AUTH_FORM_ROUTES.has(id)) {
+      renderBreadcrumb(breadcrumb, id)
+      breadcrumb.classList.remove('is-hidden')
+    } else {
+      breadcrumb.classList.add('is-hidden')
+    }
     pageHost.replaceChildren(viewMap[id]())
+    renderPaymentBanner()
     document.title = `${config.title} · ${BRAND.shortName}`
   })
 }

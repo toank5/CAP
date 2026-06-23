@@ -5,9 +5,9 @@ export function govTricolorBar(): HTMLElement {
   return el(
     'div',
     { class: 'gov-tricolor', 'aria-hidden': 'true' },
-    el('span', { class: 'stripe red' }),
-    el('span', { class: 'stripe gold' }),
-    el('span', { class: 'stripe blue' }),
+    el('span', { class: 'red' }),
+    el('span', { class: 'gold' }),
+    el('span', { class: 'blue' }),
   )
 }
 
