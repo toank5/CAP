@@ -1,0 +1,41 @@
+import { ShieldCheck } from 'lucide-react'
+import { useUserProfile } from '@/providers/user-profile-provider'
+import { BRAND } from '@/lib/brand'
+import { cn } from '@/lib/utils'
+
+export function UserWelcomeBar({ className }: { className?: string }) {
+  const { greeting, roleLabel, avatarUrl, initials } = useUserProfile()
+
+  return (
+    <div className={cn('gov-card mb-6 overflow-hidden p-0', className)}>
+      <div className="flex flex-wrap items-stretch">
+        <div className="flex min-w-[200px] flex-1 items-center gap-4 bg-gradient-to-r from-[#003D7A] to-[#005BAC] px-5 py-4 text-white">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#FFCD00] bg-white/10 text-lg font-bold">
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              initials
+            )}
+          </div>
+          <div className="min-w-0">
+            <span className="inline-block rounded border border-white/30 bg-white/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+              {roleLabel}
+            </span>
+            <h1 className="mt-1 truncate text-lg font-bold md:text-xl">{greeting}</h1>
+          </div>
+        </div>
+
+        <div className="flex flex-1 flex-col justify-center gap-1 border-t border-primary/10 bg-secondary/50 px-5 py-3 sm:border-l sm:border-t-0 sm:min-w-[240px]">
+          <p className="flex items-center gap-1.5 text-xs font-semibold text-[#003D7A]">
+            <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+            Cổng dịch vụ công trực tuyến
+          </p>
+          <p className="text-[11px] text-slate-600">{BRAND.slogan}</p>
+          <p className="text-[11px] font-medium text-primary">
+            Hotline: {BRAND.hotline} · {BRAND.workingHours}
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
