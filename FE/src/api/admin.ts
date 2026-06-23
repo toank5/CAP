@@ -6,17 +6,29 @@ export interface CreateStaffDto {
   fullName: string
   phoneNumber?: string | null
   role: string
+  temporaryPassword: string
 }
 
 export interface UpdateStaffDto {
-  fullName: string
+  fullName?: string
   phoneNumber?: string | null
-  role: string
+  role?: string
+  status?: string
 }
 
-export interface PermissionDto {
+export interface AssignPermissionDto {
   staffId: string
-  permission: string
+  role: string
+  status: string
+  reason?: string | null
+}
+
+export interface GetStaffListQuery {
+  pageNumber?: number
+  pageSize?: number
+  role?: string
+  status?: string
+  searchTerm?: string
 }
 
 export const adminApi = {
@@ -27,8 +39,15 @@ export const adminApi = {
       auth: true,
     }),
 
-  getStaffList: () =>
-    request<ApiResult>('/api/Admin/staff-list', { auth: true }),
+  getStaffList: (query: GetStaffListQuery = {}) => {
+    const params = new URLSearchParams()
+    params.set('pageNumber', String(query.pageNumber ?? 1))
+    params.set('pageSize', String(query.pageSize ?? 10))
+    if (query.role) params.set('role', query.role)
+    if (query.status) params.set('status', query.status)
+    if (query.searchTerm) params.set('searchTerm', query.searchTerm)
+    return request<ApiResult>(`/api/Admin/staff-list?${params.toString()}`, { auth: true })
+  },
 
   getStaff: (id: string) =>
     request<ApiResult>(`/api/Admin/staff/${id}`, { auth: true }),
@@ -40,16 +59,22 @@ export const adminApi = {
       auth: true,
     }),
 
-  assignPermission: (body: PermissionDto) =>
+  assignPermission: (body: AssignPermissionDto) =>
     request<ApiResult>('/api/Admin/assign-permission', {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        staffId: body.staffId,
+        role: body.role,
+        status: body.status,
+        reason: body.reason ?? null,
+      }),
       auth: true,
     }),
 
-  deactivateStaff: (id: string) =>
+  deactivateStaff: (id: string, reason?: string) =>
     request<ApiResult>(`/api/Admin/staff/${id}/deactivate`, {
       method: 'POST',
+      body: JSON.stringify(reason ?? 'Admin khóa tài khoản'),
       auth: true,
     }),
 
@@ -59,9 +84,10 @@ export const adminApi = {
       auth: true,
     }),
 
-  resetPassword: (id: string) =>
+  resetPassword: (id: string, newPassword: string) =>
     request<ApiResult>(`/api/Admin/staff/${id}/reset-password`, {
       method: 'POST',
+      body: JSON.stringify({ newPassword }),
       auth: true,
     }),
 }
