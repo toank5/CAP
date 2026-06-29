@@ -27,11 +27,13 @@ export function extractOrderId(data: unknown): string | null {
   return null
 }
 
-export async function startVnPayPayment(orderInfo: string, amount: number): Promise<string> {
+export async function startVnPayPayment(
+  applicationId: string,
+  orderInfo?: string,
+): Promise<string> {
   const response = await paymentApi.createPaymentUrl({
-    amount,
-    orderInfo,
-    orderType: 'other',
+    ApplicationId: applicationId,
+    OrderInfo: orderInfo,
   })
   const url = extractPaymentUrl(response)
   const orderId = extractOrderId(response)
