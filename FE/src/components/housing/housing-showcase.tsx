@@ -1,18 +1,18 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowRight, Heart, Layers, MapPin, Ruler } from 'lucide-react'
-import { startVnPayPayment } from '@/api/payment'
 import { GovAnnouncements } from '@/components/layout/gov-announcements'
 import { GovHeroBanner } from '@/components/layout/gov-hero-banner'
 import { GovServiceGrid } from '@/components/layout/gov-service-grid'
+import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { navigate } from '@/hooks/useHashRoute'
 import { useHousingProjects } from '@/hooks/useHousingProjects'
 import { useWishlist } from '@/hooks/useWishlist'
-import { isLoggedIn } from '@/router'
+import { isLoggedIn, getRole } from '@/router'
+import { ROLE_THEMES } from '@/lib/role-theme'
 import type { ProjectCard } from '@/lib/projects'
-import { formatError } from '@/lib/format-error'
 import { BRAND } from '@/lib/brand'
 
 function PromoHero({
@@ -65,8 +65,8 @@ function PromoHero({
           </div>
 
           <div className="mt-5 flex flex-wrap gap-2">
-            <Button variant="accent" onClick={() => navigate('create-application')}>
-              Đăng ký ngay <ArrowRight className="h-4 w-4" />
+            <Button variant="accent" onClick={() => navigate('projects')}>
+              Xem dự án <Heart className="ml-1.5 h-4 w-4" />
             </Button>
             <Button variant="outline" onClick={onToggleFavorite}>
               <Heart className={`mr-1.5 h-4 w-4 ${fav ? 'fill-red-500 text-red-500' : ''}`} />
@@ -90,8 +90,6 @@ function PromoCard({
   fav: boolean
   onToggleFavorite: () => void
 }) {
-  const [paying, setPaying] = useState(false)
-
   return (
     <motion.article
       initial={{ opacity: 0, y: 20 }}
@@ -147,27 +145,17 @@ function PromoCard({
 
         <p className="mt-2 line-clamp-2 flex-1 text-xs leading-relaxed text-slate-500">{house.description}</p>
 
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button className="flex-1" variant="accent" size="sm" onClick={() => navigate('create-application')}>
-            Đăng ký
+        <div className="mt-4 flex gap-2">
+          <Button className="flex-1" variant="outline" size="sm" onClick={() => navigate('projects')}>
+            Xem dự án
           </Button>
           <Button
             variant="outline"
             size="sm"
-            disabled={paying}
-            onClick={async () => {
-              if (!isLoggedIn()) { navigate('login'); return }
-              setPaying(true)
-              try {
-                const url = await startVnPayPayment(`Dat coc - ${house.name}`, house.paymentAmount)
-                window.location.href = url
-              } catch (err) {
-                alert(formatError(err))
-                setPaying(false)
-              }
-            }}
+            onClick={onToggleFavorite}
           >
-            {paying ? '...' : 'Đặt cọc'}
+            <Heart className={`mr-1.5 h-4 w-4 ${fav ? 'fill-red-500 text-red-500' : ''}`} />
+            {fav ? 'Đã quan tâm' : 'Quan tâm'}
           </Button>
         </div>
       </div>
@@ -178,17 +166,47 @@ function PromoCard({
 export function HousingShowcase() {
   const { projects, loading } = useHousingProjects(12)
   const { isWishlisted, toggle } = useWishlist()
+  const [notice, setNotice] = useState<string | null>(null)
   const [hero, ...rest] = projects
+
+  const handleToggle = async (house: ProjectCard) => {
+    const added = await toggle(house.id)
+    if (added) {
+      setNotice(`Đã thêm "${house.name}" vào danh sách quan tâm.`)
+      window.setTimeout(() => setNotice(null), 5000)
+    }
+  }
 
   return (
     <section className="space-y-6">
+      {isLoggedIn() && getRole() === 'Applicant' && (
+        <section className={`overflow-hidden rounded-xl ${ROLE_THEMES.applicant.navBg} text-white shadow-md`}>
+          <div className="flex flex-wrap items-center gap-3 px-5 py-3">
+            {(() => { const I = ROLE_THEMES.applicant.Icon; return <I className="h-5 w-5" /> })()}
+            <p className="text-xs font-bold uppercase tracking-wider text-white/85">
+              {ROLE_THEMES.applicant.badgeFull}
+            </p>
+            <span className={`ml-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${ROLE_THEMES.applicant.activeBar} text-emerald-950`}>
+              {ROLE_THEMES.applicant.badge}
+            </span>
+          </div>
+        </section>
+      )}
+      {notice && (
+        <Alert variant="success" className="flex flex-wrap items-center justify-between gap-3">
+          <span>{notice}</span>
+          <Button variant="outline" size="sm" onClick={() => navigate('quan-tam')}>
+            Xem quan tâm
+          </Button>
+        </Alert>
+      )}
       <GovAnnouncements />
       <GovServiceGrid />
 
       <GovHeroBanner
         badge={BRAND.portalLine}
         title="Danh mục nhà ở xã hội"
-        subtitle="Tra cứu dự án, đăng ký hồ sơ trực tuyến và thanh toán minh bạch qua cổng dịch vụ công."
+        subtitle="Tra cứu dự án và theo dõi hồ sơ đã đăng ký qua cổng dịch vụ công."
         compact
       />
 
@@ -196,11 +214,11 @@ export function HousingShowcase() {
         <div>
           <h2 className="gov-section-title">Dự án đang mở bán</h2>
           <p className="mt-2 max-w-xl text-sm text-slate-600 dark:text-slate-400">
-            Các khu nhà ở xã hội được công bố chính thức — hỗ trợ đăng ký trực tuyến, thanh toán đặt cọc qua VNPay.
+            Các khu nhà ở xã hội được công bố chính thức trên toàn quốc.
           </p>
         </div>
-        <Button variant="outline" className="border-primary/30 bg-white" onClick={() => navigate('projects')}>
-          Xem tất cả dự án <ArrowRight className="ml-1 h-4 w-4" />
+        <Button variant="outline" className="border-primary/30 bg-white" onClick={() => navigate('tim-nha')}>
+          Tìm kiếm nâng cao <ArrowRight className="ml-1 h-4 w-4" />
         </Button>
       </div>
 
@@ -218,7 +236,7 @@ export function HousingShowcase() {
           <PromoHero
             house={hero}
             fav={isWishlisted(hero.id)}
-            onToggleFavorite={() => { void toggle(hero.id) }}
+            onToggleFavorite={() => { void handleToggle(hero) }}
           />
           <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
             {rest.map((house, i) => (
@@ -227,7 +245,7 @@ export function HousingShowcase() {
                 house={house}
                 index={i}
                 fav={isWishlisted(house.id)}
-                onToggleFavorite={() => { void toggle(house.id) }}
+                onToggleFavorite={() => { void handleToggle(house) }}
               />
             ))}
           </div>

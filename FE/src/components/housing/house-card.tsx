@@ -1,11 +1,9 @@
 import { useState } from 'react'
 import { Heart, MapPin } from 'lucide-react'
-import { startVnPayPayment } from '@/api/payment'
 import { Button } from '@/components/ui/button'
 import { navigate } from '@/hooks/useHashRoute'
 import { isLoggedIn } from '@/router'
 import type { ProjectCard } from '@/lib/projects'
-import { formatError } from '@/lib/format-error'
 
 export function HouseCard({
   house,
@@ -17,7 +15,6 @@ export function HouseCard({
   onToggleFavorite?: () => void
 }) {
   const [expanded, setExpanded] = useState(false)
-  const [paying, setPaying] = useState(false)
 
   return (
     <div className={`glass-card overflow-hidden transition ${expanded ? 'ring-2 ring-primary/20' : ''}`}>
@@ -45,17 +42,11 @@ export function HouseCard({
         <div className="mt-3 flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => setExpanded((v) => !v)}>{expanded ? 'Thu gọn' : 'Xem chi tiết'}</Button>
           <a href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(house.address)}`} target="_blank" rel="noopener noreferrer" className="inline-flex h-9 items-center rounded-xl border px-3 text-sm font-medium hover:bg-secondary">Vị trí</a>
-          <Button variant="accent" size="sm" disabled={paying} onClick={async () => {
+          <Button variant="accent" size="sm" onClick={() => {
             if (!isLoggedIn()) { navigate('login'); return }
-            setPaying(true)
-            try {
-              const url = await startVnPayPayment(`Thanh toan dat coc - ${house.name}`, house.paymentAmount)
-              window.location.href = url
-            } catch (err) {
-              alert(formatError(err))
-              setPaying(false)
-            }
-          }}>{paying ? 'Đang tạo...' : 'Thanh toán'}</Button>
+            sessionStorage.setItem('createApplicationProjectId', house.id)
+            navigate('create-application')
+          }}>Đăng ký hồ sơ</Button>
         </div>
         {expanded && (
           <div className="mt-4 space-y-1 border-t pt-4 text-sm">
