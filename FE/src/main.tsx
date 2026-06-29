@@ -4,6 +4,8 @@ import { App } from './App.tsx'
 import { QueryProvider } from './providers/query-provider'
 import { ThemeProvider } from './providers/theme-provider'
 import { UserProfileProvider } from './providers/user-profile-provider'
+import { NotificationsProvider } from './providers/notifications-provider'
+import { WishlistProvider } from './providers/wishlist-provider'
 import './index.css'
 
 const root = document.querySelector<HTMLDivElement>('#app')
@@ -14,7 +16,11 @@ if (root) {
       <ThemeProvider>
         <QueryProvider>
           <UserProfileProvider>
-            <App />
+            <NotificationsProvider>
+              <WishlistProvider>
+                <App />
+              </WishlistProvider>
+            </NotificationsProvider>
           </UserProfileProvider>
         </QueryProvider>
       </ThemeProvider>

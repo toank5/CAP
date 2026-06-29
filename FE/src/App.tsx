@@ -19,10 +19,13 @@ import {
 import { AdminStaffPage, CreateStaffPage, StaffDetailPage } from '@/pages/admin-pages'
 import { LandingPage } from '@/pages/landing-page'
 import { LoginPage } from '@/pages/login-page'
+import { HousingSearchPage } from '@/pages/housing-search-page'
 import { LookupPage } from '@/pages/lookup-page'
+import { NotificationsPage } from '@/pages/notifications-page'
 import { CreatePaymentPage, PaymentsPage } from '@/pages/payments-pages'
 import { ProfilePage } from '@/pages/profile-page'
 import { CreateProjectPage, ProjectDetailPage, ProjectsPage } from '@/pages/projects-pages'
+import { ReportIssuePage } from '@/pages/report-issue-page'
 import { AdminHomePage } from '@/pages/admin-home-page'
 import {
   ApplicantHomePage,
@@ -45,6 +48,7 @@ function RouteView({ route }: { route: RouteId }) {
   switch (route) {
     case 'landing': return <LandingPage />
     case 'tra-cuu': return <LookupPage />
+    case 'tim-nha': return <HousingSearchPage />
     case 'login': return <LoginPage />
     case 'register': return <RegisterPage />
     case 'verify-otp': return <VerifyOtpPage />
@@ -70,6 +74,8 @@ function RouteView({ route }: { route: RouteId }) {
     case 'admin-staff': return <AdminStaffPage />
     case 'create-staff': return <CreateStaffPage />
     case 'staff-detail': return <StaffDetailPage />
+    case 'notifications': return <NotificationsPage />
+    case 'report-issue': return <ReportIssuePage />
     default: return null
   }
 }

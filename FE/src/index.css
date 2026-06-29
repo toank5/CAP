@@ -82,4 +82,20 @@
   .bento-grid {
     @apply grid gap-4 md:grid-cols-2 xl:grid-cols-4;
   }
+
+  .app-phone-float {
+    animation: floatPhone 4s ease-in-out infinite;
+  }
+  @keyframes floatPhone {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    50% { transform: translateY(-12px) rotate(1deg); }
+  }
+
+  .app-badge {
+    animation: popIn 0.4s ease-out both;
+  }
+  @keyframes popIn {
+    from { transform: scale(0) rotate(-10deg); opacity: 0; }
+    to { transform: scale(1) rotate(0deg); opacity: 1; }
+  }
 }

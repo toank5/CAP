@@ -7,8 +7,8 @@ export interface RegisterDto {
 }
 
 export interface LoginDto {
-  email: string
-  password: string
+  Email: string
+  Password: string
 }
 
 export interface GoogleLoginDto {
@@ -117,9 +117,8 @@ export interface ProjectFilterDto {
 }
 
 export interface CreatePaymentDto {
-  amount: number
-  orderInfo: string
-  orderType?: string
+  ApplicationId: string
+  OrderInfo?: string
 }
 
 export interface PaymentInfoDto {
