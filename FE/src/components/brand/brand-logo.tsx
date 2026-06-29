@@ -4,22 +4,22 @@ import { BRAND, COLORS } from '@/lib/brand'
 const sizes = {
   sm: {
     box: 'h-10 w-10',
-    portal: 'text-[7px]',
-    title: 'text-[11px] leading-snug',
+    portal: 'text-[8px]',
+    title: 'text-[11px] leading-tight',
     sub: 'text-[9px]',
     gap: 'gap-2.5',
   },
   md: {
     box: 'h-12 w-12',
     portal: 'text-[8px]',
-    title: 'text-xs leading-snug',
+    title: 'text-[12px] leading-tight',
     sub: 'text-[10px]',
     gap: 'gap-3',
   },
   lg: {
-    box: 'h-14 w-14',
+    box: 'h-16 w-16',
     portal: 'text-[9px]',
-    title: 'text-sm leading-snug',
+    title: 'text-[14px] leading-tight',
     sub: 'text-[11px]',
     gap: 'gap-3.5',
   },

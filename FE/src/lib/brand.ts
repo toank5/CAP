@@ -28,13 +28,26 @@ export const BRAND = {
 } as const
 
 export const COLORS = {
+  /** Xanh dương chủ đạo (#005BAC) */
   primary: '#005BAC',
+  /** Xanh dương đậm (#003D7A) */
   primaryDark: '#003D7A',
+  /** Xanh dương nhạt (#1A7FD4) */
   primaryLight: '#1A7FD4',
+  /** Nền xanh nhạt */
   secondary: '#EAF4FF',
+  /** Accent xanh dương */
   accent: '#0066C4',
+  /** Vàng đậm (viền) */
   gold: '#C9A227',
+  /** Đỏ cờ - mái nhà */
   govRed: '#DA251D',
+  /** Vàng cờ - sao */
   govGold: '#FFCD00',
+  /** Xanh ngọc - phát triển bền vững */
+  emerald: '#0E8F6E',
+  /** Xanh ngọc đậm */
+  emeraldDark: '#0A6B53',
+  /** Thành công */
   success: '#22C55E',
 } as const
