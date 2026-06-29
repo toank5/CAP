@@ -1,12 +1,11 @@
-import { Building2, CreditCard, FileSearch, FileText, Search, UserPlus } from 'lucide-react'
+import { Building2, FileSearch, Search, UserPlus } from 'lucide-react'
 import { navigate } from '@/hooks/useHashRoute'
 
 const SERVICES = [
-  { icon: FileText, label: 'Đăng ký hồ sơ', desc: 'Nộp hồ sơ trực tuyến', route: 'create-application' as const, color: 'bg-[#005BAC]' },
   { icon: Search, label: 'Tra cứu hồ sơ', desc: 'Theo dõi tiến độ', route: 'tra-cuu' as const, color: 'bg-[#0066C4]' },
-  { icon: Building2, label: 'Dự án nhà ở', desc: 'Danh mục dự án', route: 'projects' as const, color: 'bg-[#003D7A]' },
-  { icon: CreditCard, label: 'Thanh toán', desc: 'VNPay tích hợp', route: 'payments' as const, color: 'bg-[#0077B6]' },
-  { icon: FileSearch, label: 'Hồ sơ của tôi', desc: 'Quản lý hồ sơ', route: 'applications' as const, color: 'bg-[#005BAC]' },
+  { icon: Search, label: 'Tìm nhà ở', desc: 'Tra cứu dự án', route: 'tim-nha' as const, color: 'bg-[#003D7A]' },
+  { icon: Building2, label: 'Dự án nhà ở', desc: 'Danh sách dự án', route: 'projects' as const, color: 'bg-[#0066C4]' },
+  { icon: FileSearch, label: 'Hồ sơ của tôi', desc: 'Xem hồ sơ', route: 'applications' as const, color: 'bg-[#005BAC]' },
   { icon: UserPlus, label: 'Đăng ký tài khoản', desc: 'Tạo tài khoản mới', route: 'register' as const, color: 'bg-[#0066C4]' },
 ]
 

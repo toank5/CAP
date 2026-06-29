@@ -1,8 +1,8 @@
 import { Megaphone } from 'lucide-react'
 
 const ANNOUNCEMENTS = [
-  { date: '05/06/2026', text: 'Mở đăng ký đợt 2 — Khu nhà ở An Bình, Quận 9, TP.HCM' },
-  { date: '01/06/2026', text: 'Hướng dẫn nộp hồ sơ đăng ký nhà ở xã hội trực tuyến qua cổng RHS' },
+  { date: '05/06/2026', text: 'Cập nhật danh sách dự án nhà ở xã hội Quý II/2026 trên toàn quốc' },
+  { date: '01/06/2026', text: 'Hướng dẫn tra cứu hồ sơ đã đăng ký qua cổng RHS' },
   { date: '28/05/2026', text: 'Thông báo lịch nghỉ và tiếp nhận hồ sơ dịp Quốc khánh 2/9' },
 ]
 

@@ -1,15 +1,15 @@
 import { BRAND } from '@/lib/brand'
 import { GovContactLines, GovHotlineBox } from '@/components/layout/gov-top-bar'
 import { navigate } from '@/hooks/useHashRoute'
+import { useHashRoute } from '@/hooks/useHashRoute'
 
 const FOOTER_LINKS = [
   {
     title: 'Dịch vụ công',
     links: [
-      { label: 'Đăng ký hồ sơ', route: 'create-application' as const },
       { label: 'Tra cứu hồ sơ', route: 'tra-cuu' as const },
+      { label: 'Tìm nhà ở', route: 'tim-nha' as const },
       { label: 'Danh mục dự án', route: 'projects' as const },
-      { label: 'Thanh toán trực tuyến', route: 'payments' as const },
     ],
   },
   {
@@ -23,7 +23,32 @@ const FOOTER_LINKS = [
   },
 ]
 
+const LANDING_LINKS = [
+  {
+    title: 'Về cổng thông tin',
+    links: [
+      { label: 'Giới thiệu', route: 'landing' as const },
+      { label: 'Cơ quan vận hành', route: 'landing' as const },
+      { label: 'Chính sách bảo mật', route: 'landing' as const },
+      { label: 'Điều khoản sử dụng', route: 'landing' as const },
+    ],
+  },
+  {
+    title: 'Hỗ trợ',
+    links: [
+      { label: 'Hướng dẫn đăng ký', route: 'register' as const },
+      { label: 'Đăng nhập', route: 'login' as const },
+      { label: 'Câu hỏi thường gặp', route: 'landing' as const },
+      { label: 'Liên hệ', route: 'landing' as const },
+    ],
+  },
+]
+
 export function GovFooter() {
+  const route = useHashRoute()
+  const isLanding = route === 'landing'
+  const cols = isLanding ? LANDING_LINKS : FOOTER_LINKS
+
   return (
     <footer className="relative mt-auto overflow-hidden border-t-4 border-[#FFCD00] bg-[#003D7A] text-white">
       <div
@@ -43,7 +68,7 @@ export function GovFooter() {
             </div>
           </div>
 
-          {FOOTER_LINKS.map((col) => (
+          {cols.map((col) => (
             <div key={col.title}>
               <h3 className="mb-3 border-l-4 border-[#FFCD00] pl-3 text-sm font-bold uppercase tracking-wide">
                 {col.title}
