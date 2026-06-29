@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { motion } from 'framer-motion'
 import { authApi } from '@/api/auth'
 import { saveTokensFromResponse } from '@/api/http'
 import { Alert } from '@/components/ui/alert'
@@ -11,19 +10,21 @@ import { navigate } from '@/hooks/useHashRoute'
 import { extractRole, setPendingOtpEmail } from '@/lib/auth-helpers'
 import { formatError } from '@/lib/format-error'
 import { isLoggedIn, roleHome, setRole } from '@/router'
+import { useUserProfile } from '@/providers/user-profile-provider'
 
 export function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const { updateProfile, refreshProfile } = useUserProfile()
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
     try {
-      const data = await authApi.login({ email, password })
+      const data = await authApi.login({ Email: email, Password: password })
       saveTokensFromResponse(data)
       const o = (data ?? {}) as Record<string, unknown>
       if (o.requiresOtpVerification === true || o.RequiresOtpVerification === true) {
@@ -34,7 +35,17 @@ export function LoginPage() {
       if (isLoggedIn()) {
         const role = extractRole(data)
         setRole(role)
+        updateProfile({
+          fullName: String(
+            (o as Record<string, unknown>).fullName ??
+            (o as Record<string, unknown>).FullName ??
+            ((o as Record<string, unknown>).user as Record<string, unknown>)?.fullName ??
+            ((o as Record<string, unknown>).User as Record<string, unknown>)?.FullName ??
+            ''
+          ),
+        })
         navigate(roleHome(role))
+        void refreshProfile()
       }
     } catch (err) {
       setError(formatError(err))
@@ -44,7 +55,7 @@ export function LoginPage() {
   }
 
   return (
-    <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="mx-auto max-w-md">
+    <div className="mx-auto max-w-md py-8">
       <Card>
         <CardHeader>
           <CardTitle>Đăng nhập</CardTitle>
@@ -69,6 +80,6 @@ export function LoginPage() {
           </div>
         </CardContent>
       </Card>
-    </motion.div>
+    </div>
   )
 }
