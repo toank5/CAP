@@ -6,16 +6,31 @@ export function countFromPaged(data: unknown): number {
   const o = data as Record<string, unknown>
   if (typeof o.totalCount === 'number') return o.totalCount
   if (typeof o.TotalCount === 'number') return o.TotalCount
-  const items = o.items ?? o.Items ?? o.data ?? o.Data
-  return Array.isArray(items) ? items.length : 0
+  const nested = o.data ?? o.Data
+  if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
+    const inner = nested as Record<string, unknown>
+    if (typeof inner.totalCount === 'number') return inner.totalCount
+    if (typeof inner.TotalCount === 'number') return inner.TotalCount
+  }
+  return extractList(data).length
 }
 
 export function extractList(data: unknown): Record<string, unknown>[] {
   if (!data || typeof data !== 'object') return []
-  const o = data as Record<string, unknown>
-  const items = o.items ?? o.Items ?? o.data ?? o.Data ?? o.staff ?? o.Staff
-  if (Array.isArray(items)) return items as Record<string, unknown>[]
   if (Array.isArray(data)) return data as Record<string, unknown>[]
+
+  const o = data as Record<string, unknown>
+  const direct = o.items ?? o.Items ?? o.staff ?? o.Staff
+  if (Array.isArray(direct)) return direct as Record<string, unknown>[]
+
+  const nested = o.data ?? o.Data
+  if (Array.isArray(nested)) return nested as Record<string, unknown>[]
+  if (nested && typeof nested === 'object') {
+    const inner = nested as Record<string, unknown>
+    const innerItems = inner.items ?? inner.Items ?? inner.data ?? inner.Data
+    if (Array.isArray(innerItems)) return innerItems as Record<string, unknown>[]
+  }
+
   return []
 }
 

@@ -22,3 +22,5 @@ export const ROLE_OPTIONS = [
   { value: 'Ward Manager', label: 'Quản lý phường' },
   { value: 'Verification Officer', label: 'Cán bộ thẩm định' },
 ] as const
+
+export const FLASH_CREATE_PROJECT_KEY = 'flashCreateProjectSuccess'

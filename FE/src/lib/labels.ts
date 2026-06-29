@@ -46,7 +46,7 @@ export function paymentStatusBadge(value?: string | null): {
 
 /** Vai trò người dùng */
 export const ROLE_LABELS_VI: Record<string, string> = {
-  Applicant: 'Người đăng ký',
+  Applicant: 'Người dùng',
   'Ward Manager': 'Quản lý phường',
   'Verification Officer': 'Cán bộ thẩm định',
   'System Administrator': 'Quản trị hệ thống',
