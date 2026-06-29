@@ -88,7 +88,10 @@ export function CreatePaymentPage() {
           setMsg(null)
           const fd = new FormData(e.currentTarget)
           try {
-            const url = await startVnPayPayment(String(fd.get('orderInfo')), parseFloat(String(fd.get('amount'))) || 0)
+            const url = await startVnPayPayment(
+              String(fd.get('applicationId')).trim(),
+              String(fd.get('orderInfo') || ''),
+            )
             setMsg({ type: 'success', text: 'Đang chuyển sang cổng VNPay...' })
             window.location.href = url
           } catch (err) {
@@ -96,11 +99,11 @@ export function CreatePaymentPage() {
             setLoading(false)
           }
         }}>
-          <FormField label="Nội dung thanh toán" htmlFor="orderInfo">
-            <Input id="orderInfo" name="orderInfo" defaultValue="Thanh toan thu nghiem VNPay" required />
+          <FormField label="Mã hồ sơ (Application ID)" htmlFor="applicationId">
+            <Input id="applicationId" name="applicationId" placeholder="VD: 6300d56e-cad7-48e0-b55d-7204b77cb14f" required />
           </FormField>
-          <FormField label="Số tiền (VND)" htmlFor="amount">
-            <Input id="amount" name="amount" type="number" defaultValue={100000} min={1000} max={100000000} required />
+          <FormField label="Nội dung thanh toán (tùy chọn)" htmlFor="orderInfo">
+            <Input id="orderInfo" name="orderInfo" defaultValue="Thanh toan thu nghiem VNPay" />
           </FormField>
           {msg && <Alert variant={msg.type === 'error' ? 'error' : 'success'}>{msg.text}</Alert>}
           <Button type="submit" variant="accent" disabled={loading}>{loading ? 'Đang xử lý...' : 'Thanh toán qua VNPay'}</Button>
