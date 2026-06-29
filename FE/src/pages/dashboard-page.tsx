@@ -186,9 +186,9 @@ export function DashboardPage() {
             {apps.length === 0 ? (
               <EmptyState
                 title="Chưa có hồ sơ"
-                description="Tạo hồ sơ đăng ký nhà ở xã hội để theo dõi tại đây."
-                actionLabel="Tạo hồ sơ"
-                onAction={() => navigate('create-application')}
+                description="Hồ sơ của bạn (nếu có) sẽ hiển thị tại đây."
+                actionLabel="Xem dự án"
+                onAction={() => navigate('projects')}
               />
             ) : (
               <ul className="space-y-3">

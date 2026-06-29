@@ -3,7 +3,6 @@ import { RefreshCw, Shield, LogOut, Server } from 'lucide-react'
 import { authApi } from '@/api/auth'
 import { saveTokensFromResponse } from '@/api/http'
 import { usersApi } from '@/api/users'
-import { GovHeroBanner } from '@/components/layout/gov-hero-banner'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { clearRole, navigate } from '@/router'
@@ -37,12 +36,10 @@ export function SessionDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <GovHeroBanner
-        badge="Vận hành hệ thống"
-        title="Công cụ quản trị phiên"
-        subtitle="Kiểm tra quyền, làm mới token và quản lý phiên đăng nhập."
-        compact
-      />
+      <div>
+        <h1 className="text-2xl font-bold text-[#003D7A] dark:text-white">Công cụ quản trị phiên</h1>
+        <p className="mt-1 text-sm text-slate-600">Kiểm tra quyền, làm mới token và quản lý phiên đăng nhập.</p>
+      </div>
 
       <div className="gov-card p-6">
         <div className="grid gap-4 sm:grid-cols-2">

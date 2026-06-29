@@ -12,45 +12,82 @@ const STATS = [
 
 const STEPS = [
   { num: '01', title: 'Khám phá dự án', desc: 'Tìm kiếm nhà ở xã hội phù hợp trên địa bàn.' },
-  { num: '02', title: 'Đăng ký hồ sơ', desc: 'Điền thông tin, upload giấy tờ và xác thực eKYC.' },
-  { num: '03', title: 'Thẩm định', desc: 'Cán bộ xét duyệt theo quy trình công khai.' },
-  { num: '04', title: 'Kết quả & thanh toán', desc: 'Nhận thông báo và hoàn tất nghĩa vụ tài chính.' },
+  { num: '02', title: 'Tra cứu hồ sơ', desc: 'Theo dõi trạng thái hồ sơ đã đăng ký.' },
+  { num: '03', title: 'Quản lý tài khoản', desc: 'Cập nhật thông tin cá nhân và bảo mật.' },
+  { num: '04', title: 'Thông tin dự án', desc: 'Xem chi tiết giá, tiến độ và tiện ích.' },
 ]
 
 const NEWS = [
-  { title: 'Mở đợt đăng ký nhà ở xã hội Quý II/2026', date: '01/06/2026' },
-  { title: 'Hướng dẫn nộp hồ sơ trực tuyến qua cổng RHS', date: '28/05/2026' },
-  { title: 'Danh sách dự án ưu tiên hỗ trợ hộ nghèo', date: '15/05/2026' },
+  { title: 'Cập nhật danh sách dự án nhà ở xã hội Quý II/2026', date: '01/06/2026' },
+  { title: 'Hướng dẫn tra cứu hồ sơ trực tuyến qua cổng RHS', date: '28/05/2026' },
+  { title: 'Danh sách dự án ưu tiên hỗ trợ hộ nghèo, cận nghèo', date: '15/05/2026' },
 ]
+
+function buildAppPromo(): HTMLElement {
+  const container = el('div', { class: 'app-promo' })
+
+  const phoneFrame = el('div', { class: 'app-phone-frame' })
+  phoneFrame.innerHTML = `
+    <div class="app-phone-inner">
+      <div class="app-phone-notch"></div>
+      <div class="app-phone-screen">
+        <div class="app-screen-header">${BRAND.nameVi}</div>
+        <div class="app-screen-placeholder">
+          <svg viewBox="0 0 64 64" width="48" height="48" fill="none">
+            <rect x="8" y="8" width="48" height="48" rx="8" fill="currentColor" opacity="0.15"/>
+            <rect x="20" y="24" width="24" height="4" rx="2" fill="currentColor" opacity="0.4"/>
+            <rect x="24" y="34" width="16" height="3" rx="1.5" fill="currentColor" opacity="0.3"/>
+            <rect x="20" y="42" width="24" height="3" rx="1.5" fill="currentColor" opacity="0.2"/>
+          </svg>
+          <p class="app-screen-label">Ứng dụng sắp ra mắt</p>
+        </div>
+      </div>
+    </div>`
+
+  const textBlock = el('div', { class: 'app-promo-text' })
+  textBlock.innerHTML = `
+    <h3 class="app-promo-title">Ứng dụng di động</h3>
+    <p class="app-promo-desc">
+      Sắp có mặt trên <strong>App Store</strong> và <strong>Google Play</strong>.
+      Theo dõi trạng thái hồ sơ, nhận thông báo và tra cứu dự án — tất cả trong tầm tay.
+    </p>
+    <p class="app-promo-note">Truy cập cổng thông tin trên trình duyệt để sử dụng ngay.</p>`
+
+  container.append(phoneFrame, textBlock)
+  return container
+}
 
 export function landingView(): HTMLElement {
   const hero = el(
     'section',
     { class: 'landing-hero' },
-    el('div', { class: 'landing-hero-inner' },
-      el('p', { class: 'landing-eyebrow' }, BRAND.orgLine),
-      el('h1', { class: 'landing-title' }, BRAND.nameVi),
-      el('p', { class: 'landing-lead' },
-        'Nền tảng số kết nối nguồn cung nhà ở xã hội — minh bạch, hiệu quả và phục vụ người dân 24/7.',
+    buildAppPromo(),
+    el('div', { class: 'landing-hero-right' },
+      el('div', { class: 'landing-hero-content' },
+        el('p', { class: 'landing-eyebrow' }, BRAND.orgLine),
+        el('h1', { class: 'landing-title' }, BRAND.nameVi),
+        el('p', { class: 'landing-lead' },
+          'Nền tảng số kết nối nguồn cung nhà ở xã hội — minh bạch, hiệu quả và phục vụ người dân 24/7.',
+        ),
+        el('div', { class: 'landing-cta' },
+          el('button', { type: 'button', class: 'btn-primary' }, 'Xem dự án'),
+          el('button', { type: 'button', class: 'btn-secondary' }, 'Tra cứu hồ sơ'),
+          el('button', { type: 'button', class: 'btn-ghost' }, 'Đăng nhập'),
+        ),
       ),
-      el('div', { class: 'landing-cta' },
-        el('button', { type: 'button', class: 'btn-primary' }, 'Đăng ký hồ sơ'),
-        el('button', { type: 'button', class: 'btn-secondary' }, 'Xem dự án'),
-        el('button', { type: 'button', class: 'btn-ghost' }, 'Tra cứu hồ sơ'),
-      ),
-    ),
-    el('div', { class: 'landing-stats' },
-      ...STATS.map((s) =>
-        el('div', { class: 'landing-stat' },
-          el('strong', {}, s.value),
-          el('span', {}, s.label),
+      el('div', { class: 'landing-stats' },
+        ...STATS.map((s) =>
+          el('div', { class: 'landing-stat' },
+            el('strong', {}, s.value),
+            el('span', {}, s.label),
+          ),
         ),
       ),
     ),
   )
 
-  hero.querySelectorAll('.landing-cta button')[0]?.addEventListener('click', () => navigate('register'))
-  hero.querySelectorAll('.landing-cta button')[2]?.addEventListener('click', () => navigate('tra-cuu'))
+  hero.querySelectorAll('.landing-cta button')[0]?.addEventListener('click', () => navigate('tim-nha'))
+  hero.querySelectorAll('.landing-cta button')[2]?.addEventListener('click', () => navigate('login'))
 
   const page = el(
     'article',
@@ -65,8 +102,8 @@ export function landingView(): HTMLElement {
     ),
     el('section', { class: 'landing-section landing-process' },
       el('div', { class: 'landing-section-head' },
-        el('h2', {}, 'Quy trình đăng ký'),
-        el('p', {}, 'Bốn bước đơn giản để nộp hồ sơ nhà ở xã hội'),
+        el('h2', {}, 'Hướng dẫn sử dụng'),
+        el('p', {}, 'Các bước đơn giản để sử dụng cổng thông tin nhà ở xã hội'),
       ),
       el('ol', { class: 'landing-steps' },
         ...STEPS.map((s) =>

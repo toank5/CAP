@@ -1,17 +1,15 @@
 import { useEffect, useState } from 'react'
 import { housingApplicationsApi, parsePagedApplications } from '@/api/housing-applications'
-import { wishlistApi } from '@/api/wishlist'
 import { HouseCard } from '@/components/housing/house-card'
 import { HousingShowcase } from '@/components/housing/housing-showcase'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { navigate } from '@/hooks/useHashRoute'
 import { useWishlist } from '@/hooks/useWishlist'
-import { countFromPaged, extractWishlistItems } from '@/lib/parsers'
+import { countFromPaged } from '@/lib/parsers'
 import { mapProjectToCard } from '@/lib/projects'
 import { formatError } from '@/lib/format-error'
 import { type RouteId } from '@/router'
-import type { WishlistItemDto } from '@/types'
 
 interface QuickAction { title: string; desc: string; route: RouteId; cta?: string }
 
@@ -43,25 +41,8 @@ export function ApplicantHomePage() {
 }
 
 export function InterestedPage() {
-  const { isWishlisted, toggle } = useWishlist()
-  const [items, setItems] = useState<WishlistItemDto[]>([])
-  const [loading, setLoading] = useState(true)
+  const { items, loading, isWishlisted, toggle } = useWishlist()
   const [error, setError] = useState('')
-
-  const load = async () => {
-    setLoading(true)
-    setError('')
-    try {
-      const data = await wishlistApi.list({ pageSize: 100 })
-      setItems(extractWishlistItems(data))
-    } catch (err) {
-      setError(formatError(err))
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => { void load() }, [])
 
   const cards = items.map((w) =>
     mapProjectToCard({
@@ -86,7 +67,7 @@ export function InterestedPage() {
       <h1 className="mb-6 text-2xl font-bold tracking-tight">Dự án quan tâm</h1>
       {loading && <Skeleton className="h-40 w-full" />}
       {error && <p className="text-sm text-red-500">{error}</p>}
-      {!loading && !error && cards.length === 0 ? (
+      {!loading && cards.length === 0 ? (
         <div className="glass-card p-8 text-center">
           <p className="text-slate-500">Bạn chưa quan tâm dự án nào.<br />Nhấn trái tim trên trang chủ để lưu dự án.</p>
           <Button className="mt-4" variant="accent" onClick={() => navigate('home-user')}>Về trang chủ</Button>
@@ -98,7 +79,9 @@ export function InterestedPage() {
               key={h.id}
               house={h}
               fav={isWishlisted(h.id)}
-              onToggleFavorite={() => { void toggle(h.id).then(() => load()) }}
+              onToggleFavorite={() => {
+                void toggle(h.id).catch((err) => setError(formatError(err)))
+              }}
             />
           ))}
         </div>

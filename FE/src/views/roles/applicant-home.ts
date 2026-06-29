@@ -1,7 +1,6 @@
 import { housingApplicationsApi } from '../../api/housing-applications'
-import { paymentApi, startVnPayPayment } from '../../api/payment'
 import { usersApi } from '../../api/users'
-import { getRouteConfig, isLoggedIn, navigate } from '../../router'
+import { getRouteConfig, navigate } from '../../router'
 import { el } from '../../ui/helpers'
 import {
   buildRolePage,
@@ -29,7 +28,6 @@ interface House {
   status: string
   handover: string
   description: string
-  paymentAmount: number
 }
 
 const FEATURED_HOUSES: House[] = [
@@ -49,7 +47,6 @@ const FEATURED_HOUSES: House[] = [
     status: 'Đang mở bán',
     handover: 'Quý IV/2026',
     description: 'Khu nhà ở xã hội ven sông, không gian xanh, gần trường học và bệnh viện.',
-    paymentAmount: 100_000,
   },
   {
     id: 'hoa-phat',
@@ -67,7 +64,6 @@ const FEATURED_HOUSES: House[] = [
     status: 'Đang mở bán',
     handover: 'Quý I/2027',
     description: 'Chung cư hiện đại, hệ thống an ninh 24/7, tiện ích nội khu đầy đủ.',
-    paymentAmount: 150_000,
   },
   {
     id: 'song-xanh',
@@ -85,7 +81,6 @@ const FEATURED_HOUSES: House[] = [
     status: 'Đang mở bán',
     handover: 'Quý III/2026',
     description: 'Vị trí mặt tiền sông, thuận tiện di chuyển về trung tâm và khu công nghiệp.',
-    paymentAmount: 120_000,
   },
   {
     id: 'tan-phu',
@@ -103,26 +98,23 @@ const FEATURED_HOUSES: House[] = [
     status: 'Sắp hết suất',
     handover: 'Quý II/2026',
     description: 'Giá hợp lý, phù hợp hộ gia đình trẻ, gần chợ và trung tâm hành chính quận.',
-    paymentAmount: 100_000,
   },
 ]
 
 const FAV_KEY = 'favoriteHouses'
 
 const ACTIONS: QuickAction[] = [
-  { title: 'Đăng ký nhà ở', desc: 'Tạo hồ sơ đăng ký nhà ở xã hội mới.', route: 'create-application', cta: 'Bắt đầu →' },
   { title: 'Hồ sơ của tôi', desc: 'Theo dõi trạng thái hồ sơ đã nộp.', route: 'applications' },
   { title: 'Dự án quan tâm', desc: 'Xem các dự án bạn đã lưu.', route: 'quan-tam' },
-  { title: 'Thanh toán', desc: 'Lịch sử và tạo giao dịch VNPay test.', route: 'payments' },
   { title: 'Danh sách dự án', desc: 'Khám phá tất cả dự án trên hệ thống.', route: 'projects' },
   { title: 'Hồ sơ cá nhân', desc: 'Cập nhật thông tin và ảnh đại diện.', route: 'profile' },
 ]
 
 const STEPS: WorkflowStep[] = [
   { num: '1', title: 'Khám phá dự án', desc: 'Tìm nhà ở phù hợp và lưu quan tâm.' },
-  { num: '2', title: 'Tạo hồ sơ', desc: 'Điền thông tin, quét CCCD (OCR) nếu cần.' },
-  { num: '3', title: 'Nộp giấy tờ', desc: 'Upload PDF và nộp hồ sơ chính thức.' },
-  { num: '4', title: 'Thanh toán', desc: 'Đặt cọc qua VNPay Sandbox khi được yêu cầu.' },
+  { num: '2', title: 'Xem thông tin dự án', desc: 'Tra cứu chi tiết dự án, giá và tiến độ.' },
+  { num: '3', title: 'Theo dõi hồ sơ', desc: 'Tra cứu trạng thái và nhận thông báo.' },
+  { num: '4', title: 'Quản lý tài khoản', desc: 'Cập nhật thông tin cá nhân và bảo mật.' },
 ]
 
 function getFavorites(): string[] {
@@ -181,31 +173,8 @@ function houseImage(color: string): HTMLElement {
   return wrap
 }
 
-async function handleHousePayment(h: House, btn: HTMLButtonElement): Promise<void> {
-  if (!isLoggedIn()) {
-    navigate('login')
-    return
-  }
-  btn.setAttribute('disabled', 'true')
-  const prev = btn.textContent
-  btn.textContent = 'Đang tạo...'
-  try {
-    const url = await startVnPayPayment(`Thanh toan dat coc - ${h.name}`, h.paymentAmount)
-    window.location.href = url
-  } catch (err) {
-    btn.textContent = prev ?? 'Thanh toán'
-    btn.removeAttribute('disabled')
-    alert(err instanceof Error ? err.message : String(err))
-  }
-}
-
 function houseCard(h: House, onToggleFav?: () => void): HTMLElement {
   const card = el('div', { class: 'house-card' })
-  const payBtn = el('button', { type: 'button', class: 'btn-primary house-pay-btn' }, 'Thanh toán')
-  payBtn.addEventListener('click', (e) => {
-    e.stopPropagation()
-    void handleHousePayment(h, payBtn)
-  })
 
   const detailPanel = el(
     'div',
@@ -218,7 +187,6 @@ function houseCard(h: House, onToggleFav?: () => void): HTMLElement {
     houseDetailRow('Trạng thái', h.status),
     houseDetailRow('Bàn giao', h.handover),
     houseDetailRow('Địa chỉ', h.address),
-    houseDetailRow('Phí đặt cọc (test)', `${h.paymentAmount.toLocaleString('vi-VN')} VNĐ`),
     el('p', { class: 'house-detail-desc' }, h.description),
   )
 
@@ -265,7 +233,7 @@ function houseCard(h: House, onToggleFav?: () => void): HTMLElement {
         el('span', { class: 'house-price' }, h.price),
         el('span', { class: 'house-units' }, h.units),
       ),
-      el('div', { class: 'house-actions house-actions-3' }, detailBtn, mapLink, payBtn),
+      el('div', { class: 'house-actions house-actions-2' }, detailBtn, mapLink),
       detailPanel,
     ),
   )
@@ -276,7 +244,6 @@ export function userHomeView(): HTMLElement {
   const statsHost = el('div', { class: 'role-stats-inner' },
     statCard(getFavorites().length, 'Quan tâm', 'Dự án đã lưu'),
     statCard('—', 'Hồ sơ', 'Đang tải'),
-    statCard('—', 'Thanh toán', 'Đang tải'),
     statCard(String(FEATURED_HOUSES.length), 'Dự án nổi bật', 'Đang mở bán'),
   )
 
@@ -308,10 +275,9 @@ export function userHomeView(): HTMLElement {
   const welcome = page.querySelector('.role-welcome') as HTMLElement
 
   void (async () => {
-    const [profile, apps, payments] = await Promise.allSettled([
+    const [profile, apps] = await Promise.allSettled([
       usersApi.getProfile(),
       housingApplicationsApi.getMy({ pageSize: 1 }),
-      paymentApi.getMyPayments(),
     ])
 
     if (profile.status === 'fulfilled') {
@@ -322,12 +288,10 @@ export function userHomeView(): HTMLElement {
     }
 
     const appCount = apps.status === 'fulfilled' ? countFromPaged(apps.value) : 0
-    const payCount = payments.status === 'fulfilled' ? countFromPaged(payments.value) : 0
 
     statsHost.replaceChildren(
       statCard(getFavorites().length, 'Quan tâm', 'Dự án đã lưu'),
       statCard(appCount, 'Hồ sơ', 'Của bạn'),
-      statCard(payCount, 'Thanh toán', 'Giao dịch'),
       statCard(String(FEATURED_HOUSES.length), 'Dự án nổi bật', 'Đang mở bán'),
     )
   })()
