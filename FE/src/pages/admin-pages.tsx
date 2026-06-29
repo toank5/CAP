@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft,
   ChevronLeft,
   ChevronRight,
+  Edit3,
   KeyRound,
   Lock,
   Mail,
@@ -11,18 +12,21 @@ import {
   Phone,
   Search,
   Shield,
+  Trash2,
   Unlock,
   UserPlus,
   Users,
 } from 'lucide-react'
 import { adminApi } from '@/api/admin'
 import { GovHeroBanner } from '@/components/layout/gov-hero-banner'
+import { ROLE_THEMES } from '@/lib/role-theme'
 import { Alert } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { FormField } from '@/components/ui/label'
 import { Input, Select } from '@/components/ui/input'
+import { ConfirmDialog, Modal } from '@/components/ui/modal'
 import { Skeleton } from '@/components/ui/skeleton'
 import { navigate } from '@/hooks/useHashRoute'
 import {
@@ -173,6 +177,132 @@ function AssignPermissionPanel({
   )
 }
 
+/** Modal sửa nhanh thông tin + vai trò/trạng thái tài khoản cán bộ */
+function EditStaffModal({
+  open,
+  staff,
+  onClose,
+  onSaved,
+}: {
+  open: boolean
+  staff: StaffRow | null
+  onClose: () => void
+  onSaved: (updated: StaffRow, message: string) => void
+}) {
+  const [fullName, setFullName] = useState('')
+  const [phoneNumber, setPhoneNumber] = useState('')
+  const [role, setRole] = useState('')
+  const [status, setStatus] = useState('')
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (!staff) return
+    setFullName(staff.fullName)
+    setPhoneNumber(staff.phoneNumber ?? '')
+    setRole(staff.roleName)
+    setStatus(staff.status)
+    setError('')
+  }, [staff])
+
+  if (!staff) return null
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    if (!fullName.trim()) {
+      setError('Họ và tên không được để trống.')
+      return
+    }
+    setSaving(true)
+    try {
+      const data = await adminApi.updateStaff(staff.id, {
+        fullName: fullName.trim(),
+        phoneNumber: phoneNumber.trim() || null,
+        role,
+        status,
+      })
+      const updated = parseStaffDetail(data) ?? {
+        ...staff,
+        fullName: fullName.trim(),
+        phoneNumber: phoneNumber.trim() || undefined,
+        roleName: role,
+        status,
+      }
+      onSaved(updated, formatSuccess(data))
+      onClose()
+    } catch (err) {
+      setError(formatError(err))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Sửa thông tin cán bộ"
+      description={`Cập nhật hồ sơ của ${staff.email}`}
+      size="md"
+    >
+      <form onSubmit={submit} className="space-y-4">
+        <FormField label="Họ và tên" htmlFor="edit-fullName">
+          <Input
+            id="edit-fullName"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            required
+            placeholder="Nguyễn Văn A"
+          />
+        </FormField>
+
+        <FormField label="Email">
+          <Input value={staff.email} disabled className="bg-slate-50 text-slate-500" />
+        </FormField>
+
+        <FormField label="Số điện thoại" htmlFor="edit-phone">
+          <Input
+            id="edit-phone"
+            type="tel"
+            value={phoneNumber}
+            onChange={(e) => setPhoneNumber(e.target.value)}
+            placeholder="0901234567"
+          />
+        </FormField>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <FormField label="Vai trò" htmlFor="edit-role">
+            <Select id="edit-role" value={role} onChange={(e) => setRole(e.target.value)}>
+              {STAFF_ROLE_OPTIONS.map((r) => (
+                <option key={r.value} value={r.value}>{r.label}</option>
+              ))}
+            </Select>
+          </FormField>
+          <FormField label="Trạng thái" htmlFor="edit-status">
+            <Select id="edit-status" value={status} onChange={(e) => setStatus(e.target.value)}>
+              {STAFF_STATUS_OPTIONS.map((s) => (
+                <option key={s.value} value={s.value}>{s.label}</option>
+              ))}
+            </Select>
+          </FormField>
+        </div>
+
+        {error && <Alert variant="error">{error}</Alert>}
+
+        <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
+          <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
+            Huỷ
+          </Button>
+          <Button type="submit" variant="accent" disabled={saving}>
+            {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
 export function AdminStaffPage() {
   const [staff, setStaff] = useState<StaffRow[]>([])
   const [totalCount, setTotalCount] = useState(0)
@@ -185,6 +315,19 @@ export function AdminStaffPage() {
   const [roleFilter, setRoleFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [actionId, setActionId] = useState<string | null>(null)
+
+  const [editing, setEditing] = useState<StaffRow | null>(null)
+  const [deactivating, setDeactivating] = useState<StaffRow | null>(null)
+  const [deactivateLoading, setDeactivateLoading] = useState(false)
+  const [deleting, setDeleting] = useState<StaffRow | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  useEffect(() => {
+    if (!toast) return
+    const id = window.setTimeout(() => setToast(null), 4000)
+    return () => window.clearTimeout(id)
+  }, [toast])
 
   const load = useCallback(async (p = page) => {
     setLoading(true)
@@ -214,25 +357,66 @@ export function AdminStaffPage() {
 
   const activeCount = staff.filter((s) => isStaffActive(s.status)).length
 
-  const toggleActive = async (row: StaffRow) => {
+  const performActivate = async (row: StaffRow) => {
     setActionId(row.id)
     try {
-      if (isStaffActive(row.status)) {
-        const reason = window.prompt('Lý do khóa tài khoản (tùy chọn):') ?? undefined
-        await adminApi.deactivateStaff(row.id, reason)
-      } else {
-        await adminApi.activateStaff(row.id)
-      }
+      await adminApi.activateStaff(row.id)
+      setToast({ type: 'success', text: `Đã kích hoạt lại tài khoản ${row.fullName}.` })
       await load(page)
     } catch (err) {
-      setError(formatError(err))
+      setToast({ type: 'error', text: formatError(err) })
     } finally {
       setActionId(null)
     }
   }
 
+  const performDeactivate = async (row: StaffRow, reason: string) => {
+    setActionId(row.id)
+    try {
+      await adminApi.deactivateStaff(row.id, reason || 'Admin khóa tài khoản')
+      setToast({ type: 'success', text: `Đã khóa tài khoản ${row.fullName}.` })
+      await load(page)
+    } catch (err) {
+      setToast({ type: 'error', text: formatError(err) })
+    } finally {
+      setActionId(null)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!deleting) return
+    setDeleteLoading(true)
+    try {
+      await adminApi.deactivateStaff(deleting.id, 'Admin vô hiệu hoá tài khoản')
+      setToast({ type: 'success', text: `Đã vô hiệu hoá tài khoản ${deleting.fullName}.` })
+      setDeleting(null)
+      await load(page)
+    } catch (err) {
+      setToast({ type: 'error', text: formatError(err) })
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
+  const handleEdited = (updated: StaffRow, message: string) => {
+    setStaff((prev) => prev.map((s) => (s.id === updated.id ? updated : s)))
+    setToast({ type: 'success', text: message })
+  }
+
   return (
     <div className="space-y-6">
+      <section className={`overflow-hidden rounded-xl ${ROLE_THEMES.admin.navBg} text-white shadow-md`}>
+        <div className="flex flex-wrap items-center gap-3 px-5 py-3">
+          {(() => { const I = ROLE_THEMES.admin.Icon; return <I className="h-5 w-5" /> })()}
+          <p className="text-xs font-bold uppercase tracking-wider text-white/85">
+            {ROLE_THEMES.admin.badgeFull}
+          </p>
+          <span className={`ml-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${ROLE_THEMES.admin.activeBar} text-slate-900`}>
+            {ROLE_THEMES.admin.badge}
+          </span>
+        </div>
+      </section>
+
       <GovHeroBanner
         badge="FE-24 · Quản trị nhân sự"
         title="Quản lý cán bộ"
@@ -349,6 +533,14 @@ export function AdminStaffPage() {
                         <Button
                           variant="ghost"
                           size="sm"
+                          title="Sửa nhanh"
+                          onClick={() => setEditing(s)}
+                        >
+                          <Edit3 className="h-4 w-4 text-primary" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           title="Chi tiết"
                           onClick={() => {
                             sessionStorage.setItem('staffId', s.id)
@@ -362,9 +554,21 @@ export function AdminStaffPage() {
                           size="sm"
                           title={isStaffActive(s.status) ? 'Khóa tài khoản' : 'Kích hoạt'}
                           disabled={actionId === s.id}
-                          onClick={() => void toggleActive(s)}
+                          onClick={() => {
+                            if (isStaffActive(s.status)) setDeactivating(s)
+                            else void performActivate(s)
+                          }}
                         >
-                          {isStaffActive(s.status) ? <Lock className="h-4 w-4 text-red-600" /> : <Unlock className="h-4 w-4 text-emerald-600" />}
+                          {isStaffActive(s.status) ? <Lock className="h-4 w-4 text-amber-600" /> : <Unlock className="h-4 w-4 text-emerald-600" />}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          title="Vô hiệu hoá (xoá mềm)"
+                          disabled={!isStaffActive(s.status)}
+                          onClick={() => setDeleting(s)}
+                        >
+                          <Trash2 className={`h-4 w-4 ${isStaffActive(s.status) ? 'text-red-600' : 'text-slate-300'}`} />
                         </Button>
                       </div>
                     </td>
@@ -389,6 +593,71 @@ export function AdminStaffPage() {
           </div>
         )}
       </div>
+
+      <EditStaffModal
+        open={editing !== null}
+        staff={editing}
+        onClose={() => setEditing(null)}
+        onSaved={handleEdited}
+      />
+
+      <DeactivateReasonDialog
+        open={deactivating !== null}
+        onClose={() => (deactivateLoading ? undefined : setDeactivating(null))}
+        targetStaffName={deactivating?.fullName ?? ''}
+        onConfirm={async (reason) => {
+          if (!deactivating) return
+          setDeactivateLoading(true)
+          try {
+            await performDeactivate(deactivating, reason)
+            setDeactivating(null)
+          } finally {
+            setDeactivateLoading(false)
+          }
+        }}
+        loading={deactivateLoading}
+      />
+
+      <ConfirmDialog
+        open={deleting !== null}
+        onClose={() => (deleteLoading ? undefined : setDeleting(null))}
+        onConfirm={handleDelete}
+        title="Vô hiệu hoá tài khoản?"
+        description={
+          deleting
+            ? `Tài khoản "${deleting.fullName}" (${deleting.email}) sẽ bị chuyển sang trạng thái ngừng hoạt động. Có thể kích hoạt lại sau.`
+            : ''
+        }
+        confirmLabel="Vô hiệu hoá"
+        cancelLabel="Huỷ"
+        loading={deleteLoading}
+      />
+
+      {/* Toast */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            key="toast"
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 24 }}
+            className="pointer-events-none fixed bottom-6 left-1/2 z-[60] -translate-x-1/2"
+          >
+            <div
+              className={`pointer-events-auto flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white shadow-2xl ${
+                toast.type === 'success'
+                  ? 'bg-gradient-to-r from-emerald-500 to-emerald-600'
+                  : 'bg-gradient-to-r from-red-500 to-red-600'
+              }`}
+              role="status"
+            >
+              <span className="h-2 w-2 rounded-full bg-white/90" />
+              {toast.text}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
@@ -470,6 +739,18 @@ export function StaffDetailPage() {
   const [staff, setStaff] = useState<StaffRow | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [deactivateOpen, setDeactivateOpen] = useState(false)
+
+  const reactivate = async () => {
+    if (!staffId) return
+    try {
+      await adminApi.activateStaff(staffId)
+      reload()
+      setMsg({ type: 'success', text: 'Đã kích hoạt tài khoản.' })
+    } catch (err) {
+      setMsg({ type: 'error', text: formatError(err) })
+    }
+  }
 
   const reload = useCallback(() => {
     if (!staffId) return
@@ -584,21 +865,10 @@ export function StaffDetailPage() {
                   type="button"
                   variant="outline"
                   className={active ? 'text-red-600' : 'text-emerald-700'}
-                  onClick={async () => {
-                    const action = active ? 'khóa' : 'kích hoạt'
-                    if (!confirm(`Bạn có chắc muốn ${action} tài khoản này?`)) return
-                    try {
-                      if (active) {
-                        const reason = window.prompt('Lý do khóa (tùy chọn):') ?? undefined
-                        await adminApi.deactivateStaff(staffId, reason)
-                      } else {
-                        await adminApi.activateStaff(staffId)
-                      }
-                      reload()
-                      setMsg({ type: 'success', text: active ? 'Đã khóa tài khoản.' : 'Đã kích hoạt tài khoản.' })
-                    } catch (err) {
-                      setMsg({ type: 'error', text: formatError(err) })
-                    }
+                  onClick={() => {
+                    setMsg(null)
+                    if (active) setDeactivateOpen(true)
+                    else void reactivate()
                   }}
                 >
                   {active ? <><Lock className="mr-1.5 h-4 w-4" />Khóa tài khoản</> : <><Unlock className="mr-1.5 h-4 w-4" />Kích hoạt</>}
@@ -612,6 +882,90 @@ export function StaffDetailPage() {
           </div>
         )}
       </div>
+
+      <DeactivateReasonDialog
+        open={deactivateOpen}
+        onClose={() => setDeactivateOpen(false)}
+        onConfirm={async (reason) => {
+          await adminApi.deactivateStaff(staffId, reason)
+          reload()
+          setMsg({ type: 'success', text: 'Đã khóa tài khoản.' })
+        }}
+      />
     </div>
+  )
+}
+
+/** Modal nhập lý do khi khóa tài khoản — thay thế window.prompt */
+export function DeactivateReasonDialog({
+  open,
+  onClose,
+  onConfirm,
+  targetStaffName,
+  loading = false,
+}: {
+  open: boolean
+  onClose: () => void
+  onConfirm: (reason: string) => Promise<void>
+  targetStaffName?: string
+  loading?: boolean
+}) {
+  const [reason, setReason] = useState('')
+  const [errMsg, setErrMsg] = useState('')
+
+  useEffect(() => {
+    if (open) {
+      setReason('')
+      setErrMsg('')
+    }
+  }, [open])
+
+  const [internalLoading, setInternalLoading] = useState(false)
+  const busy = loading || internalLoading
+
+  const submit = async () => {
+    setErrMsg('')
+    setInternalLoading(true)
+    try {
+      await onConfirm(reason.trim())
+      onClose()
+    } catch (err) {
+      setErrMsg(formatError(err))
+    } finally {
+      setInternalLoading(false)
+    }
+  }
+
+  return (
+    <Modal
+      open={open}
+      onClose={busy ? () => undefined : onClose}
+      title="Khóa tài khoản cán bộ"
+      description={targetStaffName ? `Tài khoản: ${targetStaffName}` : undefined}
+      size="sm"
+    >
+      <p className="text-sm text-slate-600">
+        Cán bộ sẽ không thể đăng nhập cho đến khi được kích hoạt lại. Có thể nhập lý do để lưu vết kiểm toán.
+      </p>
+      <div className="mt-4">
+        <FormField label="Lý do (tùy chọn)" htmlFor="deactivate-reason">
+          <Input
+            id="deactivate-reason"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="VD: nghỉ phép, sai phạm quy trình..."
+          />
+        </FormField>
+      </div>
+      {errMsg && <div className="mt-3"><Alert variant="error">{errMsg}</Alert></div>}
+      <div className="mt-5 flex justify-end gap-2">
+        <Button type="button" variant="outline" onClick={onClose} disabled={busy}>
+          Huỷ
+        </Button>
+        <Button type="button" variant="accent" onClick={() => void submit()} disabled={busy}>
+          {busy ? 'Đang xử lý...' : 'Khóa tài khoản'}
+        </Button>
+      </div>
+    </Modal>
   )
 }
