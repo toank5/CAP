@@ -103,7 +103,13 @@ export function CreateApplicationWizard() {
         name: p.projectName || p.name || 'Dự án',
       }))
       setProjects(items)
-      if (items.length === 1) setForm((f) => ({ ...f, projectId: items[0].id }))
+      const presetId = sessionStorage.getItem('createApplicationProjectId')
+      if (presetId && items.some((p) => p.id === presetId)) {
+        setForm((f) => ({ ...f, projectId: presetId }))
+        sessionStorage.removeItem('createApplicationProjectId')
+      } else if (items.length === 1) {
+        setForm((f) => ({ ...f, projectId: items[0].id }))
+      }
     }).catch(() => setProjects([]))
   }, [])
 
