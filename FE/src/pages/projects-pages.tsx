@@ -1,100 +1,142 @@
 import { useEffect, useMemo, useState } from 'react'
+import { CheckCircle2, X } from 'lucide-react'
 import { housingProjectsApi } from '@/api/housing-projects'
 import { housingProjectStatusesApi, parseStatuses } from '@/api/housing-project-statuses'
+import { LocationFields } from '@/components/forms/location-fields'
+import { HousingSearchForm } from '@/components/housing/housing-search-form'
+import { HouseCard } from '@/components/housing/house-card'
 import { PageCard, PageHeader } from '@/components/layout/page-header'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { FormField } from '@/components/ui/label'
 import { Input, Select, Textarea } from '@/components/ui/input'
+import { EmptyState } from '@/components/ui/empty-state'
+import { Skeleton } from '@/components/ui/skeleton'
 import { navigate } from '@/hooks/useHashRoute'
 import { extractProjects, extractSingleProject } from '@/lib/parsers'
-import { formatPriceRange, resolveProjectImageUrl } from '@/lib/projects'
-import { labelProjectStatus } from '@/lib/labels'
 import { formatError, formatSuccess } from '@/lib/format-error'
+import { resolveProvinceName } from '@/lib/vietnam-locations'
+import { mapProjectToCard } from '@/lib/projects'
+import { FLASH_CREATE_PROJECT_KEY } from '@/lib/constants'
+import {
+  applyClientFilters,
+  EMPTY_HOUSING_SEARCH,
+  toApiFilter,
+  type HousingSearchFilter,
+} from '@/lib/housing-search'
 import type { CreateHousingProjectRequestDto, HousingProjectDto } from '@/types'
 
 export function ProjectsPage() {
   const [all, setAll] = useState<HousingProjectDto[]>([])
+  const [filter, setFilter] = useState<HousingSearchFilter>({ ...EMPTY_HOUSING_SEARCH })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [search, setSearch] = useState('')
-  const [province, setProvince] = useState('')
-  const [maxPrice, setMaxPrice] = useState('')
-  const [minAvailable, setMinAvailable] = useState('')
+  const [flashSuccess, setFlashSuccess] = useState<string | null>(null)
 
-  const load = async (filter?: { search?: string; province?: string; maxPrice?: number }) => {
+  const load = async (nextFilter: HousingSearchFilter) => {
     setLoading(true)
     setError('')
     try {
-      const data = await housingProjectsApi.list({
-        pageIndex: 1,
-        pageSize: 100,
-        search: filter?.search,
-        province: filter?.province,
-        maxPrice: filter?.maxPrice,
-      })
-      setAll(extractProjects(data))
+      const data = await housingProjectsApi.list(toApiFilter(nextFilter))
+      const items = applyClientFilters(extractProjects(data), nextFilter)
+      setAll(items)
     } catch (err) {
       setError(formatError(err))
+      setAll([])
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => { void load() }, [])
+  useEffect(() => { void load(EMPTY_HOUSING_SEARCH) }, [])
 
-  const filtered = useMemo(() => {
-    const min = parseFloat(minAvailable) || 0
-    return all.filter((p) => {
-      if (p.availableUnits != null && p.availableUnits < min) return false
-      return true
-    })
-  }, [all, minAvailable])
+  useEffect(() => {
+    const name = sessionStorage.getItem(FLASH_CREATE_PROJECT_KEY)
+    if (!name) return
+    sessionStorage.removeItem(FLASH_CREATE_PROJECT_KEY)
+    setFlashSuccess(name)
+    const timer = window.setTimeout(() => setFlashSuccess(null), 6000)
+    return () => window.clearTimeout(timer)
+  }, [])
+
+  const cards = useMemo(() => all.map(mapProjectToCard), [all])
 
   return (
     <div>
       <PageHeader routeId="projects" />
-      <PageCard className="p-6">
-        <div className="mb-4"><Button variant="accent" onClick={() => navigate('create-project')}>Tạo dự án mới</Button></div>
-        <form
-          className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
-          onSubmit={(e) => {
-            e.preventDefault()
-            void load({
-              search: search || undefined,
-              province: province || undefined,
-              maxPrice: maxPrice ? parseFloat(maxPrice) : undefined,
-            })
-          }}
-        >
-          <FormField label="Tìm kiếm" htmlFor="search"><Input id="search" value={search} onChange={(e) => setSearch(e.target.value)} /></FormField>
-          <FormField label="Tỉnh/Thành" htmlFor="province"><Input id="province" value={province} onChange={(e) => setProvince(e.target.value)} /></FormField>
-          <FormField label="Giá tối đa" htmlFor="maxPrice"><Input id="maxPrice" type="number" value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} /></FormField>
-          <FormField label="Số căn tối thiểu" htmlFor="minAvailable"><Input id="minAvailable" type="number" value={minAvailable} onChange={(e) => setMinAvailable(e.target.value)} /></FormField>
-          <div className="flex items-end"><Button type="submit" variant="outline">Lọc</Button></div>
-        </form>
-        {loading && <p className="text-sm text-slate-500">Đang tải...</p>}
-        {error && <Alert variant="error">{error}</Alert>}
-        {!loading && filtered.length === 0 && <p className="text-sm text-slate-500">Không tìm thấy dự án nào.</p>}
-        <div className="grid gap-3 md:grid-cols-2">
-          {filtered.filter((p) => p.id).map((p) => (
-            <div key={p.id} className="glass-card overflow-hidden">
-              {p.thumbnailUrl && (
-                <img src={resolveProjectImageUrl(p.thumbnailUrl)} alt="" className="h-36 w-full object-cover" loading="lazy" />
-              )}
-              <div className="p-4">
-                <h3 className="font-semibold">{p.projectName || p.name}</h3>
-                <p className="text-sm text-slate-500">{p.district}, {p.province}</p>
-                <p className="text-sm font-medium text-primary">{formatPriceRange(p.minPrice ?? 0, p.maxPrice ?? 0)}</p>
-                <p className="text-sm text-slate-500">Còn {p.availableUnits ?? 0} căn · {labelProjectStatus(p.status)}</p>
-                <Button className="mt-3" variant="outline" size="sm" onClick={() => {
-                  sessionStorage.setItem('projectId', p.id!)
-                  navigate('project-detail')
-                }}>Chi tiết</Button>
+      <PageCard className="space-y-6 p-6">
+        {flashSuccess && (
+          <Alert variant="success" className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-2">
+              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
+              <div>
+                <p className="font-semibold">Tạo dự án thành công!</p>
+                <p className="mt-0.5 text-green-800 dark:text-green-300">
+                  Dự án <strong>{flashSuccess}</strong> đã được thêm vào danh sách.
+                </p>
               </div>
             </div>
-          ))}
+            <button
+              type="button"
+              className="rounded-lg p-1 text-green-700 hover:bg-green-100 dark:hover:bg-green-900/40"
+              aria-label="Đóng thông báo"
+              onClick={() => setFlashSuccess(null)}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </Alert>
+        )}
+
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-slate-500">{loading ? 'Đang tải...' : `${cards.length} dự án`}</p>
+          <Button variant="accent" onClick={() => navigate('create-project')}>Tạo dự án mới</Button>
         </div>
+
+        <HousingSearchForm
+          value={filter}
+          onChange={setFilter}
+          loading={loading}
+          onSubmit={() => { void load(filter) }}
+        />
+
+        {error && <Alert variant="error">{error}</Alert>}
+
+        {loading && (
+          <div className="grid gap-4 md:grid-cols-2">
+            <Skeleton className="h-64" />
+            <Skeleton className="h-64" />
+          </div>
+        )}
+
+        {!loading && cards.length === 0 && (
+          <EmptyState
+            title="Không tìm thấy dự án"
+            description="Thử điều chỉnh bộ lọc hoặc tạo dự án mới."
+            actionLabel="Tạo dự án mới"
+            onAction={() => navigate('create-project')}
+          />
+        )}
+
+        {!loading && cards.length > 0 && (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {cards.map((house) => (
+              <div key={house.id} className="relative">
+                <HouseCard house={house} />
+                <Button
+                  className="absolute bottom-4 right-4 z-10"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    sessionStorage.setItem('projectId', house.id)
+                    navigate('project-detail')
+                  }}
+                >
+                  Quản trị
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
       </PageCard>
     </div>
   )
@@ -104,6 +146,11 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [loading, setLoading] = useState(!!projectId)
   const [statuses, setStatuses] = useState<{ id: string; label: string }[]>([])
+  const [province, setProvince] = useState('')
+  const [district, setDistrict] = useState('')
+  const [addressDefault, setAddressDefault] = useState('')
+  const [addressKey, setAddressKey] = useState('new')
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     void housingProjectStatusesApi.list()
@@ -125,11 +172,12 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
         const el = form.elements.namedItem(n) as HTMLInputElement
         if (el) el.value = String(v)
       }
+      setProvince(resolveProvinceName(p.province ?? ''))
+      setDistrict(p.district ?? '')
+      setAddressDefault(p.address ?? '')
+      setAddressKey(`addr-${projectId}`)
       set('projectName', p.projectName || p.name || '')
       set('description', p.description ?? '')
-      set('province', p.province ?? '')
-      set('district', p.district ?? '')
-      set('address', p.address ?? '')
       set('minPrice', p.minPrice ?? 0)
       set('maxPrice', p.maxPrice ?? 0)
       set('minArea', p.minArea ?? 0)
@@ -161,22 +209,34 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
     <form id="project-form" className="mx-auto max-w-xl space-y-4" onSubmit={async (e) => {
       e.preventDefault()
       setMsg(null)
+      setSubmitting(true)
       try {
         const body = readBody(new FormData(e.currentTarget))
         const data = projectId ? await housingProjectsApi.update(projectId, body) : await housingProjectsApi.create(body)
-        setMsg({ type: 'success', text: formatSuccess(data) })
-        if (!projectId) setTimeout(() => navigate('projects'), 800)
+        if (!projectId) {
+          sessionStorage.setItem(FLASH_CREATE_PROJECT_KEY, body.projectName)
+          navigate('projects')
+          return
+        }
+        setMsg({ type: 'success', text: formatSuccess(data) || 'Cập nhật dự án thành công!' })
         onDone?.()
       } catch (err) {
         setMsg({ type: 'error', text: formatError(err) })
+      } finally {
+        setSubmitting(false)
       }
     }}>
       {loading && <p className="text-sm text-slate-500">Đang tải...</p>}
       <FormField label="Tên dự án" htmlFor="projectName"><Input id="projectName" name="projectName" required /></FormField>
       <FormField label="Mô tả" htmlFor="description"><Textarea id="description" name="description" required /></FormField>
-      <FormField label="Tỉnh/Thành" htmlFor="province"><Input id="province" name="province" required /></FormField>
-      <FormField label="Quận/Huyện" htmlFor="district"><Input id="district" name="district" required /></FormField>
-      <FormField label="Địa chỉ" htmlFor="address"><Input id="address" name="address" required /></FormField>
+      <LocationFields
+        province={province}
+        district={district}
+        onProvinceChange={setProvince}
+        onDistrictChange={setDistrict}
+        addressDefaultValue={addressDefault}
+        addressKey={addressKey}
+      />
       <div className="grid gap-3 sm:grid-cols-2">
         <FormField label="Giá tối thiểu (VNĐ)" htmlFor="minPrice"><Input id="minPrice" name="minPrice" type="number" required /></FormField>
         <FormField label="Giá tối đa (VNĐ)" htmlFor="maxPrice"><Input id="maxPrice" name="maxPrice" type="number" required /></FormField>
@@ -195,7 +255,9 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
       </FormField>
       {msg && <Alert variant={msg.type === 'error' ? 'error' : 'success'}>{msg.text}</Alert>}
       <div className="flex flex-wrap gap-2">
-        <Button type="submit" variant="accent">{projectId ? 'Cập nhật' : 'Tạo dự án'}</Button>
+        <Button type="submit" variant="accent" disabled={submitting || loading}>
+          {submitting ? 'Đang lưu...' : projectId ? 'Cập nhật' : 'Tạo dự án'}
+        </Button>
         {projectId && (
           <Button type="button" variant="outline" className="text-red-600" onClick={async () => {
             if (!confirm('Bạn có chắc chắn muốn xóa dự án này?')) return

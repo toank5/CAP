@@ -36,6 +36,7 @@ export function ProfilePage() {
     localStorage.removeItem('accessToken')
     localStorage.removeItem('refreshToken')
     clearRole()
+    updateProfile({ fullName: '', avatarUrl: null })
     navigate('login')
   }
 
