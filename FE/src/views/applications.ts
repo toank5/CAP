@@ -83,14 +83,7 @@ export function applicationsView(): HTMLElement {
   const role = getRole()
   const result = el('div', { class: 'panel-result', 'aria-live': 'polite' })
   const listHost = el('div', { class: 'app-list' })
-  const createBtn = el('button', { type: 'button', class: 'btn-primary' }, 'Tạo hồ sơ mới')
   const isApplicant = role === 'Applicant'
-
-  if (isApplicant) {
-    createBtn.addEventListener('click', () => navigate('create-application'))
-  } else {
-    createBtn.style.display = 'none'
-  }
 
   const filterForm = el(
     'form',
@@ -117,7 +110,7 @@ export function applicationsView(): HTMLElement {
         listHost.replaceChildren(
           el('p', { class: 'app-empty' },
             isApplicant
-              ? 'Bạn chưa có hồ sơ nào. Bấm "Tạo hồ sơ mới" để đăng ký nhà ở xã hội.'
+              ? 'Bạn chưa có hồ sơ nào.'
               : 'Không có hồ sơ phù hợp.',
           ),
         )
@@ -151,7 +144,6 @@ export function applicationsView(): HTMLElement {
     { class: 'page app-page' },
     pageHeader(m),
     el('div', { class: 'card' },
-      el('div', { class: 'toolbar' }, createBtn),
       filterForm,
       listHost,
       result,

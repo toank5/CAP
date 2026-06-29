@@ -53,11 +53,6 @@ export function ApplicationsPage() {
     <div>
       <PageHeader routeId="applications" />
       <PageCard className="p-6">
-        {isApplicant && (
-          <div className="mb-4">
-            <Button variant="accent" onClick={() => navigate('create-application')}>Tạo hồ sơ mới</Button>
-          </div>
-        )}
         <form className="mb-6 grid gap-3 sm:grid-cols-3" onSubmit={(e) => {
           e.preventDefault()
           void load({ search: search || undefined, status: status || undefined })
