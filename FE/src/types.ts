@@ -104,6 +104,7 @@ export interface HousingProjectDto {
   minArea?: number
   maxArea?: number
   availableUnits?: number
+  totalUnits?: number
   /** Tỉ lệ Đợt 1 (% giá căn), tối đa 30; Đợt 2 = phần còn lại */
   phase1Percentage?: number
   thumbnailUrl?: string
@@ -185,6 +186,8 @@ export interface ProjectFilterDto {
 export interface CreatePaymentDto {
   ApplicationId: string
   OrderInfo?: string
+  Ordinal?: number   // BE dùng để xác định đợt thanh toán (1 = Đợt 1 cọc 10%)
+  ReturnUrl?: string // VNPay redirect về FE sau khi thanh toán
 }
 
 export interface PaymentInfoDto {
@@ -230,6 +233,7 @@ export interface ApplicationFilterDto {
 }
 
 export interface HouseholdMemberDto {
+  memberId?: string | null
   fullName: string
   citizenId?: string | null
   dateOfBirth?: string | null
@@ -272,6 +276,7 @@ export interface ApplicationSummaryDto {
   monthlyIncome?: number | null
   documentCount: number
   receiptUrl?: string | null
+  apartmentId?: string | null
   isViolation?: boolean
   violationReason?: string | null
 }
@@ -337,6 +342,15 @@ export interface ApplicationDetailDto {
   apartmentArea?: number | null
   apartmentPrice?: number | null
   apartmentStatus?: string | null
+  householdMembers?: HouseholdMemberDto[]
+  eligibility?: {
+    isEligible?: boolean
+    isIncomeEligible?: boolean
+    isHousingStatusEligible?: boolean
+    isPriorityGroupEligible?: boolean
+    totalScore?: number | null
+    verifiedAt?: string | null
+  } | null
 }
 
 export interface ReviewRequestDto {

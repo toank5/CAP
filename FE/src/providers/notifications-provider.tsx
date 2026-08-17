@@ -43,7 +43,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
   const timerRef = useRef<number | null>(null)
   // Theo dõi role để reset khi đổi vai trò
-  const roleRef = useRef<string>(isLoggedIn() ? localStorage.getItem('userRole') ?? '' : '')
+  const roleRef = useRef<string>(isLoggedIn() ? sessionStorage.getItem('userRole') ?? '' : '')
 
   const refreshCount = useCallback(async () => {
     if (!isLoggedIn()) {
@@ -142,7 +142,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const logged = isLoggedIn()
-    const currentRole = logged ? localStorage.getItem('userRole') ?? '' : ''
+    const currentRole = logged ? sessionStorage.getItem('userRole') ?? '' : ''
 
     if (!logged) {
       setUnreadCount(0)

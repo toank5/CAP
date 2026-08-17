@@ -38,17 +38,17 @@ export function saveTokensFromResponse(data: unknown): void {
     (typeof o.refreshToken === 'string' && o.refreshToken) ||
     (typeof o.RefreshToken === 'string' && o.RefreshToken) ||
     (typeof o.refresh_token === 'string' && o.refresh_token)
-  if (access) localStorage.setItem('accessToken', access)
-  if (refresh) localStorage.setItem('refreshToken', refresh)
+  if (access) sessionStorage.setItem('accessToken', access)
+  if (refresh) sessionStorage.setItem('refreshToken', refresh)
   const user = o.user ?? o.User
   if (user && typeof user === 'object') {
     const role = (user as Record<string, unknown>).role ?? (user as Record<string, unknown>).Role
-    if (typeof role === 'string' && role) localStorage.setItem('userRole', role)
+    if (typeof role === 'string' && role) sessionStorage.setItem('userRole', role)
   }
 }
 
 async function tryRefreshToken(): Promise<boolean> {
-  const refresh = localStorage.getItem('refreshToken')
+  const refresh = sessionStorage.getItem('refreshToken')
   if (!refresh) return false
   try {
     const res = await fetch(`${baseUrl}/api/Auth/refresh-token`, {
@@ -59,11 +59,11 @@ async function tryRefreshToken(): Promise<boolean> {
     if (!res.ok) throw new Error('refresh failed')
     const data = await res.json()
     saveTokensFromResponse(data)
-    return !!localStorage.getItem('accessToken')
+    return !!sessionStorage.getItem('accessToken')
   } catch {
-    localStorage.removeItem('accessToken')
-    localStorage.removeItem('refreshToken')
-    localStorage.removeItem('userRole')
+    sessionStorage.removeItem('accessToken')
+    sessionStorage.removeItem('refreshToken')
+    sessionStorage.removeItem('userRole')
     return false
   }
 }
@@ -83,7 +83,7 @@ async function doFetch(path: string, init: RequestInit & { auth?: boolean }): Pr
     headers.set('Content-Type', 'application/json')
   }
   if (init.auth) {
-    const token = localStorage.getItem('accessToken')
+    const token = sessionStorage.getItem('accessToken')
     if (token) headers.set('Authorization', `Bearer ${token}`)
   }
   return fetch(`${baseUrl}${path}`, { ...init, headers })

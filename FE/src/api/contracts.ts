@@ -1,4 +1,5 @@
 import { request } from './http'
+import { downloadContractPdf } from './payment'
 import type { ApiResult } from '../types'
 
 /**
@@ -39,7 +40,8 @@ export interface PaymentInstallment {
   label?: string | null
   amount: number
   dueDate: string
-  status: InstallmentStatus
+  status: InstallmentStatus        // FE display: PENDING → UNPAID
+  _rawStatus: string              // BE raw: PENDING | OVERDUE | PAID | LOCKED | CANCELLED | PARTIAL
   paidAt?: string | null
   paidAmount?: number
   paymentOrderId?: string | null
@@ -160,7 +162,7 @@ export function parseInstallments(data: unknown): PaymentInstallment[] {
       x.status ?? x.Status ?? x.state ?? x.State ?? 'UNPAID',
     ).toUpperCase()
     const status = ((): InstallmentStatus => {
-      // Map "PENDING" (BE) → "UNPAID" (FE) theo PAY.MD.
+      // Map "PENDING" (BE) → "UNPAID" (FE display) theo PAY.MD.
       if (statusRaw === 'PENDING') return 'UNPAID'
       if (statusRaw === 'LOCKED') return 'LOCKED'
       if (statusRaw === 'PAID') return 'PAID'
@@ -190,7 +192,10 @@ export function parseInstallments(data: unknown): PaymentInstallment[] {
       label: labelVal,
       amount: Number(amount) || 0,
       dueDate,
+      // FE display: PENDING → UNPAID
       status,
+      // BE raw: dùng cho canPay logic (PENDING || OVERDUE → mở thanh toán)
+      _rawStatus: statusRaw as 'PENDING' | 'OVERDUE' | 'PAID' | 'LOCKED' | 'CANCELLED' | 'PARTIAL' | string,
       paidAt,
       paidAmount:
         paidAmount !== undefined ? Number(paidAmount) || undefined : undefined,
@@ -224,15 +229,21 @@ export const contractApi = {
     return request<ApiResult>(`/api/Payment/installments/${applicationId}`, { auth: true })
   },
 
-  payInstallment(installmentId: string) {
+  payInstallment(installmentId: string, returnUrl?: string) {
+    const body = returnUrl ? JSON.stringify({ returnUrl }) : undefined
     return request<PaymentResponseDto>(
       `/api/Payment/installments/${installmentId}/pay`,
-      { method: 'POST', auth: true },
+      { method: 'POST', body, auth: true },
     )
   },
 
   downloadContract(applicationId: string) {
     return request<ApiResult>(`/api/Payment/download-contract/${applicationId}`, { auth: true })
+  },
+
+  /** Tải PDF hợp đồng — fetch blob + Bearer (KHÔNG dùng request JSON vì endpoint trả file). */
+  downloadContractBlob(applicationId: string): Promise<void> {
+    return downloadContractPdf(applicationId)
   },
 
   /**
@@ -295,7 +306,7 @@ export const CONTRACT_STATUS_TONE: Record<
 }
 
 export const INSTALLMENT_STATUS_LABEL: Record<InstallmentStatus, string> = {
-  LOCKED: 'Chưa mở',
+  LOCKED: 'Chờ mở',
   UNPAID: 'Chưa thanh toán',
   PAID: 'Đã thanh toán',
   OVERDUE: 'Quá hạn',

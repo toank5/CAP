@@ -22,8 +22,20 @@ export const DAY_MS = 24 * 60 * 60 * 1000
 /** Chuẩn hoá status string từ BE về key in hoa (PENDING / UPCOMING / OPEN / CLOSED / FULL / REJECTED) */
 export function normalizeStatus(status?: string | null): string {
   if (!status) return ''
-  const s = String(status).trim()
-  return s ? s.toUpperCase() : ''
+  const s = String(status).trim().toUpperCase()
+  // Map label tiếng Việt → key tiếng Anh
+  const map: Record<string, string> = {
+    'ĐANG CHỜ': 'PENDING',
+    'CHỜ DUYỆT': 'PENDING',
+    'SẮP MỞ BÁN': 'UPCOMING',
+    'ĐANG MỞ ĐĂNG KÝ': 'OPEN',
+    'MỞ BÁN': 'OPEN',
+    'ĐÃ KẾT THÚC': 'CLOSED',
+    'HẾT CĂN': 'FULL',
+    'TỪ CHỐI': 'REJECTED',
+    'ĐÃ TỪ CHỐI': 'REJECTED',
+  }
+  return map[s] ?? s
 }
 
 /**
@@ -66,6 +78,11 @@ export function isUpcoming(p: HousingProjectDto | null | undefined): boolean {
 /** Project đang mở đăng ký cho người dân nộp hồ sơ */
 export function isOpenForRegistration(p: HousingProjectDto | null | undefined): boolean {
   return effectiveProjectStatus(p) === 'OPEN'
+}
+
+/** Project đã bị SXD từ chối */
+export function isRejected(p: HousingProjectDto | null | undefined): boolean {
+  return effectiveProjectStatus(p) === 'REJECTED'
 }
 
 function parseDateSafe(value?: string | null): Date | null {

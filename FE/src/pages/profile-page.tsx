@@ -65,10 +65,10 @@ export function ProfilePage() {
   }
 
   const logout = async () => {
-    const refresh = localStorage.getItem('refreshToken') ?? ''
+    const refresh = sessionStorage.getItem('refreshToken') ?? ''
     try { await authApi.logout({ refreshToken: refresh }) } catch { /* ignore */ }
-    localStorage.removeItem('accessToken')
-    localStorage.removeItem('refreshToken')
+    sessionStorage.removeItem('accessToken')
+    sessionStorage.removeItem('refreshToken')
     clearRole()
     updateProfile({ fullName: '', avatarUrl: null })
     navigate('login')
@@ -359,8 +359,8 @@ function DeleteAccountButton() {
         reason: reason.trim() || undefined,
       })
       // Xóa local storage và chuyển về trang login
-      localStorage.removeItem('accessToken')
-      localStorage.removeItem('refreshToken')
+      sessionStorage.removeItem('accessToken')
+      sessionStorage.removeItem('refreshToken')
       clearRole()
       navigate('login')
     } catch (err) {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, Heart, MapPin, Plus, Trash2, X } from 'lucide-react'
+import { CheckCircle2, Heart, MapPin, Plus, Trash2, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { housingProjectsApi, parseApartments } from '@/api/housing-projects'
 import { housingProjectStatusesApi, parseStatuses } from '@/api/housing-project-statuses'
 import { CreateProjectModal } from '@/components/developer/create-project-modal'
@@ -45,12 +45,17 @@ function getTotalCount(data: unknown): number {
   return 0
 }
 
-function getTotalPages(data: unknown): number {
+function getTotalPages(data: unknown, pageSize = 12): number {
   if (!data || typeof data !== 'object') return 1
   const o = data as Record<string, unknown>
-  if (typeof o.totalPages === 'number') return o.totalPages
+  if (typeof o.totalPages === 'number' && o.totalPages > 0) return o.totalPages
   const nested = (o.data ?? o.Data) as Record<string, unknown> | undefined
-  if (nested && typeof nested.totalPages === 'number') return nested.totalPages
+  if (nested && typeof nested.totalPages === 'number' && nested.totalPages > 0) return nested.totalPages
+  // Fallback: tính từ totalCount
+  const totalCount = (nested?.totalCount ?? o.totalCount) as number | undefined
+  if (typeof totalCount === 'number' && totalCount > 0) {
+    return Math.max(1, Math.ceil(totalCount / pageSize))
+  }
   return 1
 }
 
@@ -67,6 +72,7 @@ export function ProjectsPage() {
   const [totalPages, setTotalPages] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
   const isApplicant = getRole() === 'Applicant'
+  const isSxd = getRole() === 'Department Of Construction' || getRole() === 'SXD Staff'
   const PAGE_SIZE = 12
 
   const load = async (nextFilter: HousingSearchFilter, page = 1) => {
@@ -75,13 +81,15 @@ export function ProjectsPage() {
     try {
       const data = await housingProjectsApi.list({ ...toApiFilter(nextFilter), pageIndex: page, pageSize: PAGE_SIZE })
       const items = sortHousingProjects(
-        applyClientFilters(extractProjects(data), nextFilter),
+        applyClientFilters(extractProjects(data), nextFilter).filter(
+          (p) => (p.availableUnits ?? 0) > 0,
+        ),
         nextFilter.sort,
       )
       setAll(items)
       setPageIndex(page)
       setTotalCount(getTotalCount(data))
-      setTotalPages(getTotalPages(data))
+      setTotalPages(getTotalPages(data, PAGE_SIZE))
     } catch (err) {
       setError(formatError(err))
       setAll([])
@@ -208,9 +216,31 @@ export function ProjectsPage() {
         {!loading && cards.length > 0 && (
           <>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {cards.map((house) => (
-                <HouseCard key={house.id} house={house} />
-              ))}
+              {cards.map((house) => {
+                const project = all.find((p) => p.id === house.id)
+                const isPending = project?.status === 'Đang chờ' || project?.status === 'Pending' || project?.status === 'PENDING'
+                return (
+                  <HouseCard
+                    key={house.id}
+                    house={house}
+                    actionButton={
+                      isSxd && isPending ? (
+                        <Button
+                          size="sm"
+                          variant="accent"
+                          className="w-full"
+                          onClick={() => {
+                            sessionStorage.setItem('projectId', house.id)
+                            navigate('project-detail')
+                          }}
+                        >
+                          Duyệt dự án
+                        </Button>
+                      ) : undefined
+                    }
+                  />
+                )
+              })}
             </div>
             {totalPages > 1 && (
               <div className="mt-6 flex items-center justify-between">
@@ -639,10 +669,21 @@ export function ProjectDetailPage() {
                 <DeveloperDecisionPanel projectId={projectId} />
               </section>
             )}
-            {(role === 'Department Of Construction' || isAdmin) && (
-              <ProjectStatusSection projectId={projectId} />
-            )}
-            <details className="rounded-xl border border-slate-200 dark:border-slate-700">
+            {/* Với SXD/Admin: vẫn render view công khai để xem chi tiết + chèn panel duyệt/từ chối ở đầu */}
+            <ProjectDetailView
+              projectId={projectId}
+              headerSlot={(p) =>
+                role === 'Department Of Construction' ? (
+                  <section className="mb-6 rounded-xl border-2 border-indigo-200 bg-indigo-50/60 p-4 dark:border-indigo-800 dark:bg-indigo-950/30">
+                    <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-indigo-700 dark:text-indigo-300">
+                      Phê duyệt dự án (Sở Xây Dựng)
+                    </p>
+                    <ProjectStatusControl project={p} />
+                  </section>
+                ) : null
+              }
+            />
+            <details className="mt-6 rounded-xl border border-slate-200 dark:border-slate-700">
               <summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-slate-800 dark:text-slate-100">
                 Sửa thông tin dự án (tên, căn, tỉ lệ trả trước…)
               </summary>
@@ -668,6 +709,7 @@ function ProjectDetailView({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [project, setProject] = useState<HousingProjectDto | null>(null)
+  const [currentGalleryIdx, setCurrentGalleryIdx] = useState(0)
   const { isWishlisted, toggle } = useWishlist()
   const [wishlistBusy, setWishlistBusy] = useState(false)
   const logged = isLoggedIn()
@@ -681,6 +723,7 @@ function ProjectDetailView({
         if (cancelled) return
         const p = extractSingleProject(data)
         setProject(p)
+        setCurrentGalleryIdx(0)
       })
       .catch((err) => {
         if (cancelled) return
@@ -737,6 +780,24 @@ function ProjectDetailView({
     navigate('create-application')
   }
 
+  const scrollGallery = (idx: number) => {
+    if (!project?.images?.length) return
+    const len = project.images.length
+    setCurrentGalleryIdx(((idx % len) + len) % len)
+  }
+
+  const prevGallery = () => {
+    if (!project?.images?.length) return
+    const len = project.images.length
+    setCurrentGalleryIdx((currentGalleryIdx - 1 + len) % len)
+  }
+
+  const nextGallery = () => {
+    if (!project?.images?.length) return
+    const len = project.images.length
+    setCurrentGalleryIdx((currentGalleryIdx + 1) % len)
+  }
+
   const formatPrice = (v?: number) => {
     if (!v) return '—'
     if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(2)} tỷ`
@@ -751,202 +812,257 @@ function ProjectDetailView({
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       {project && headerSlot?.(project)}
-      {/* Layout 2 cột: Ảnh | Thông tin */}
-      <div className="grid gap-6 lg:grid-cols-5">
-        {/* Cột trái: Ảnh */}
-        <div className="lg:col-span-2 space-y-4">
-          {/* Ảnh chính */}
-          {project.thumbnailUrl && (
-            <div className="overflow-hidden rounded-2xl bg-slate-100 shadow-lg dark:bg-slate-800">
-              <div className="aspect-[4/3] w-full">
+
+      {/* Panel thống kê hồ sơ dự án — hiện cho SXD */}
+      <EvaluationPanel projectId={projectId} />
+
+      {/* ═══ Hero banner ══════════════════════════════════════════ */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-700 via-blue-600 to-indigo-700 p-8 shadow-2xl shadow-blue-900/30 lg:p-10">
+        {/* decorative blobs */}
+        <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
+        <div className="absolute -bottom-12 -left-12 h-48 w-48 rounded-full bg-indigo-400/20 blur-2xl" />
+
+        <div className="relative grid gap-6 lg:grid-cols-5">
+          {/* Ảnh */}
+          <div className="lg:col-span-2">
+            {project.thumbnailUrl ? (
+              <div className="overflow-hidden rounded-2xl shadow-xl">
                 <img
                   src={project.thumbnailUrl}
                   alt={project.projectName || project.name || 'Dự án'}
-                  className="h-full w-full object-cover"
+                  className="aspect-[4/3] w-full object-cover"
                 />
               </div>
-            </div>
-          )}
-
-          {/* Gallery ảnh */}
-          {project.images && project.images.length > 0 && (
-            <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                Hình ảnh ({project.images.length})
-              </p>
-              <div className="grid grid-cols-3 gap-2">
-                {project.images.slice(0, 6).map((img, idx) => (
-                  <div
-                    key={img.id}
-                    className="group relative aspect-square overflow-hidden rounded-lg bg-slate-100 shadow-sm dark:bg-slate-800"
-                  >
-                    <img
-                      src={img.imageUrl}
-                      alt={`Hình ảnh ${idx + 1}`}
-                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
-                      loading="lazy"
-                      decoding="async"
-                    />
-                  </div>
-                ))}
-                {project.images.length > 6 && (
-                  <div className="relative aspect-square overflow-hidden rounded-lg bg-slate-200 dark:bg-slate-700">
-                    <span className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-slate-500">
-                      +{project.images.length - 6}
-                    </span>
-                  </div>
-                )}
+            ) : (
+              <div className="flex aspect-[4/3] items-center justify-center rounded-2xl bg-white/10 text-6xl">
+                🏠
               </div>
-            </div>
-          )}
-        </div>
+            )}
+            {/* Gallery carousel */}
+            {project.images && project.images.length > 0 && (
+              <div className="mt-3 relative group/gallery">
+                <div className="overflow-hidden rounded-2xl">
+                  <div
+                    id="gallery-track"
+                    className="flex transition-transform duration-500 ease-in-out"
+                    style={{ transform: `translateX(-${currentGalleryIdx * 100}%)` }}
+                  >
+                    {project.images.map((img, idx) => (
+                      <div key={img.id} className="w-full flex-shrink-0">
+                        <img
+                          src={img.imageUrl}
+                          alt={`Ảnh ${idx + 1}`}
+                          className="aspect-[16/9] w-full object-cover"
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
 
-        {/* Cột phải: Thông tin */}
-        <div className="lg:col-span-3 space-y-5">
-          {/* Tiêu đề & nút */}
-          <div className="space-y-3">
-            <div className="flex items-start justify-between gap-3">
-              <h2 className="text-2xl font-bold leading-tight text-slate-900 dark:text-slate-100">
-                {project.projectName || project.name}
-              </h2>
+                {/* Nút mũi tên */}
+                {project.images.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={prevGallery}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white opacity-0 transition-all hover:bg-black/60 group-hover/gallery:opacity-100"
+                      aria-label="Ảnh trước"
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={nextGallery}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white opacity-0 transition-all hover:bg-black/60 group-hover/gallery:opacity-100"
+                      aria-label="Ảnh tiếp theo"
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+                  </>
+                )}
+
+                {/* Dots + đếm */}
+                <div className="mt-2 flex items-center justify-center gap-2">
+                  {project.images.length > 1 && project.images.map((_, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      className={`h-2 rounded-full transition-all ${
+                        idx === currentGalleryIdx ? 'w-5 bg-blue-500' : 'w-2 bg-slate-300 dark:bg-slate-600'
+                      }`}
+                      onClick={() => scrollGallery(idx)}
+                      aria-label={`Ảnh ${idx + 1}`}
+                    />
+                  ))}
+                  <span className="ml-1 text-xs text-slate-400">
+                    {currentGalleryIdx + 1}/{project.images.length}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Thông tin */}
+          <div className="lg:col-span-3 flex flex-col justify-between space-y-5">
+            {/* Tiêu đề + badge */}
+            <div className="space-y-3">
               {project.status && (
-                <span className="shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                <span className="inline-block rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm">
                   {project.status}
                 </span>
               )}
+              <h2 className="text-3xl font-black leading-tight text-white lg:text-4xl">
+                {project.projectName || project.name}
+              </h2>
+              {(project.address || project.district || project.province) && (
+                <div className="flex items-center gap-2 text-blue-100">
+                  <MapPin className="h-4 w-4 shrink-0 text-blue-200" />
+                  <span className="text-sm">
+                    {[project.address, project.district, project.province].filter(Boolean).join(', ')}
+                  </span>
+                </div>
+              )}
             </div>
-
-            {(project.address || project.district || project.province) && (
-              <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                <MapPin className="h-4 w-4 shrink-0 text-blue-400" />
-                <span>
-                  {[project.address, project.district, project.province].filter(Boolean).join(', ')}
-                </span>
-              </div>
-            )}
 
             {/* Giá nổi bật */}
-            <div className="rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 p-5 text-white shadow-lg shadow-blue-500/20">
-              <p className="text-xs font-medium uppercase tracking-wide text-blue-100">Giá từ</p>
-              <div className="mt-1 flex items-baseline gap-2">
-                <span className="text-3xl font-bold">{formatPrice(project.minPrice)}</span>
+            <div className="rounded-2xl border border-white/20 bg-white/10 p-5 backdrop-blur-sm">
+              <p className="text-xs font-medium uppercase tracking-widest text-blue-200">Giá khởi điểm</p>
+              <div className="mt-1 flex items-baseline gap-3">
+                <span className="text-4xl font-black text-white">{formatPrice(project.minPrice)}</span>
                 {project.maxPrice && project.maxPrice !== project.minPrice && (
-                  <>
-                    <span className="text-blue-200">—</span>
-                    <span className="text-xl font-semibold">{formatPrice(project.maxPrice)}</span>
-                  </>
+                  <span className="text-xl font-semibold text-blue-200">— {formatPrice(project.maxPrice)}</span>
                 )}
               </div>
-              <p className="mt-1 text-sm text-blue-100">
-                {project.availableUnits ?? 0} căn hộ còn trống
-              </p>
+              <div className="mt-3 flex flex-wrap gap-4 text-sm text-blue-100">
+                {(project.availableUnits ?? 0) > 0 && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 text-xs font-bold">🏠</span>
+                    <span>{project.availableUnits} căn còn</span>
+                  </div>
+                )}
+                {project.totalUnits != null && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 text-xs font-bold">📋</span>
+                    <span>Tổng {project.totalUnits} căn</span>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
 
-          {/* Thông tin chi tiết */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-              Thông tin dự án
-            </h3>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <InfoItem label="Mở thu nhận hồ sơ" value={formatWhen(openDate)} />
-              <InfoItem label="Kết thúc thu nhận" value={formatWhen(closeDate)} />
-              <InfoItem
-                label="Trả trước (Đợt 1)"
-                value={
-                  project.phase1Percentage != null && project.phase1Percentage > 0
-                    ? `${project.phase1Percentage}% giá căn`
-                    : 'Chưa cấu hình'
-                }
-              />
-              <InfoItem
-                label="Đợt 2"
-                value={
-                  project.phase1Percentage != null && project.phase1Percentage > 0
-                    ? `Phần còn lại (${100 - project.phase1Percentage}%)`
-                    : '—'
-                }
-              />
+            {/* Quick info grid */}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[
+                { label: 'Mở nhận hồ sơ', value: formatWhen(openDate), icon: '📅' },
+                { label: 'Đóng nhận hồ sơ', value: formatWhen(closeDate), icon: '⏰' },
+                {
+                  label: 'Đợt 1 (trả trước)',
+                  value: project.phase1Percentage != null ? `${project.phase1Percentage}%` : '—',
+                  icon: '💰',
+                },
+                { label: 'Diện tích', value: project.minArea ? `${project.minArea} m²` : '—', icon: '📐' },
+              ]
+                .filter(i => i.value !== '—')
+                .map((item, idx) => (
+                  <div key={idx} className="rounded-xl border border-white/15 bg-white/10 p-3 text-center backdrop-blur-sm">
+                    <p className="text-lg">{item.icon}</p>
+                    <p className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-200">{item.label}</p>
+                    <p className="mt-0.5 text-sm font-bold text-white">{item.value}</p>
+                  </div>
+                ))}
             </div>
-          </div>
 
-          {/* Mô tả */}
-          {project.description && (
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                Mô tả dự án
-              </h3>
-              <div
-                className="prose prose-slate max-w-none rounded-xl bg-slate-50 p-4 text-sm leading-relaxed dark:prose-invert dark:bg-slate-800/50"
-                dangerouslySetInnerHTML={{ __html: project.description }}
-              />
-            </div>
-          )}
-
-          {/* Nút hành động */}
-          <div className="flex flex-wrap gap-3 pt-2">
-            {logged && isApplicant && (
-              <Button
-                variant="outline"
-                disabled={wishlistBusy}
-                onClick={handleWishlist}
-                className="gap-2"
+            {/* Nút hành động */}
+            <div className="flex flex-wrap gap-3">
+              {logged && isApplicant && (
+                <button
+                  disabled={wishlistBusy}
+                  onClick={handleWishlist}
+                  className="flex items-center gap-2 rounded-2xl border border-white/30 bg-white/10 px-5 py-3 text-sm font-semibold text-white backdrop-blur-sm transition-all hover:bg-white/20 active:scale-[0.98] disabled:opacity-50"
+                >
+                  <Heart className={`h-5 w-5 ${wishlisted ? 'fill-rose-400 text-rose-400' : ''}`} />
+                  {wishlisted ? 'Đã quan tâm' : 'Quan tâm'}
+                </button>
+              )}
+              <button
+                disabled={!canApply && logged && isApplicant}
+                onClick={() => void handleApply()}
+                className="flex-1 rounded-2xl bg-white py-3 text-center text-sm font-bold text-blue-700 shadow-xl transition-all hover:bg-blue-50 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none sm:px-8"
               >
-                <Heart className={`h-4 w-4 ${wishlisted ? 'fill-current text-rose-500' : ''}`} />
-                {wishlisted ? 'Đã quan tâm' : 'Quan tâm'}
-              </Button>
-            )}
-            <Button
-              variant="accent"
-              className="flex-1 sm:flex-none"
-              disabled={!canApply && logged && isApplicant}
-              onClick={() => void handleApply()}
-            >
-              {!logged ? 'Đăng nhập để nộp hồ sơ' : 'Nộp hồ sơ ngay'}
-            </Button>
+                {!logged ? 'Đăng nhập để nộp hồ sơ' : '📝 Nộp hồ sơ ngay'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Danh sách căn hộ */}
-      {(project.apartments?.length ?? 0) > 0 && (
-        <div>
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            Danh sách căn hộ ({project.apartments!.length})
+      {/* ═══ Mô tả ════════════════════════════════════════════════ */}
+      {project.description && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-900/50">
+          <h3 className="mb-4 flex items-center gap-2 text-base font-bold text-slate-800 dark:text-slate-100">
+            <span className="text-lg">📋</span> Giới thiệu dự án
           </h3>
-          <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
-                <tr>
-                  <th className="px-4 py-3 font-semibold">Tên căn</th>
-                  <th className="px-4 py-3 font-semibold">Diện tích</th>
-                  <th className="px-4 py-3 font-semibold">Giá</th>
-                  <th className="px-4 py-3 font-semibold">Trạng thái</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {project.apartments!.map((apt) => (
-                  <tr key={apt.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                    <td className="px-4 py-3 font-medium">{apt.unitName}</td>
-                    <td className="px-4 py-3">{apt.area} m²</td>
-                    <td className="px-4 py-3 font-semibold text-blue-600 dark:text-blue-400">
-                      {Number(apt.price).toLocaleString('vi-VN')} VNĐ
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                        String(apt.status).toUpperCase() === 'ASSIGNED'
-                          ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-                          : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-                      }`}>
-                        {String(apt.status).toUpperCase() === 'ASSIGNED' ? 'Đã bàn giao' : 'Còn trống'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div
+            className="prose prose-slate max-w-none text-sm leading-relaxed text-slate-600 dark:text-slate-300 dark:prose-invert"
+            dangerouslySetInnerHTML={{ __html: project.description }}
+          />
+        </div>
+      )}
+
+      {/* ═══ Danh sách căn hộ ══════════════════════════════════════ */}
+      {(project.apartments && project.apartments.length > 0 && (project.availableUnits ?? 0) > 0) && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="flex items-center gap-2 text-base font-bold text-slate-800 dark:text-slate-100">
+              <span>🏠</span> Danh sách căn hộ
+              <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                {project.apartments.length}
+              </span>
+            </h3>
+            <div className="flex items-center gap-3 text-xs text-slate-500">
+              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-400" /> Còn trống</span>
+              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-slate-300" /> Đã bàn giao</span>
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {project.apartments.map((apt) => {
+              const isAssigned = String(apt.status).toUpperCase() === 'ASSIGNED'
+              return (
+                <div
+                  key={apt.id}
+                  className={`group rounded-2xl border p-4 transition-all hover:-translate-y-0.5 hover:shadow-lg ${
+                    isAssigned
+                      ? 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/30'
+                      : 'border-emerald-200 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/20 hover:border-emerald-300'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-base font-black text-slate-900 dark:text-slate-100">{apt.unitName}</p>
+                      <p className="mt-0.5 text-xs text-slate-500">{apt.area} m²</p>
+                    </div>
+                    <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${
+                      isAssigned
+                        ? 'bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400'
+                        : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                    }`}>
+                      {isAssigned ? 'Đã giao' : 'Còn trống'}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-lg font-black text-blue-600 dark:text-blue-400">
+                    {Number(apt.price).toLocaleString('vi-VN')} VNĐ
+                  </p>
+                  {!isAssigned && (
+                    <p className="mt-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                      ✨ Còn nhận hồ sơ
+                    </p>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
@@ -954,42 +1070,83 @@ function ProjectDetailView({
   )
 }
 
-// Wrapper SXD: load project rồi render ProjectStatusControl.
-function ProjectStatusSection({ projectId }: { projectId: string }) {
-  const [project, setProject] = useState<HousingProjectDto | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+// Panel thống kê hồ sơ dự án (chỉ SXD thấy)
+function EvaluationPanel({ projectId }: { projectId: string }) {
+  const role = getRole()
+  const isSxd = role === 'Department Of Construction' || role === 'SXD Staff' || role === 'System Administrator'
+  const [data, setData] = useState<{
+    availableUnits?: number
+    approvedApplications?: number
+    eligibleApplications?: number
+    pendingSxdReview?: number
+    ineligible?: number
+    status?: string
+  } | null>(null)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
+    if (!isSxd) return
     let cancelled = false
-    void housingProjectsApi
-      .getById(projectId)
-      .then((data) => {
+    setLoading(true)
+    housingProjectsApi
+      .getEvaluation(projectId)
+      .then((raw: unknown) => {
         if (cancelled) return
-        setProject(extractSingleProject(data))
+        const root = raw as Record<string, unknown>
+        const nested = (root.data ?? root.Data) as Record<string, unknown> | undefined
+        const o = (nested && typeof nested === 'object' ? nested : root) as Record<string, unknown>
+        setData({
+          availableUnits: o.availableUnits != null ? Number(o.availableUnits) : undefined,
+          approvedApplications: o.approvedApplications != null ? Number(o.approvedApplications) : undefined,
+          eligibleApplications: o.eligibleApplications != null ? Number(o.eligibleApplications) : undefined,
+          pendingSxdReview: o.pendingSxdReview != null ? Number(o.pendingSxdReview) : undefined,
+          ineligible: o.ineligible != null ? Number(o.ineligible) : undefined,
+          status: o.status != null ? String(o.status) : undefined,
+        })
       })
-      .catch((err) => {
-        if (cancelled) return
-        setError(formatError(err))
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
+      .catch(() => { /* im lặng nếu API lỗi */ })
+      .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [projectId])
+  }, [projectId, isSxd])
 
-  if (loading) return <p className="text-sm text-slate-500">Đang tải...</p>
-  if (error) return <Alert variant="error">{error}</Alert>
-  if (!project) return null
+  if (!isSxd) return null
+  if (loading && !data) return null
+  if (!data) return null
 
-  return <ProjectStatusControl project={project} />
-}
+  const cards: { label: string; value: number | undefined; color: string }[] = [
+    { label: 'Căn khả dụng', value: data.availableUnits, color: 'text-blue-600' },
+    { label: 'Hồ sơ đủ ĐK', value: data.eligibleApplications, color: 'text-emerald-600' },
+    { label: 'Chờ SXD duyệt', value: data.pendingSxdReview, color: 'text-amber-600' },
+    { label: 'Đã phê duyệt', value: data.approvedApplications, color: 'text-indigo-600' },
+    { label: 'Không đủ ĐK', value: data.ineligible, color: 'text-rose-600' },
+  ]
 
-function InfoItem({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800/50">
-      <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">{label}</p>
-      <p className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-slate-100">{value}</p>
-    </div>
+    <section className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="font-semibold text-slate-800 dark:text-slate-100">Thống kê hồ sơ dự án</h3>
+        {data.status && (
+          <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${
+            data.status === 'OVERSUBSCRIBED'
+              ? 'bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-950/50 dark:text-rose-300 dark:ring-rose-800'
+              : data.status === 'SUBSCRIBED'
+                ? 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:ring-emerald-800'
+                : 'bg-slate-50 text-slate-700 ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700'
+          }`}>
+            {data.status === 'OVERSUBSCRIBED' ? 'Vượt suất' : data.status === 'SUBSCRIBED' ? 'Đạt suất' : 'Còn suất'}
+          </span>
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        {cards.map((c) => (
+          <div key={c.label} className="rounded-lg border border-slate-100 bg-slate-50/50 p-3 text-center dark:border-slate-700 dark:bg-slate-800/50">
+            <p className="text-xs text-slate-500 dark:text-slate-400">{c.label}</p>
+            <p className={`mt-1 text-2xl font-bold ${c.color}`}>{c.value ?? '—'}</p>
+          </div>
+        ))}
+      </div>
+    </section>
   )
 }
+
+// Wrapper SXD: load project rồi render ProjectStatusControl — không còn dùng (SXD xem qua ProjectDetailView với headerSlot).

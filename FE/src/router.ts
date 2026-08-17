@@ -22,7 +22,6 @@ export type RouteId =
   | 'project-detail'
   | 'create-project'
   | 'payments'
-  | 'create-payment'
   | 'admin-staff'
   | 'create-staff'
   | 'staff-detail'
@@ -30,7 +29,10 @@ export type RouteId =
   | 'create-application'
   | 'application-detail'
   | 'notifications'
-  | 'report-issue'
+  | 'sxd-projects'
+  | 'sxd-project-detail'
+  | 'sxd-announcements'
+  | 'sxd-payments'
   // Lottery (mock)
   | 'lottery-sessions'
   | 'lottery-create'
@@ -42,6 +44,8 @@ export type RouteId =
   | 'contracts'
   | 'contract-create'
   | 'contract-detail'
+  // My apartment (Applicant: deposit → sign → pay)
+  | 'my-apartment'
   // Audit (mock)
   | 'audit-list'
   | 'audit-detail'
@@ -270,16 +274,7 @@ export const routes: RouteConfig[] = [
     auth: true,
     title: 'Lịch sử thanh toán',
     subtitle: 'Xem lịch sử các giao dịch thanh toán của bạn.',
-    cta: 'Tạo thanh toán mới',
-  },
-  {
-    id: 'create-payment',
-    label: 'Tạo thanh toán',
-    group: 'workspace',
-    auth: true,
-    title: 'Tạo giao dịch thanh toán',
-    subtitle: 'Tạo một giao dịch thanh toán mới cho dự án.',
-    cta: 'Tạo thanh toán',
+    cta: '',
   },
   {
     id: 'admin-staff',
@@ -355,6 +350,47 @@ export const routes: RouteConfig[] = [
     subtitle: 'Gửi phản ánh về lỗi kỹ thuật, dữ liệu hoặc tài khoản tới quản trị viên.',
     cta: 'Gửi báo cáo',
   },
+  // ====== SXD Duyệt dự án ======
+  {
+    id: 'sxd-projects',
+    label: 'Duyệt dự án',
+    group: 'workspace',
+    auth: true,
+    roles: ['Department Of Construction'],
+    title: 'Phê duyệt dự án',
+    subtitle: 'Xem xét và phê duyệt các dự án nhà ở xã hội mới.',
+    cta: '',
+  },
+  {
+    id: 'sxd-project-detail',
+    label: 'Chi tiết dự án',
+    group: 'workspace',
+    auth: true,
+    roles: ['Department Of Construction'],
+    title: 'Chi tiết dự án',
+    subtitle: 'Xem thông tin chi tiết và thao tác phê duyệt dự án.',
+    cta: '',
+  },
+  {
+    id: 'sxd-announcements',
+    label: 'Quản lý thông báo',
+    group: 'workspace',
+    auth: true,
+    roles: ['Department Of Construction'],
+    title: 'Quản lý thông báo',
+    subtitle: 'Tạo, sửa, xóa và xuất báo cáo thông báo từ Sở Xây dựng.',
+    cta: '',
+  },
+  {
+    id: 'sxd-payments',
+    label: 'Thanh toán',
+    group: 'workspace',
+    auth: true,
+    roles: ['Department Of Construction'],
+    title: 'Xác nhận thanh toán',
+    subtitle: 'Xác nhận các đợt thanh toán cuối cùng và cấp sổ đỏ.',
+    cta: '',
+  },
   // ====== Lottery (mock cho BE chưa có) ======
   {
     id: 'lottery-sessions',
@@ -388,22 +424,22 @@ export const routes: RouteConfig[] = [
   },
   {
     id: 'lottery-lobby',
-    label: 'Sảnh chờ',
+    label: 'Vào sảnh',
     group: 'workspace',
     auth: true,
     roles: ['Applicant'],
-    title: 'Sảnh chờ bốc thăm',
-    subtitle: 'Bạn đang ở trong sảnh chờ bốc thăm trực tiếp. Vui lòng không rời trang.',
+    title: 'Vào sảnh bốc thăm',
+    subtitle: 'Nhập OTP từ thông báo để vào sảnh theo dõi. Bạn chỉ theo dõi, không tự bốc.',
     cta: '',
   },
   {
     id: 'lottery-live',
-    label: 'Bốc thăm trực tiếp',
+    label: 'Sảnh Live',
     group: 'workspace',
     auth: true,
     roles: ['Applicant', 'Housing Developer', 'Department Of Construction'],
-    title: 'Giám sát bốc thăm trực tiếp',
-    subtitle: 'Theo dõi tiến độ realtime: biểu đồ căn đã bốc và live log người trúng.',
+    title: 'Sảnh quay số trực tiếp',
+    subtitle: 'Theo dõi tiến độ bốc hồ sơ trúng, danh sách và quỹ căn. CĐT bốc tiếp; dân chỉ xem.',
     cta: '',
   },
   {
@@ -413,7 +449,7 @@ export const routes: RouteConfig[] = [
     auth: true,
     roles: ['Applicant'],
     title: 'Bốc thăm của tôi',
-    subtitle: 'Các dự án có hồ sơ được duyệt — vào sảnh chờ, bốc căn và xem kết quả trực tiếp.',
+    subtitle: 'Xem OTP vào sảnh, kết quả trúng chưa trúng, trạng thái CĐT gán căn.',
     cta: '',
   },
   // ====== Contracts (mock cho BE chưa có) ======
@@ -443,6 +479,16 @@ export const routes: RouteConfig[] = [
     auth: true,
     title: 'Chi tiết hợp đồng',
     subtitle: 'Xem thông tin, ký hợp đồng và theo dõi lịch thanh toán.',
+    cta: '',
+  },
+  {
+    id: 'my-apartment',
+    label: 'Căn của tôi',
+    group: 'workspace',
+    auth: true,
+    roles: ['Applicant'],
+    title: 'Căn của tôi',
+    subtitle: 'Xem căn, đặt cọc, ký hợp đồng và thanh toán các đợt.',
     cta: '',
   },
   // ====== Audit / Hậu kiểm (mock cho BE chưa có) ======
@@ -568,20 +614,50 @@ export function onRouteChange(cb: (id: RouteId) => void): void {
   run()
 }
 
+/**
+ * Đọc query string từ hash (vd `#/sxd-project-detail?id=abc` -> `{ id: 'abc' }`).
+ * Trả về `{}` nếu không có query.
+ */
+export function getHashQuery(): Record<string, string> {
+  const hash = location.hash.replace(/^#\/?/, '')
+  const qIdx = hash.indexOf('?')
+  if (qIdx < 0) return {}
+  const query = hash.slice(qIdx + 1)
+  const out: Record<string, string> = {}
+  for (const part of query.split('&')) {
+    const [k, v] = part.split('=')
+    if (k) out[decodeURIComponent(k)] = v ? decodeURIComponent(v) : ''
+  }
+  return out
+}
+
+/** Navigate tới route kèm query string (vd `navigateWithQuery('sxd-project-detail', { id })`). */
+export function navigateWithQuery(route: RouteId | string, query: Record<string, string | number | undefined>): void {
+  const qs = new URLSearchParams()
+  for (const [k, v] of Object.entries(query)) {
+    if (v == null) continue
+    qs.set(k, String(v))
+  }
+  const id = String(route)
+  const base = id.startsWith('#') ? id : `#/${id}`
+  const q = qs.toString()
+  location.hash = q ? `${base}?${q}` : base
+}
+
 export function isLoggedIn(): boolean {
-  return !!localStorage.getItem('accessToken')
+  return !!sessionStorage.getItem('accessToken')
 }
 
 export function getRole(): string {
-  return localStorage.getItem('userRole') ?? ''
+  return sessionStorage.getItem('userRole') ?? ''
 }
 
 export function setRole(role: string): void {
-  if (role) localStorage.setItem('userRole', role)
+  if (role) sessionStorage.setItem('userRole', role)
 }
 
 export function clearRole(): void {
-  localStorage.removeItem('userRole')
+  sessionStorage.removeItem('userRole')
 }
 
 export const ADMIN_ROLE = 'System Administrator'
@@ -649,6 +725,9 @@ const ROLE_ACCESS: Record<string, RouteId[]> = {
     'contract-detail',
     'audit-list',
     'audit-detail',
+    'sxd-projects',
+    'sxd-project-detail',
+    'sxd-payments',
   ],
   Applicant: [
     'home-user',
@@ -668,7 +747,6 @@ const ROLE_ACCESS: Record<string, RouteId[]> = {
     'contracts',
     'contract-detail',
     'payments',
-    'create-payment',
     'report-issue',
   ],
 }
@@ -700,8 +778,8 @@ export function publicNavRoutes(): RouteId[] {
 const NAV_BY_ROLE: Record<string, RouteId[]> = {
   'System Administrator': ['admin-staff', 'admin-logs', 'admin-categories', 'notifications', 'profile'],
   'Housing Developer': ['home-developer', 'applications', 'projects', 'lottery-sessions', 'lottery-live', 'contracts', 'notifications', 'profile'],
-  'Department Of Construction': ['home-sxd', 'applications', 'projects', 'lottery-sessions', 'lottery-live', 'contracts', 'audit-list', 'notifications', 'profile'],
-  Applicant: ['home-user', 'quan-tam', 'applications', 'projects', 'my-lottery', 'contracts', 'payments', 'notifications', 'profile'],
+  'Department Of Construction': ['home-sxd', 'applications', 'sxd-projects', 'sxd-announcements', 'lottery-sessions', 'lottery-live', 'sxd-payments', 'audit-list', 'contracts', 'notifications', 'profile'],
+  Applicant: ['home-user', 'quan-tam', 'applications', 'projects', 'my-lottery', 'my-apartment', 'notifications', 'profile'],
 }
 
 export function navRoutes(role: string): RouteId[] {

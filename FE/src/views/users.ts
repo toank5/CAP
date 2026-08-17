@@ -300,14 +300,14 @@ export function profileView(): HTMLElement {
   const logoutBtn = el('button', { type: 'button', class: 'btn-ghost profile-logout-btn' }, 'Đăng xuất')
   logoutBtn.addEventListener('click', async () => {
     logoutBtn.setAttribute('disabled', 'true')
-    const refresh = localStorage.getItem('refreshToken') ?? ''
+    const refresh = sessionStorage.getItem('refreshToken') ?? ''
     try {
       await authApi.logout({ refreshToken: refresh })
     } catch {
       /* bỏ qua lỗi gọi logout, vẫn xóa phiên cục bộ */
     }
-    localStorage.removeItem('accessToken')
-    localStorage.removeItem('refreshToken')
+    sessionStorage.removeItem('accessToken')
+    sessionStorage.removeItem('refreshToken')
     clearRole()
     navigate('login')
   })
@@ -388,7 +388,7 @@ export function dashboardView(): HTMLElement {
     return card
   }
 
-  const refresh = localStorage.getItem('refreshToken') ?? ''
+  const refresh = sessionStorage.getItem('refreshToken') ?? ''
 
   const grid = el(
     'div',

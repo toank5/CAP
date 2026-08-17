@@ -11,7 +11,7 @@ import { formatError, formatSuccess } from '@/lib/format-error'
 export function SessionDashboardPage() {
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [loading, setLoading] = useState<string | null>(null)
-  const refresh = localStorage.getItem('refreshToken') ?? ''
+  const refresh = sessionStorage.getItem('refreshToken') ?? ''
 
   const run = async (key: string, fn: () => Promise<unknown>, saveToken = false) => {
     setLoading(key)
@@ -60,8 +60,8 @@ export function SessionDashboardPage() {
                   onClick={async () => {
                     await run(c.key, c.fn, c.save)
                     if (c.key === 'logout') {
-                      localStorage.removeItem('accessToken')
-                      localStorage.removeItem('refreshToken')
+                      sessionStorage.removeItem('accessToken')
+                      sessionStorage.removeItem('refreshToken')
                       clearRole()
                       navigate('login')
                     }

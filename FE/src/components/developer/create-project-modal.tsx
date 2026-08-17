@@ -3,14 +3,12 @@ import {
   Loader2,
   Sparkles,
   Home,
-  CalendarDays,
   Image as ImageIcon,
   Plus,
   Trash2,
   Upload,
   X,
   Building2,
-  Wallet,
   ArrowRight,
   ArrowLeft,
   Check,
@@ -57,17 +55,11 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
   // approvalDate & isConfirmed: BỎ — CĐT không được tự nhập "ngày SXD duyệt" /
   // tự tick "đã được SXD phê duyệt". BE sẽ tự set `publicAnnounceAt` khi SXD
   // gọi PATCH status?action=approve (xem ProjectStatusControl).
-  const [phase1Percentage, setPhase1Percentage] = useState('20')
-  const [lotteryDate, setLotteryDate] = useState('')
-  const [lotteryLocation, setLotteryLocation] = useState('')
-  const [applicationOpenDate, setApplicationOpenDate] = useState('')
-  const [applicationCloseDate, setApplicationCloseDate] = useState('')
-  // Trạng thái dự án: KHÔNG cho CĐT chọn — BE mặc định = PENDING.
-  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null)
-  const [imagesFiles, setImagesFiles] = useState<File[]>([])
   const [apartments, setApartments] = useState<
     { unitName: string; area: string; price: string }[]
   >([{ unitName: '', area: '', price: '' }])
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null)
+  const [imagesFiles, setImagesFiles] = useState<File[]>([])
 
   useEffect(() => {
     if (!open) {
@@ -76,11 +68,6 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
       setWard('')
       setStreet('')
       setDecisionNumber('')
-      setPhase1Percentage('')
-      setLotteryDate('')
-      setLotteryLocation('')
-      setApplicationOpenDate('')
-      setApplicationCloseDate('')
       setThumbnailFile(null)
       setImagesFiles([])
       setApartments([{ unitName: '', area: '', price: '' }])
@@ -111,10 +98,6 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
   }
 
   const validateStep2 = (): string | null => {
-    const p1 = parseFloat(phase1Percentage)
-    if (!Number.isFinite(p1) || p1 <= 0) return 'Vui lòng nhập tỉ lệ trả trước Đợt 1 (% giá căn).'
-    if (p1 > 30) return 'Tỉ lệ trả trước Đợt 1 không được vượt 30%.'
-
     const filled = apartments.filter(
       (r) => r.unitName.trim() || r.area.trim() || r.price.trim(),
     )
@@ -156,14 +139,12 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
     projectName,
     ward,
     decisionNumber,
-    phase1Percentage,
     apartments,
   ])
 
   // Realtime validity cho step 2 — dùng để disable nút submit khi form invalid.
   // Trùng logic với validateStep2() nhưng trả boolean để dùng trong JSX.
   const isStep2Valid = useMemo(() => validateStep2() === null, [
-    phase1Percentage,
     apartments,
   ])
 
@@ -222,12 +203,6 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
         maxArea: areas.length ? Math.max(...areas) : 0,
         availableUnits: aptPayload.length,
         decisionNumber: decisionNumber.trim() || undefined,
-        // approvalDate: BỎ — BE set `publicAnnounceAt` khi SXD duyệt.
-        phase1Percentage: parseFloat(phase1Percentage),
-        lotteryDate: lotteryDate || undefined,
-        lotteryLocation: lotteryLocation.trim() || undefined,
-        applicationOpenDate: applicationOpenDate || undefined,
-        applicationCloseDate: applicationCloseDate || undefined,
         isConfirmed: true,
         housingProjectStatusId: 'f4f45259-46f8-4061-9916-7ede2422c159',
         thumbnailFile: thumbnailFile ?? undefined,
@@ -276,12 +251,6 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
       avgPrice: prices.reduce((a, b) => a + b, 0) / filled.length,
     }
   }, [apartments])
-
-const p1Num = parseFloat(phase1Percentage)
-const p1Valid = Number.isFinite(p1Num) && p1Num > 0 && p1Num <= 30
-const p1 = p1Valid ? Math.min(p1Num, 30) : 0
-const p2 = (100 - p1).toFixed(2).replace(/\.00$/, '')
-
 // Auto-clear error khi user sửa bất kỳ field nào (UX mượt hơn, đỡ bị dính alert cũ)
 useEffect(() => {
   if (!error) return
@@ -289,16 +258,11 @@ useEffect(() => {
   return () => clearTimeout(t)
   // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [
-projectName,
-    description,
-    ward,
-    street,
-    decisionNumber,
-    phase1Percentage,
-  lotteryDate,
-  lotteryLocation,
-  applicationOpenDate,
-  applicationCloseDate,
+  projectName,
+  description,
+  ward,
+  street,
+  decisionNumber,
   apartments,
 ])
 
@@ -460,246 +424,86 @@ projectName,
             </div>
           )}
 
-          {/* === Step 2 — Chi tiết & lịch trình (2 cột compact, không cần cuộn trang) === */}
+          {/* === Step 2 — Chi tiết dự án (1 cột: tóm tắt + danh sách căn) === */}
           {step === 2 && (
-            <div className="grid items-start gap-2 md:grid-cols-2">
-              {/* === Cột trái: Thanh toán + Lịch đăng ký / bốc thăm === */}
-              <div className="flex flex-col gap-2">
-                {/* Phân bổ thanh toán */}
-                <SectionCard
-                  icon={Wallet}
-                  title="Phân bổ thanh toán"
-                  subtitle="Trả trước đợt đầu tối đa 30% giá căn"
-                  compact
-                >
-                  <Field label="Tỉ lệ trả trước đợt đầu" required suffix="%">
-                    <input
-                      className={`${inputClass} pr-10`}
-                      type="number"
-                      min={0.01}
-                      max={30}
-                      step={0.01}
-                      value={phase1Percentage}
-                      onChange={(e) => setPhase1Percentage(e.target.value)}
-                      placeholder="VD: 20"
-                      disabled={submitting}
-                    />
-                  </Field>
-                  <div className="space-y-1">
-                    <div className="flex h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-                      {p1Valid ? (
-                        <>
-                          <div
-                            className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all"
-                            style={{ width: `${p1}%` }}
-                          />
-                          <div
-                            className="h-full bg-gradient-to-r from-slate-300 to-slate-400 dark:from-slate-600 dark:to-slate-500"
-                            style={{ width: `${100 - p1}%` }}
-                          />
-                        </>
-                      ) : (
-                        <div className="h-full w-full bg-slate-200 dark:bg-slate-700" />
-                      )}
-                    </div>
-                    <div className="flex justify-between text-[10px] font-semibold">
-                      <span className="text-indigo-600 dark:text-indigo-300">
-                        Đợt đầu: {p1Valid ? `${p1}%` : '—'}
-                      </span>
-                      <span className="text-slate-500 dark:text-slate-400">
-                        Đợt sau: {p1Valid ? `${p2}%` : '—'}
-                      </span>
-                    </div>
+            <div className="flex flex-col gap-2">
+              {/* Tóm tắt nhanh */}
+              {aptSummary ? (
+                <div className="grid grid-cols-4 gap-2 rounded-xl border border-slate-200/80 bg-white p-2.5 shadow-sm dark:border-slate-700/60 dark:bg-slate-900/40">
+                  <div className="rounded-lg border border-emerald-200/60 bg-emerald-50/60 p-2 text-center dark:border-emerald-500/30 dark:bg-emerald-950/20">
+                    <p className="text-[9px] uppercase tracking-wide text-emerald-600/70 dark:text-emerald-300/70">Số căn</p>
+                    <p className="mt-0.5 text-lg font-bold text-emerald-700 dark:text-emerald-200">{aptSummary.count}</p>
                   </div>
-                </SectionCard>
-
-                {/* Lịch đăng ký & bốc thăm */}
-                <SectionCard
-                  icon={CalendarDays}
-                  title="Lịch đăng ký & bốc thăm"
-                  subtitle="Thời gian mở đăng ký, bốc thăm và địa điểm"
-                  compact
-                >
-                  <div className="grid grid-cols-2 gap-2">
-                    <Field label="Mở đăng ký">
-                      <input
-                        className={inputClass}
-                        type="datetime-local"
-                        value={applicationOpenDate}
-                        onChange={(e) => setApplicationOpenDate(e.target.value)}
-                        disabled={submitting}
-                      />
-                    </Field>
-                    <Field label="Đóng đăng ký">
-                      <input
-                        className={inputClass}
-                        type="datetime-local"
-                        value={applicationCloseDate}
-                        onChange={(e) => setApplicationCloseDate(e.target.value)}
-                        disabled={submitting}
-                      />
-                    </Field>
-                    <Field label="Ngày bốc thăm" className="col-span-2">
-                      <input
-                        className={inputClass}
-                        type="datetime-local"
-                        value={lotteryDate}
-                        onChange={(e) => setLotteryDate(e.target.value)}
-                        disabled={submitting}
-                      />
-                    </Field>
-                    <Field label="Địa điểm bốc thăm" className="col-span-2">
-                      <input
-                        className={inputClass}
-                        value={lotteryLocation}
-                        onChange={(e) => setLotteryLocation(e.target.value)}
-                        placeholder="VD: Hội trường Trung tâm hành chính thành phố"
-                        disabled={submitting}
-                      />
-                    </Field>
+                  <div className="rounded-lg border border-sky-200/60 bg-sky-50/60 p-2 text-center dark:border-sky-500/30 dark:bg-sky-950/20">
+                    <p className="text-[9px] uppercase tracking-wide text-sky-600/70 dark:text-sky-300/70">Diện tích (m²)</p>
+                    <p className="mt-0.5 text-sm font-bold text-sky-700 dark:text-sky-200">{aptSummary.minArea}–{aptSummary.maxArea}</p>
                   </div>
-                </SectionCard>
-              </div>
-
-              {/* === Cột phải: Tóm tắt nhanh + Danh sách căn hộ === */}
-              <div className="flex flex-col gap-2">
-                {/* Tóm tắt nhanh */}
-                {aptSummary ? (
-                  <div className="grid grid-cols-4 gap-2 rounded-xl border border-slate-200/80 bg-white p-2.5 shadow-sm dark:border-slate-700/60 dark:bg-slate-900/40">
-                    <div className="rounded-lg border border-emerald-200/60 bg-emerald-50/60 p-2 text-center dark:border-emerald-500/30 dark:bg-emerald-950/20">
-                      <p className="text-[9px] uppercase tracking-wide text-emerald-600/70 dark:text-emerald-300/70">
-                        Số căn
-                      </p>
-                      <p className="mt-0.5 text-lg font-bold text-emerald-700 dark:text-emerald-200">
-                        {aptSummary.count}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-sky-200/60 bg-sky-50/60 p-2 text-center dark:border-sky-500/30 dark:bg-sky-950/20">
-                      <p className="text-[9px] uppercase tracking-wide text-sky-600/70 dark:text-sky-300/70">
-                        Diện tích (m²)
-                      </p>
-                      <p className="mt-0.5 text-sm font-bold text-sky-700 dark:text-sky-200">
-                        {aptSummary.minArea}–{aptSummary.maxArea}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-violet-200/60 bg-violet-50/60 p-2 text-center dark:border-violet-500/30 dark:bg-violet-950/20">
-                      <p className="text-[9px] uppercase tracking-wide text-violet-600/70 dark:text-violet-300/70">
-                        Giá thấp nhất
-                      </p>
-                      <p className="mt-0.5 text-sm font-bold text-violet-700 dark:text-violet-200">
-                        {fmtVnd(aptSummary.minPrice)}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-fuchsia-200/60 bg-fuchsia-50/60 p-2 text-center dark:border-fuchsia-500/30 dark:bg-fuchsia-950/20">
-                      <p className="text-[9px] uppercase tracking-wide text-fuchsia-600/70 dark:text-fuchsia-300/70">
-                        Giá cao nhất
-                      </p>
-                      <p className="mt-0.5 text-sm font-bold text-fuchsia-700 dark:text-fuchsia-200">
-                        {fmtVnd(aptSummary.maxPrice)}
-                      </p>
-                    </div>
+                  <div className="rounded-lg border border-violet-200/60 bg-violet-50/60 p-2 text-center dark:border-violet-500/30 dark:bg-violet-950/20">
+                    <p className="text-[9px] uppercase tracking-wide text-violet-600/70 dark:text-violet-300/70">Giá thấp nhất</p>
+                    <p className="mt-0.5 text-sm font-bold text-violet-700 dark:text-violet-200">{fmtVnd(aptSummary.minPrice)}</p>
                   </div>
-                ) : (
-                  <p className="rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-3 text-center text-xs text-slate-500 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-400">
-                    Thêm căn ở bảng bên dưới để xem tóm tắt tự động.
-                  </p>
-                )}
+                  <div className="rounded-lg border border-fuchsia-200/60 bg-fuchsia-50/60 p-2 text-center dark:border-fuchsia-500/30 dark:bg-fuchsia-950/20">
+                    <p className="text-[9px] uppercase tracking-wide text-fuchsia-600/70 dark:text-fuchsia-300/70">Giá cao nhất</p>
+                    <p className="mt-0.5 text-sm font-bold text-fuchsia-700 dark:text-fuchsia-200">{fmtVnd(aptSummary.maxPrice)}</p>
+                  </div>
+                </div>
+              ) : (
+                <p className="rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-3 text-center text-xs text-slate-500 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-400">
+                  Thêm căn ở bảng bên dưới để xem tóm tắt tự động.
+                </p>
+              )}
 
-                {/* Danh sách căn hộ */}
-                <SectionCard
-                  icon={Building2}
-                  title="Danh sách căn hộ"
-                  subtitle={`${filledCount} căn đã nhập · Thêm ít nhất một căn trước khi tạo dự án`}
-                  compact
-                  className="min-h-0"
-                  right={
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setApartments((prev) => [
-                          ...prev,
-                          { unitName: '', area: '', price: '' },
-                        ])
-                      }
-                      disabled={submitting}
-                      className="inline-flex items-center gap-1 rounded-md border border-dashed border-indigo-300 bg-indigo-50/50 px-2.5 py-1 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100 dark:border-indigo-500/40 dark:bg-indigo-950/30 dark:text-indigo-300 dark:hover:bg-indigo-950/60"
-                    >
-                      <Plus className="h-3 w-3" />
-                      Thêm căn
-                    </button>
-                  }
-                >
-                  <div className="max-h-[280px] overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700">
-                    <table className="w-full text-sm">
-                      <thead className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur dark:bg-slate-800/95">
-                        <tr className="text-left text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                          <th className="w-8 px-2 py-1.5 font-semibold">#</th>
-                          <th className="px-2 py-1.5 font-semibold">Tên căn</th>
-                          <th className="px-2 py-1.5 font-semibold">Diện tích (m²)</th>
-                          <th className="px-2 py-1.5 font-semibold">Giá (VNĐ)</th>
-                          <th className="w-10 px-2 py-1.5"></th>
+              {/* Danh sách căn hộ */}
+              <div className="rounded-xl border border-slate-200/80 bg-white shadow-sm dark:border-slate-700/60 dark:bg-slate-900/40 p-3.5">
+                <div className="flex items-center justify-between gap-3 mb-2.5">
+                  <div>
+                    <h3 className="font-bold text-xs text-slate-900 dark:text-slate-50">Danh sách căn hộ</h3>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400">{filledCount} căn đã nhập · Thêm ít nhất một căn</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setApartments((prev) => [...prev, { unitName: '', area: '', price: '' }])}
+                    disabled={submitting}
+                    className="inline-flex items-center gap-1 rounded-md border border-dashed border-indigo-300 bg-indigo-50/50 px-2.5 py-1 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100 dark:border-indigo-500/40 dark:bg-indigo-950/30 dark:text-indigo-300 dark:hover:bg-indigo-950/60"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Thêm căn
+                  </button>
+                </div>
+                <div className="rounded-lg border border-slate-200 dark:border-slate-700">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur dark:bg-slate-800/95">
+                      <tr className="text-left text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                        <th className="w-8 px-2 py-1.5 font-semibold">#</th>
+                        <th className="px-2 py-1.5 font-semibold">Tên căn</th>
+                        <th className="px-2 py-1.5 font-semibold">Diện tích (m²)</th>
+                        <th className="px-2 py-1.5 font-semibold">Giá (VNĐ)</th>
+                        <th className="w-10 px-2 py-1.5" />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                      {apartments.map((row, idx) => (
+                        <tr key={idx} className="group transition-colors hover:bg-slate-50/60 dark:hover:bg-slate-800/30">
+                          <td className="px-2 py-1 text-xs font-bold text-slate-400">{idx + 1}</td>
+                          <td className="px-2 py-1">
+                            <input className={`${inputClass} py-1.5`} value={row.unitName} onChange={(e) => updateAptRow(idx, 'unitName', e.target.value)} placeholder="A-101" disabled={submitting} />
+                          </td>
+                          <td className="px-2 py-1">
+                            <input className={`${inputClass} py-1.5`} type="number" min="0" step="0.1" value={row.area} onChange={(e) => updateAptRow(idx, 'area', e.target.value)} placeholder="38.5" disabled={submitting} />
+                          </td>
+                          <td className="px-2 py-1">
+                            <input className={`${inputClass} py-1.5`} type="number" min="0" value={row.price} onChange={(e) => updateAptRow(idx, 'price', e.target.value)} placeholder="720000000" disabled={submitting} />
+                          </td>
+                          <td className="px-2 py-1 text-center">
+                            <button type="button" onClick={() => setApartments((prev) => prev.filter((_, i) => i !== idx))} disabled={submitting || apartments.length <= 1} className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 text-slate-400 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-30 dark:border-slate-700 dark:hover:border-rose-700/60 dark:hover:bg-rose-950/40" title="Xoá căn này">
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
-                        {apartments.map((row, idx) => (
-                          <tr
-                            key={idx}
-                            className="group transition-colors hover:bg-slate-50/60 dark:hover:bg-slate-800/30"
-                          >
-                            <td className="px-2 py-1 text-xs font-bold text-slate-400">
-                              {idx + 1}
-                            </td>
-                            <td className="px-2 py-1">
-                              <input
-                                className={`${inputClass} py-1.5`}
-                                value={row.unitName}
-                                onChange={(e) => updateAptRow(idx, 'unitName', e.target.value)}
-                                placeholder="A-101"
-                                disabled={submitting}
-                              />
-                            </td>
-                            <td className="px-2 py-1">
-                              <input
-                                className={`${inputClass} py-1.5`}
-                                type="number"
-                                min="0"
-                                step="0.1"
-                                value={row.area}
-                                onChange={(e) => updateAptRow(idx, 'area', e.target.value)}
-                                placeholder="38.5"
-                                disabled={submitting}
-                              />
-                            </td>
-                            <td className="px-2 py-1">
-                              <input
-                                className={`${inputClass} py-1.5`}
-                                type="number"
-                                min="0"
-                                value={row.price}
-                                onChange={(e) => updateAptRow(idx, 'price', e.target.value)}
-                                placeholder="720000000"
-                                disabled={submitting}
-                              />
-                            </td>
-                            <td className="px-2 py-1 text-center">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setApartments((prev) => prev.filter((_, i) => i !== idx))
-                                }
-                                disabled={submitting || apartments.length <= 1}
-                                className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 text-slate-400 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-30 dark:border-slate-700 dark:hover:border-rose-700/60 dark:hover:bg-rose-950/40"
-                                title="Xoá căn này"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </SectionCard>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}
@@ -715,7 +519,7 @@ projectName,
         >
           <p className="text-[11px] font-semibold text-slate-700 dark:text-slate-200">
             <ListChecks className="mr-1 inline h-3 w-3 text-indigo-500" />
-            Bước {step}/2 · {filledCount} căn · Đợt 1: {p1Valid ? `${p1}%` : '—'}
+            Bước {step}/2 · {filledCount} căn
             {step === 2 && !isStep2Valid && !submitting && (
               <span className="ml-2 text-amber-700 dark:text-amber-400">
                 · chưa sẵn sàng để tạo
@@ -749,7 +553,7 @@ projectName,
                 disabled={submitting}
                 className="inline-flex items-center gap-1.5 rounded-md bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-1.5 text-xs font-bold text-white shadow-md transition hover:shadow-lg hover:brightness-110 disabled:opacity-50"
               >
-                Tiếp tục: Chi tiết & lịch trình
+                Tiếp tục: Chi tiết dự án
                 <ArrowRight className="h-3.5 w-3.5" />
               </button>
             ) : (
@@ -758,7 +562,7 @@ projectName,
                 disabled={submitting || !isStep2Valid}
                 title={
                   !isStep2Valid
-                    ? 'Vui lòng nhập đầy đủ: tỉ lệ Đợt 1 (1–30%) và ít nhất 1 căn hợp lệ (tên + diện tích + giá).'
+                    ? 'Vui lòng nhập đầy đủ: ít nhất 1 căn hợp lệ (tên + diện tích + giá).'
                     : undefined
                 }
                 className="inline-flex items-center gap-1.5 rounded-md bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-1.5 text-xs font-bold text-white shadow-md transition hover:shadow-lg hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
@@ -788,7 +592,7 @@ projectName,
 function Stepper({ current }: { current: 1 | 2 }) {
   const steps = [
     { num: 1, label: 'Thông tin dự án', icon: Home, desc: 'Tên, vị trí, hồ sơ' },
-    { num: 2, label: 'Chi tiết & lịch trình', icon: Building2, desc: 'Căn, thanh toán, lịch' },
+    { num: 2, label: 'Chi tiết dự án', icon: Building2, desc: 'Danh sách căn hộ' },
   ]
   return (
     <div className="flex items-stretch gap-1.5 rounded-lg border border-slate-200/70 bg-slate-100/60 p-1 shadow-sm dark:border-slate-700/60 dark:bg-slate-800/40">
@@ -864,63 +668,6 @@ function fmtVnd(n: number): string {
   if (n >= 1e9) return `${(n / 1e9).toFixed(2)} tỷ`
   if (n >= 1e6) return `${(n / 1e6).toFixed(0)} tr`
   return n.toLocaleString('vi-VN')
-}
-
-function SectionCard({
-  icon: Icon,
-  title,
-  subtitle,
-  children,
-  className = '',
-  right,
-  compact = false,
-}: {
-  icon: React.ComponentType<{ className?: string }>
-  title: string
-  subtitle?: string
-  children: React.ReactNode
-  className?: string
-  right?: React.ReactNode
-  compact?: boolean
-}) {
-  return (
-    <section
-      className={[
-        'rounded-xl border border-slate-200/80 bg-white shadow-sm dark:border-slate-700/60 dark:bg-slate-900/40',
-        compact ? 'p-3.5' : 'p-5',
-        className,
-      ].join(' ')}
-    >
-      <header className={['flex items-start justify-between gap-3', compact ? 'mb-2.5' : 'mb-4'].join(' ')}>
-        <div className="flex min-w-0 items-start gap-2.5">
-          <span className={[
-            'flex shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-sm',
-            compact ? 'h-7 w-7' : 'h-9 w-9',
-          ].join(' ')}>
-            <Icon className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
-          </span>
-          <div className="min-w-0">
-            <h3 className={[
-              'font-bold leading-tight text-slate-900 dark:text-slate-50',
-              compact ? 'text-xs' : 'text-sm',
-            ].join(' ')}>
-              {title}
-            </h3>
-            {subtitle && (
-              <p className={[
-                'mt-0.5 text-slate-500 dark:text-slate-400',
-                compact ? 'text-[10px]' : 'text-[11px]',
-              ].join(' ')}>
-                {subtitle}
-              </p>
-            )}
-          </div>
-        </div>
-        {right}
-      </header>
-      <div className={compact ? 'space-y-2.5' : 'space-y-3.5'}>{children}</div>
-    </section>
-  )
 }
 
 function Field({

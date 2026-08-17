@@ -307,7 +307,7 @@ export function VerifyIdentityPage() {
       setCachedVerified(true)
       setMsg({ type: 'success', text: 'Xác minh danh tính thành công. Đang chuyển hướng...' })
       window.setTimeout(() => {
-        navigate(roleHome(localStorage.getItem('userRole') ?? 'Applicant'))
+        navigate(roleHome(sessionStorage.getItem('userRole') ?? 'Applicant'))
       }, 1200)
     } catch (err) {
       setMsg({ type: 'error', text: formatError(err) })

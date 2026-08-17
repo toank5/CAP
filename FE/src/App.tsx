@@ -23,10 +23,10 @@ import { AdminStaffPage, CreateStaffPage, StaffDetailPage } from '@/pages/admin-
 import { LandingPage } from '@/pages/landing-page'
 import { LoginPage } from '@/pages/login-page'
 import { HousingSearchPage } from '@/pages/housing-search-page'
-import { AnnouncementsPage } from '@/pages/announcements-page'
+import { AnnouncementsPage, SxdAnnouncementsPage } from '@/pages/announcements-page'
 import { LookupPage } from '@/pages/lookup-page'
 import { NotificationsPage } from '@/pages/notifications-page'
-import { CreatePaymentPage, PaymentsPage } from '@/pages/payments-pages'
+import { PaymentsPage } from '@/pages/payments-pages'
 import { ProfilePage } from '@/pages/profile-page'
 import { CreateProjectPage, ProjectDetailPage, ProjectsPage } from '@/pages/projects-pages'
 import { ReportIssuePage } from '@/pages/report-issue-page'
@@ -43,7 +43,10 @@ import {
   ContractDetailPage,
   ContractsPage,
 } from '@/pages/contract-pages'
+import { MyApartmentPage } from '@/pages/my-apartment-page'
 import { AuditDetailPage, AuditListPage, AuditCreatePage } from '@/pages/audit-pages'
+import { SxdProjectDetailPage, SxdProjectsPage } from '@/pages/sxd-projects-pages'
+import { SxdPaymentsPage } from '@/pages/sxd-payments-page'
 import {
   CategoriesPage,
   SystemLogsPage,
@@ -94,7 +97,6 @@ function RouteView({ route }: { route: RouteId }) {
     case 'create-project': return <CreateProjectPage />
     case 'project-detail': return <ProjectDetailPage />
     case 'payments': return <PaymentsPage />
-    case 'create-payment': return <CreatePaymentPage />
     case 'admin-staff': return <AdminStaffPage />
     case 'create-staff': return <CreateStaffPage />
     case 'staff-detail': return <StaffDetailPage />
@@ -109,9 +111,14 @@ function RouteView({ route }: { route: RouteId }) {
     case 'contracts': return <ContractsPage />
     case 'contract-create': return <ContractCreatePage />
     case 'contract-detail': return <ContractDetailPage />
+    case 'my-apartment': return <MyApartmentPage />
     case 'audit-list': return <AuditListPage />
     case 'audit-create': return <AuditCreatePage />
     case 'audit-detail': return <AuditDetailPage />
+    case 'sxd-projects': return <SxdProjectsPage />
+    case 'sxd-project-detail': return <SxdProjectDetailPage />
+    case 'sxd-announcements': return <SxdAnnouncementsPage />
+    case 'sxd-payments': return <SxdPaymentsPage />
     case 'admin-logs': return <SystemLogsPage />
     case 'admin-categories': return <CategoriesPage />
     default: return null

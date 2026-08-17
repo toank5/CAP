@@ -45,7 +45,7 @@ function readUser(data: unknown): UserProfileState | null {
 
   const fullName = String(u.fullName ?? u.FullName ?? '')
   const email = String(u.email ?? u.Email ?? '')
-  const role = String(u.role ?? u.Role ?? localStorage.getItem('userRole') ?? '')
+  const role = String(u.role ?? u.Role ?? sessionStorage.getItem('userRole') ?? '')
   const ekycVerified = Boolean(u.ekycVerified ?? u.EkycVerified ?? u.kycVerified ?? u.KycVerified ?? true)
 
   return {
@@ -71,7 +71,7 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
       const next = readUser(data)
       if (next) setProfile(next)
     } catch {
-      const role = localStorage.getItem('userRole') ?? ''
+      const role = sessionStorage.getItem('userRole') ?? ''
       setProfile((prev) => ({ ...prev, roleLabel: labelRole(role) }))
     }
   }, [])

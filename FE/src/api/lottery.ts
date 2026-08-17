@@ -93,6 +93,196 @@ export interface LiveDrawEvent {
   drawnAt?: string
 }
 
+/** 1 hồ sơ trúng — hiện trên khu 2 (recentWinners) */
+export interface LiveWinnerEntry {
+  applicationId: string
+  applicationCode?: string | null
+  applicantName: string
+  maskedCitizenId?: string | null
+  stt?: number
+  result?: string
+  slotCode?: string | null
+  drawnAt?: string | null
+  remainingUnits?: number | null
+  priorityGroup?: string | null
+}
+
+/** 1 loại căn — hiện trên khu 3 (apartmentFundStats) */
+export interface ApartmentFundEntry {
+  categoryName?: string | null
+  totalUnits?: number | null
+  remainingUnits?: number | null
+  assignedUnits?: number | null
+  remainingPercentage?: number | null
+}
+
+/** Trạng thái đang quay — hiện trên khu 1 */
+export interface LiveNextCandidate {
+  applicationId: string
+  applicationCode?: string | null
+  applicantName?: string | null
+  citizenId?: string | null
+  priorityGroup?: string | null
+}
+
+/** Kết quả vừa bốc — hiện trên khu 1 */
+export interface LiveLatestResult {
+  applicationId: string
+  applicationCode?: string | null
+  applicantName?: string | null
+  maskedCitizenId?: string | null
+  stt?: number | null
+  result?: string
+  slotCode?: string | null
+  drawnAt?: string | null
+  remainingUnits?: number | null
+  priorityGroup?: string | null
+}
+
+/** LiveState — nguồn sự thật cho sảnh Live */
+export interface LiveStateDto {
+  projectId?: string
+  projectName?: string | null
+  developerName?: string | null
+  sessionStatus?: string | null
+  totalUnits?: number | null
+  drawnUnitsCount?: number | null
+  remainingUnits?: number | null
+  totalEligibleParticipants?: number | null
+  sxdOnlineCount?: number | null
+  lobbyCount?: number | null
+  priorityWinnersCount?: number | null
+  randomWinnersCount?: number | null
+  undrawnParticipantsCount?: number | null
+  winRatePercentage?: number | null
+  nextCandidate?: LiveNextCandidate | null
+  latestDrawResult?: LiveLatestResult | null
+  recentWinners?: LiveWinnerEntry[]
+  projectApartmentFundStat?: ApartmentFundEntry | null
+  apartmentFundStats?: ApartmentFundEntry[]
+}
+
+function str(v: unknown): string {
+  return v == null ? '' : String(v)
+}
+
+function num(v: unknown): number {
+  return Number(v) || 0
+}
+
+function maskCccd(cid: string | null | undefined): string {
+  if (!cid) return ''
+  if (cid.length < 4) return cid
+  return cid.slice(0, 3) + '****' + cid.slice(-4)
+}
+
+function parseCandidate(raw: unknown): LiveNextCandidate | null {
+  if (!raw || typeof raw !== 'object') return null
+  const o = raw as Record<string, unknown>
+  const id =
+    (o.applicationId as string) ??
+    (o.ApplicationId as string) ??
+    (o.applicantId as string) ??
+    (o.ApplicantId as string) ??
+    ''
+  if (!id) return null
+  return {
+    applicationId: id,
+    applicationCode: (o.applicationCode ?? o.ApplicationCode ?? null) as string | null,
+    applicantName: (o.applicantName ?? o.ApplicantName ?? null) as string | null,
+    citizenId: (o.citizenId ?? o.CitizenId ?? null) as string | null,
+    priorityGroup: (o.priorityGroup ?? o.PriorityGroup ?? null) as string | null,
+  }
+}
+
+function parseWinner(raw: unknown): LiveWinnerEntry | null {
+  if (!raw || typeof raw !== 'object') return null
+  const o = raw as Record<string, unknown>
+  const id =
+    (o.applicationId as string) ??
+    (o.ApplicationId as string) ??
+    ''
+  if (!id) return null
+  return {
+    applicationId: id,
+    applicationCode: (o.applicationCode ?? o.ApplicationCode ?? null) as string | null,
+    applicantName:
+      (o.applicantName as string) ??
+      (o.ApplicantName as string) ??
+      (o.fullName as string) ??
+      (o.FullName as string) ??
+      '',
+    maskedCitizenId:
+      (o.maskedCitizenId as string | null) ??
+      (o.MaskedCitizenId as string | null) ??
+      maskCccd(o.citizenId as string | undefined ?? o.CitizenId as string | undefined),
+    stt: num(o.stt ?? o.STT ?? o.index ?? o.Index),
+    result: str(o.result ?? o.Result ?? o.lotteryResult ?? o.LotteryResult),
+    slotCode: (o.slotCode ?? o.SlotCode ?? null) as string | null,
+    drawnAt: (o.drawnAt ?? o.DrawnAt ?? null) as string | null,
+    remainingUnits:
+      (o.remainingUnits ?? o.RemainingUnits ?? null) as number | null,
+    priorityGroup: (o.priorityGroup ?? o.PriorityGroup ?? null) as string | null,
+  }
+}
+
+function parseFund(raw: unknown): ApartmentFundEntry {
+  if (!raw || typeof raw !== 'object') return {}
+  const o = raw as Record<string, unknown>
+  return {
+    categoryName: (o.categoryName ?? o.CategoryName ?? o.unitType ?? o.UnitType ?? null) as string | null,
+    totalUnits: num(o.totalUnits ?? o.TotalUnits),
+    remainingUnits: num(o.remainingUnits ?? o.RemainingUnits),
+    assignedUnits: num(o.assignedUnits ?? o.AssignedUnits),
+    remainingPercentage: num(o.remainingPercentage ?? o.RemainingPercentage),
+  }
+}
+
+export function parseLiveState(raw: unknown): LiveStateDto | null {
+  if (!raw || typeof raw !== 'object') return null
+  const o0 = raw as Record<string, unknown>
+  const nested = o0.data ?? o0.Data
+  const o = (nested && typeof nested === 'object' ? nested : o0) as Record<string, unknown>
+
+  const recentWinners = (
+    o.recentWinners ??
+    o.RecentWinners ??
+    o.winners ??
+    o.Winners ??
+    []
+  ) as unknown[]
+  const apartmentFundStats = (
+    o.apartmentFundStats ??
+    o.ApartmentFundStats ??
+    o.fundStats ??
+    []
+  ) as unknown[]
+
+  return {
+    projectId: str(o.projectId ?? o.ProjectId) || undefined,
+    projectName: (o.projectName ?? o.ProjectName ?? null) as string | null,
+    developerName: (o.developerName ?? o.DeveloperName ?? null) as string | null,
+    sessionStatus: str(o.sessionStatus ?? o.SessionStatus) || undefined,
+    totalUnits: num(o.totalUnits ?? o.TotalUnits),
+    drawnUnitsCount: num(o.drawnUnitsCount ?? o.DrawnUnitsCount ?? o.drawnCount),
+    remainingUnits: num(o.remainingUnits ?? o.RemainingUnits),
+    totalEligibleParticipants: num(o.totalEligibleParticipants ?? o.TotalEligibleParticipants),
+    sxdOnlineCount: num(o.sxdOnlineCount ?? o.SxdOnlineCount ?? o.sxdOnline ?? o.SxdOnline),
+    lobbyCount: num(o.lobbyCount ?? o.LobbyCount),
+    priorityWinnersCount: num(o.priorityWinnersCount ?? o.PriorityWinnersCount),
+    randomWinnersCount: num(o.randomWinnersCount ?? o.RandomWinnersCount),
+    undrawnParticipantsCount: num(o.undrawnParticipantsCount ?? o.UndrawnParticipantsCount),
+    winRatePercentage: num(o.winRatePercentage ?? o.WinRatePercentage),
+    nextCandidate: parseCandidate(o.nextCandidate ?? o.NextCandidate ?? o.candidate ?? o.Candidate),
+    latestDrawResult: parseWinner(
+      o.latestDrawResult ?? o.LatestDrawResult ?? o.latestResult ?? o.LatestResult,
+    ),
+    recentWinners: recentWinners.map(parseWinner).filter((w): w is LiveWinnerEntry => w !== null),
+    projectApartmentFundStat: parseFund(o.projectApartmentFundStat ?? o.ProjectApartmentFundStat ?? o.totalFund ?? {}),
+    apartmentFundStats: apartmentFundStats.map(parseFund),
+  }
+}
+
 function mapSessionToUiStatus(o: Record<string, unknown>): string {
   const session = String(o.sessionStatus ?? o.SessionStatus ?? '')
   const approved = o.isLotteryApproved ?? o.IsLotteryApproved
@@ -189,6 +379,31 @@ export const lotteryApi = {
     })
   },
 
+  pauseSession(projectId: string) {
+    return request<LotteryScheduleDto>(`/api/projects/${projectId}/lottery/session/pause`, {
+      method: 'POST',
+      auth: true,
+    })
+  },
+
+  resumeSession(projectId: string) {
+    return request<LotteryScheduleDto>(`/api/projects/${projectId}/lottery/session/resume`, {
+      method: 'POST',
+      auth: true,
+    })
+  },
+
+  drawNext(projectId: string) {
+    return request<LotteryScheduleDto>(`/api/projects/${projectId}/lottery/draw-next`, {
+      method: 'POST',
+      auth: true,
+    })
+  },
+
+  getLiveState(projectId: string) {
+    return request<LiveStateDto>(`/api/projects/${projectId}/lottery/live-state`, { auth: false })
+  },
+
   verifyOtp(projectId: string, joinCode: string) {
     return request<{ success: boolean; message: string; sessionStatus?: string }>(
       `/api/projects/${projectId}/lottery/session/verify-otp`,
@@ -212,6 +427,7 @@ export const LOTTERY_STATUS_LABEL: Record<string, string> = {
   AWAITING_APPROVAL: 'Chờ Sở phê duyệt',
   APPROVED: 'Đã duyệt — chờ mở sảnh',
   RUNNING: 'Đang Live',
+  Paused: 'Tạm dừng',
   FINISHED: 'Đã kết thúc',
   Scheduled: 'Đã lên lịch',
   WaitingLobby: 'Sảnh chờ',
@@ -229,6 +445,7 @@ export const LOTTERY_STATUS_TONE: Record<
   AWAITING_APPROVAL: 'warning',
   APPROVED: 'default',
   RUNNING: 'warning',
+  Paused: 'warning',
   FINISHED: 'success',
   WaitingLobby: 'default',
   Live: 'warning',

@@ -102,4 +102,54 @@ export const announcementsApi = {
   getById(id: string) {
     return request<unknown>(`/api/announcements/${id}`)
   },
+
+  /** Lấy tất cả thông báo (kể cả nháp) — cho SXD quản lý */
+  getManagement(params?: { page?: number; pageSize?: number; type?: string; search?: string }) {
+    const qs = new URLSearchParams()
+    qs.set('page', String(params?.page ?? 1))
+    qs.set('pageSize', String(params?.pageSize ?? 20))
+    if (params?.type) qs.set('type', params.type)
+    if (params?.search) qs.set('search', params.search)
+    return request<unknown>(`/api/announcements/management?${qs}`, { auth: true })
+  },
+
+  create(body: {
+    title: string
+    content: string
+    announcementType?: string
+    legalDocumentNumber?: string
+    effectiveDate?: string
+    expirationDate?: string
+    projectId?: string
+    isPinned?: boolean
+  }) {
+    return request<unknown>('/api/announcements', {
+      method: 'POST',
+      body: JSON.stringify(body),
+      auth: true,
+    })
+  },
+
+  update(id: string, body: {
+    title?: string
+    content?: string
+    announcementType?: string
+    legalDocumentNumber?: string
+    effectiveDate?: string
+    expirationDate?: string
+    isPinned?: boolean
+  }) {
+    return request<unknown>(`/api/announcements/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+      auth: true,
+    })
+  },
+
+  delete(id: string) {
+    return request<unknown>(`/api/announcements/${id}`, {
+      method: 'DELETE',
+      auth: true,
+    })
+  },
 }

@@ -154,8 +154,8 @@ export function verifyOtpView(): HTMLElement {
       otpCode: fdStr(fd, 'otpCode'),
     })
     // Xác thực xong yêu cầu đăng nhập lại → quay về trang đăng nhập
-    localStorage.removeItem('accessToken')
-    localStorage.removeItem('refreshToken')
+    sessionStorage.removeItem('accessToken')
+    sessionStorage.removeItem('refreshToken')
     pendingOtpEmail = ''
     setTimeout(() => navigate('login'), 900)
     return data

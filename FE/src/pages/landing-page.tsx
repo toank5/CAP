@@ -7,7 +7,6 @@ import {
   Newspaper,
   ShieldCheck,
   Sparkles,
-  TrendingUp,
   Users,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -126,15 +125,6 @@ export function LandingPage() {
                   className="h-full w-full object-cover"
                   style={{ aspectRatio: '4/3' }}
                 />
-              </div>
-              <div className="absolute -bottom-6 -left-6 flex items-center gap-3 rounded-2xl bg-white p-4 shadow-2xl dark:bg-slate-800 md:max-w-xs">
-                <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-                  <TrendingUp className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-slate-500">Trong tuần</p>
-                  <p className="text-sm font-bold text-[#003D7A] dark:text-white">+312 hồ sơ mới</p>
-                </div>
               </div>
             </motion.div>
           </div>

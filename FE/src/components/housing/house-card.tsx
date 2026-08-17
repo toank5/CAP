@@ -6,10 +6,12 @@ export function HouseCard({
   house,
   fav,
   onToggleFavorite,
+  actionButton,
 }: {
   house: ProjectCard
   fav?: boolean
   onToggleFavorite?: () => void
+  actionButton?: React.ReactNode
 }) {
   const goToDetail = () => {
     sessionStorage.setItem('projectId', house.id)
@@ -71,6 +73,11 @@ export function HouseCard({
           <span className="font-bold text-blue-600 dark:text-blue-400">{house.price}</span>
           <span className="text-xs text-slate-400 dark:text-slate-500">{house.units}</span>
         </div>
+        {actionButton && (
+          <div className="mt-3 border-t border-slate-100 pt-3 dark:border-slate-800" onClick={(e) => e.stopPropagation()}>
+            {actionButton}
+          </div>
+        )}
       </div>
     </div>
   )

@@ -40,6 +40,14 @@ function describeType(t: string): { label: string; tone: 'default' | 'success' |
       return { label: 'SXD phê duyệt', tone: 'success' }
     case 'SxdRejected':
       return { label: 'SXD từ chối', tone: 'danger' }
+    case 'ProjectApprovedBySxd':
+      return { label: 'Dự án được SXD phê duyệt', tone: 'success' }
+    case 'ProjectRejectedBySxd':
+      return { label: 'Dự án bị SXD từ chối', tone: 'danger' }
+    case 'PaymentApprovedBySxd':
+      return { label: 'Thanh toán được SXD xác nhận', tone: 'success' }
+    case 'PaymentRejectedBySxd':
+      return { label: 'Thanh toán bị SXD từ chối', tone: 'danger' }
     default:
       return { label: t || 'Thông báo', tone: 'secondary' }
   }

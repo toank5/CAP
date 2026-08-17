@@ -7,6 +7,9 @@ import {
   FileSignature,
   ScrollText,
   User,
+  CheckSquare,
+  Wallet,
+  Bell,
 } from 'lucide-react'
 
 import { useHashRoute, navigate } from '@/hooks/useHashRoute'
@@ -31,10 +34,10 @@ const ITEMS: NavItem[] = [
     aliases: ['application-detail'],
   },
   {
-    route: 'projects',
-    label: 'Dự án',
-    icon: Building2,
-    aliases: ['project-detail'],
+    route: 'sxd-projects',
+    label: 'Duyệt dự án',
+    icon: CheckSquare,
+    aliases: ['sxd-project-detail'],
   },
   {
     route: 'lottery-sessions',
@@ -43,6 +46,16 @@ const ITEMS: NavItem[] = [
     aliases: ['lottery-detail'],
   },
   { route: 'lottery-live', label: 'Bốc thăm trực tiếp', icon: Radio },
+  {
+    route: 'sxd-payments',
+    label: 'Thanh toán',
+    icon: Wallet,
+  },
+  {
+    route: 'sxd-announcements',
+    label: 'Thông báo',
+    icon: Bell,
+  },
   {
     route: 'audit-list',
     label: 'Hậu kiểm',
@@ -63,11 +76,13 @@ export const SXD_SUB_NAV_ROUTES: RouteId[] = [
   'home-sxd',
   'applications',
   'application-detail',
-  'projects',
-  'project-detail',
+  'sxd-projects',
+  'sxd-project-detail',
+  'sxd-announcements',
   'lottery-sessions',
   'lottery-detail',
   'lottery-live',
+  'sxd-payments',
   'audit-list',
   'audit-detail',
   'contracts',
@@ -75,7 +90,6 @@ export const SXD_SUB_NAV_ROUTES: RouteId[] = [
   'profile',
   'change-password',
   'notifications',
-  'report-issue',
 ]
 
 function isActive(current: RouteId, item: NavItem): boolean {
@@ -83,13 +97,13 @@ function isActive(current: RouteId, item: NavItem): boolean {
   return item.aliases?.includes(current) ?? false
 }
 
-/** Menu ngang dành riêng cho Sở Xây dựng — thay thế hoàn toàn header nav cũ. */
+/** Menu phẳng tối giản dành cho Sở Xây dựng. */
 export function SxdSubNav() {
   const route = useHashRoute()
 
   return (
-    <nav className={`${THEME.navBg}`} aria-label="Điều hướng Sở Xây dựng">
-      <div className="mx-auto flex w-full max-w-[1600px] items-stretch overflow-x-auto px-4 lg:px-8 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <nav aria-label="Điều hướng Sở Xây dựng">
+      <div className="mx-auto flex max-w-[1760px] items-center gap-1 px-4 lg:px-6">
         {ITEMS.map((item) => {
           const active = isActive(route, item)
           const Icon = item.icon
@@ -98,22 +112,14 @@ export function SxdSubNav() {
               key={item.route}
               type="button"
               onClick={() => navigate(item.route)}
-              data-active={active}
-              className={`relative inline-flex flex-1 items-center justify-center gap-2 px-5 py-3 text-sm font-medium transition-colors min-w-[120px] ${
+              className={`relative inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${
                 active
-                  ? `${THEME.navActiveBg} ${THEME.navActiveTextColor}`
-                  : `${THEME.navTextColor} ${THEME.navBgHover}`
+                  ? `${THEME.navActiveBg} ${THEME.navActiveTextColor} font-semibold`
+                  : `text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white`
               }`}
-              aria-current={active ? 'page' : undefined}
             >
               <Icon className="h-4 w-4" />
               <span className="whitespace-nowrap">{item.label}</span>
-              {active && (
-                <span
-                  aria-hidden
-                  className={`absolute inset-x-2 bottom-0 ${THEME.activeBar}`}
-                />
-              )}
             </button>
           )
         })}

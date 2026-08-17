@@ -26,7 +26,7 @@ import { PageCard, PageHeader } from '@/components/layout/page-header'
 import { navigate } from '@/hooks/useHashRoute'
 import { formatError } from '@/lib/format-error'
 import { getRole } from '@/router'
-import { extractOrderId, extractPaymentUrl } from '@/api/payment'
+import { extractOrderId, extractPaymentUrl, paymentApi, downloadContractPdf } from '@/api/payment'
 import { housingApplicationsApi } from '@/api/housing-applications'
 import { openVnPayPopupAndWait, vnPayResultMessage } from '@/lib/vnpay-popup'
 import type { ApplicationSummaryDto } from '@/types'
@@ -106,14 +106,16 @@ export function ContractsPage() {
       // Hồ sơ từ chờ ký → đã ký → đã đặt cọc (và các trạng thái thanh toán tiếp theo)
       const eligible = data.filter((a) =>
         [
+          'DEPOSIT_PENDING',
           'CONTRACT_PENDING',
           'CONTRACT_SIGNED',
           'DEPOSIT_PAID',
           'CONTRACTING',
+          'INSTALLMENT_IN_PROGRESS',
           'PARTIALLY_PAID',
           'PAID',
-          'FINALIZED',
           'FULLY_PAID',
+          'FINALIZED',
         ].includes(a.applicationStatus),
       )
       setApplications(eligible)
@@ -360,11 +362,17 @@ function InstallmentRow({
   onPaid,
   signedAt,
   totalAmount,
+  applicationId,
+  applicationStatus,
+  installments,
 }: {
   inst: PaymentInstallment
   onPaid: () => void
   signedAt: string | null
   totalAmount: number
+  applicationId: string
+  applicationStatus: string
+  installments: PaymentInstallment[]
 }) {
   const [paying, setPaying] = useState(false)
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -372,10 +380,23 @@ function InstallmentRow({
   const isDeposit = inst.ordinal === 1
   const tone = INSTALLMENT_STATUS_TONE[inst.status]
   const role = getRole()
-  const canPay = role === 'Applicant' && inst.status !== 'PAID'
+
+  // Đợt cho phép thanh toán khi:
+  // - Đợt 1: create-payment-url (luồng đặt cọc trước ký) HOẶC
+  // - Đợt đang PENDING/OVERDUE (BE raw status) VÀ tất cả đợt trước đã PAID
+  const allPrevPaid =
+    inst.ordinal === 1 ||
+    installments.every((p) => p.ordinal < inst.ordinal || p.status === 'PAID')
+  const canPay =
+    role === 'Applicant' &&
+    (inst._rawStatus === 'PENDING' || inst._rawStatus === 'OVERDUE') &&
+    allPrevPaid
+
   const isPaid = inst.status === 'PAID'
   const isLocked = inst.status === 'LOCKED'
   const isCancelled = inst.status === 'CANCELLED'
+  // PENDING (BE raw) → FE display UNPAID
+  const isPending = inst._rawStatus === 'PENDING'
 
   const phasePct = totalAmount > 0 ? Math.round((inst.amount / totalAmount) * 100) : 0
 
@@ -383,9 +404,40 @@ function InstallmentRow({
     setPaying(true)
     setMsg(null)
     try {
-      const res = await contractApi.payInstallment(inst.installmentId)
-      const paymentUrl = extractPaymentUrl(res)
-      const orderId = extractOrderId(res)
+      let paymentUrl: string | null = null
+      let orderId: string | null = null
+
+      // CHỌN ĐÚNG API theo applicationStatus:
+      // - Đợt 1 + APPROVED/DEPOSIT_PENDING/CONTRACT_PENDING: create-payment-url
+      // - Đợt 1 + CONTRACT_SIGNED: create-payment-url (installments chưa có trong DB)
+      // - Đợt 2–6 (PENDING/OVERDUE): installments/{id}/pay
+      const isDeposit1PreSign =
+        inst.ordinal === 1 &&
+        (applicationStatus === 'APPROVED' ||
+          applicationStatus === 'APPROVED_BY_TIMEOUT' ||
+          applicationStatus === 'DEPOSIT_PENDING' ||
+          applicationStatus === 'CONTRACT_PENDING')
+      const isDeposit1PostSign = inst.ordinal === 1 && applicationStatus === 'CONTRACT_SIGNED'
+
+      if (isDeposit1PreSign || isDeposit1PostSign) {
+        // Đợt 1 (trước hoặc sau ký): gọi create-payment-url.
+        const res = await paymentApi.createPaymentUrl({
+          ApplicationId: applicationId,
+          Ordinal: 1,
+          ReturnUrl: `${window.location.origin}/contracts`,
+        })
+        paymentUrl = extractPaymentUrl(res)
+        orderId = extractOrderId(res)
+      } else {
+        // Đợt 2–6 (PENDING/OVERDUE): gọi installments/{id}/pay.
+        const res = await contractApi.payInstallment(
+          inst.installmentId,
+          `${window.location.origin}/contracts`,
+        )
+        paymentUrl = extractPaymentUrl(res)
+        orderId = extractOrderId(res)
+      }
+
       if (paymentUrl && orderId) {
         setMsg({ type: 'success', text: 'Đã mở cổng VNPay — đang chờ kết quả…' })
         const result = await openVnPayPopupAndWait(paymentUrl, orderId)
@@ -400,7 +452,29 @@ function InstallmentRow({
       setMsg({ type: 'success', text: 'Đã tạo giao dịch thanh toán.' })
       onPaid()
     } catch (err) {
-      setMsg({ type: 'error', text: formatError(err) })
+      // Debug: log raw error để xem response body
+      // eslint-disable-next-line no-console
+      console.warn('[handlePay] error:', err)
+      // Nhận diện lỗi BE chưa sinh installment (installment not found / not generated).
+      const msg = formatError(err)
+      const isNotFound =
+        /not\s*found|not\s*exist|không\s*tìm\s*thấy|không\s*tồn\s*tại|installment/i.test(msg) ||
+        (err instanceof Error && String(err.message).includes('404'))
+      if (isNotFound) {
+        setMsg({
+          type: 'error',
+          text: 'Lỗi đồng bộ: hệ thống chưa tạo lịch thanh toán cho hồ sơ này. Vui lòng liên hệ CĐT hoặc thử lại sau.',
+        })
+      } else if (/trạng thái thích hợp|status.*not\s*suitable|invalid.*status|400\b/i.test(msg)) {
+        // BE trả 400 → application chưa ở status phù hợp để thanh toán.
+        // Theo flow: cần DEPOSIT_PENDING / CONTRACT_PENDING / CONTRACTING.
+        setMsg({
+          type: 'error',
+          text: 'Hồ sơ chưa ở trạng thái cho phép thanh toán. Vui lòng kiểm tra: đã được CĐT gán căn và phê duyệt chưa?',
+        })
+      } else {
+        setMsg({ type: 'error', text: msg })
+      }
     } finally {
       setPaying(false)
     }
@@ -420,6 +494,8 @@ function InstallmentRow({
     ? 'Đã đóng'
     : isOverdue
     ? 'Quá hạn'
+    : isPending
+    ? 'Chưa thanh toán'
     : INSTALLMENT_STATUS_LABEL[inst.status]
 
   const badgeTone = isOverdue ? 'danger' : tone
@@ -691,11 +767,15 @@ function InstallmentTimeline({
   signedAt,
   onPaid,
   totalAmount,
+  applicationId,
+  applicationStatus,
 }: {
   installments: PaymentInstallment[]
   signedAt: string | null
   onPaid: () => void
   totalAmount: number
+  applicationId: string
+  applicationStatus: string
 }) {
   return (
     <ol className="relative space-y-3 border-l-2 border-dashed border-slate-200 pl-6 dark:border-slate-700 sm:pl-8">
@@ -707,6 +787,9 @@ function InstallmentTimeline({
             signedAt={signedAt}
             onPaid={onPaid}
             totalAmount={totalAmount}
+            applicationId={applicationId}
+            applicationStatus={applicationStatus}
+            installments={installments}
           />
         </li>
       ))}
@@ -756,6 +839,13 @@ function InstallmentTimelineDot({ inst }: { inst: PaymentInstallment }) {
     </div>
   )
 }
+
+/**
+ * Tạo 6 đợt fallback khi API /api/Payment/installments/{id} lỗi.
+ * Theo PAY.MD: Đợt 1=10%, Đợt 2=20%, Đợt 3=20%, Đợt 4=20%,
+ * Đợt 5=25%+2%PBT, Đợt 6=5%.
+ * Hạn đợt 1 = signedAt + 168h (7 ngày), các đợt sau +60 ngày mỗi đợt.
+ */
 
 function ApplicationSummaryCard({
   appDetail,
@@ -844,6 +934,7 @@ export function ContractDetailPage() {
   const role = getRole()
   const [status, setStatus] = useState<ContractStatusDto | null>(null)
   const [installments, setInstallments] = useState<PaymentInstallment[]>([])
+  const [installmentsError, setInstallmentsError] = useState(false)
   const [officialPrice, setOfficialPrice] = useState<number | null>(null)
   const [housePrice, setHousePrice] = useState<number | null>(null)
   const [contractPrice, setContractPrice] = useState<number | null>(null)
@@ -857,6 +948,8 @@ export function ContractDetailPage() {
     if (!id) return
     setLoading(true)
     setError('')
+    let appDetailSnapshot: import('../types').ApplicationDetailDto | null = null
+
     try {
       try {
         const s = await contractApi.getStatus(id)
@@ -864,21 +957,32 @@ export function ContractDetailPage() {
       } catch {
         setStatus(null)
       }
+      // Load appDetail trước — dùng làm fallback cho installments nếu API lỗi.
+      try {
+        const d = await request<unknown>(`/api/housing-applications/${id}`, { auth: true })
+        appDetailSnapshot = parseApplicationDetail(d) ?? null
+        setAppDetail(appDetailSnapshot)
+      } catch {
+        appDetailSnapshot = null
+        setAppDetail(null)
+      }
       try {
         const i = await contractApi.getInstallments(id)
         const env = parseInstallmentsEnvelope(i)
         setInstallments(env.installments)
+        setInstallmentsError(false)
         setOfficialPrice(env.officialPrice ?? null)
         setHousePrice(env.housePrice ?? null)
         setContractPrice(env.contractPrice ?? null)
-      } catch {
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('[contract] getInstallments failed:', err)
+        // Không dùng dữ liệu giả lập — báo lỗi rõ ràng để CĐT kiểm tra BE.
         setInstallments([])
-      }
-      try {
-        const d = await request<unknown>(`/api/housing-applications/${id}`, { auth: true })
-        setAppDetail(parseApplicationDetail(d) ?? null)
-      } catch {
-        setAppDetail(null)
+        setInstallmentsError(true)
+        setHousePrice(null)
+        setContractPrice(null)
+        setOfficialPrice(null)
       }
     } catch (err) {
       setError(formatError(err))
@@ -938,7 +1042,19 @@ export function ContractDetailPage() {
 
   const derivedStatus = mapStatus(status)
   const { paid, remaining, progress } = summarizeInstallments(installments)
-  const canSign = role === 'Applicant' && !status?.isSigned
+  const hasApartment = appDetail?.apartmentId != null
+  // Ký: Applicant && (CONTRACT_PENDING || DEPOSIT_PENDING || CONTRACTING) && chưa ký
+  // && căn đã gán (phases sẽ sinh sau khi gán căn).
+  // Nếu chưa gán căn → hiện banner thay vì nút.
+  const canSign =
+    role === 'Applicant' &&
+    !status?.isSigned &&
+    (
+      status?.applicationStatus === 'CONTRACT_PENDING' ||
+      status?.applicationStatus === 'DEPOSIT_PENDING' ||
+      status?.applicationStatus === 'CONTRACTING'
+    ) &&
+    hasApartment
   const projectId = readProjectId()
   const canDeveloperUnlock =
     role === 'Housing Developer' && !!projectId && !!status?.isSigned
@@ -971,16 +1087,20 @@ export function ContractDetailPage() {
           </div>
         )}
 
-        {/* Tải PDF */}
-        {status?.pdfUrl && (
-          <a
-            href={status.pdfUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-300"
+        {/* Tải PDF: hiện từ CONTRACT_PENDING trở đi, dùng fetch blob + JWT */}
+        {(status?.applicationStatus === 'CONTRACT_PENDING' || status?.applicationStatus === 'CONTRACT_SIGNED' || status?.applicationStatus === 'CONTRACTING' || status?.applicationStatus === 'PARTIALLY_PAID' || status?.applicationStatus === 'PAID' || status?.applicationStatus === 'FULLY_PAID') && (
+          <Button
+            variant="outline"
+            onClick={async () => {
+              try {
+                await downloadContractPdf(id)
+              } catch (err) {
+                setMsg({ type: 'error', text: formatError(err) })
+              }
+            }}
           >
-            <Download className="h-4 w-4" /> Tải PDF hợp đồng
-          </a>
+            <Download className="mr-1.5 h-4 w-4" /> Tải PDF hợp đồng
+          </Button>
         )}
 
         {/* CĐT: mở đợt 3-6 theo tiến độ */}
@@ -992,8 +1112,28 @@ export function ContractDetailPage() {
           />
         )}
 
-        {/* Tiến độ thanh toán + Lịch thanh toán (redesign) */}
-        {installments.length > 0 ? (
+        {/* Tiến độ thanh toán + Lịch thanh toán */}
+        {installmentsError && (
+          <section>
+            <div className="rounded-md border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-700 dark:bg-yellow-900/20">
+              <p className="text-sm font-medium text-yellow-800 dark:text-yellow-300">
+                Chưa tải được lịch thanh toán chính thức từ hệ thống.
+              </p>
+              <p className="mt-1 text-xs text-yellow-700 dark:text-yellow-400">
+                Hồ sơ có thể chưa được tạo đợt thanh toán hoặc backend đang gặp sự cố.
+                Vui lòng liên hệ CĐT hoặc thử lại sau.
+              </p>
+              <button
+                onClick={() => void reload()}
+                className="mt-2 text-xs text-yellow-700 underline hover:no-underline dark:text-yellow-300"
+              >
+                Thử lại
+              </button>
+            </div>
+          </section>
+        )}
+
+        {!installmentsError && installments.length > 0 && (
           <section className="space-y-5">
             <PaymentProgressCard
               installments={installments}
@@ -1056,10 +1196,14 @@ export function ContractDetailPage() {
                     ? housePrice
                     : installments.reduce((s, i) => s + (i.amount || 0), 0)
                 }
+                applicationId={id}
+                applicationStatus={status?.applicationStatus ?? appDetail?.applicationStatus ?? ''}
               />
             </div>
           </section>
-        ) : status?.isSigned ? (
+        )}
+
+        {!installmentsError && installments.length === 0 && hasApartment && (
           <Alert variant="warning">
             <div className="space-y-2">
               <p className="font-medium">
@@ -1074,9 +1218,11 @@ export function ContractDetailPage() {
               </Button>
             </div>
           </Alert>
-        ) : (
+        )}
+
+        {!installmentsError && installments.length === 0 && !hasApartment && (
           <Alert variant="info">
-            Hồ sơ chưa có lịch thanh toán. Hệ thống sẽ tạo lịch sau khi hợp đồng được ký.
+            <strong>Chưa có lịch thanh toán.</strong> Hệ thống sẽ sinh lịch 6 đợt sau khi CĐT gán căn hộ cho bạn.
           </Alert>
         )}
       </PageCard>

@@ -10,6 +10,7 @@ export type LotteryPhase =
   | 'ready_open_lobby'
   | 'waiting_lobby'
   | 'live'
+  | 'paused'
   | 'finished'
   | 'published'
 
@@ -19,6 +20,7 @@ export function getLotteryPhase(schedule: LotteryScheduleDto | null | undefined)
   const session = String(schedule.sessionStatus ?? '').trim()
   if (session === 'Published') return 'published'
   if (session === 'Finished') return 'finished'
+  if (session === 'Paused') return 'paused'
   if (session === 'Live') return 'live'
   if (session === 'WaitingLobby') return 'waiting_lobby'
   if (session === 'Scheduled' && schedule.isLotteryApproved) return 'ready_open_lobby'
@@ -32,6 +34,7 @@ export function getLotteryPhase(schedule: LotteryScheduleDto | null | undefined)
   if (ui === 'RUNNING') return 'live'
   if (ui === 'FINISHED') return 'finished'
   if (ui === 'APPROVED') return 'ready_open_lobby'
+  if (ui === 'Paused') return 'paused'
 
   if (schedule.lotteryDate || schedule.scheduledAt) return 'awaiting_approval'
   return 'not_scheduled'
@@ -43,6 +46,7 @@ export const LOTTERY_PHASE_STEPS: { id: LotteryPhase; label: string }[] = [
   { id: 'ready_open_lobby', label: '3. Mở sảnh' },
   { id: 'waiting_lobby', label: '4. Sảnh chờ' },
   { id: 'live', label: '5. Live' },
+  { id: 'paused', label: '5b. Tạm dừng' },
   { id: 'finished', label: '6. Kết thúc' },
   { id: 'published', label: '7. Công bố' },
 ]
@@ -64,6 +68,8 @@ export function phaseChipLabel(phase: LotteryPhase): string {
       return 'Sảnh chờ'
     case 'live':
       return 'Đang Live'
+    case 'paused':
+      return 'Tạm dừng'
     case 'finished':
       return 'Đã kết thúc — chờ công bố'
     case 'published':

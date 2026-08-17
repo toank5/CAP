@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Eye, FileText, Printer, Send, Sparkles, Loader2, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
+import { Eye, FileText, Printer, Send, Sparkles, Loader2, CheckCircle2, XCircle, AlertTriangle, CheckCheck, X, FilePlus } from 'lucide-react'
 import {
   housingApplicationsApi,
   parseApplicationDetail,
   parseAuditChecklist,
   parsePagedApplications,
+  parsePagedMeta,
   type AuditChecklistResponse,
 } from '@/api/housing-applications'
 import { housingProjectsApi, parseApartments } from '@/api/housing-projects'
@@ -12,6 +13,12 @@ import { reportsApi } from '@/api/reports'
 import { CreateApplicationWizard } from '@/components/ekyc/create-application-wizard'
 import { ApplicationTimeline } from '@/components/shared/application-timeline'
 import { FileDropzone } from '@/components/shared/file-dropzone'
+import {
+  ApartmentCard,
+  PaymentSection,
+  SignContractSection,
+} from '@/components/payment/payment-section'
+import { contractApi, parseContractStatus, parseInstallmentsEnvelope, summarizeInstallments } from '@/api/contracts'
 import { PageCard, PageHeader } from '@/components/layout/page-header'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { Alert } from '@/components/ui/alert'
@@ -21,8 +28,6 @@ import { FormField } from '@/components/ui/label'
 import { Input, Select, Textarea } from '@/components/ui/input'
 import { Modal } from '@/components/ui/modal'
 import { Pagination } from '@/components/ui/pagination'
-import { startVnPayPayment } from '@/api/payment'
-import { openVnPayPopupAndWait, vnPayResultMessage } from '@/lib/vnpay-popup'
 import { navigate } from '@/hooks/useHashRoute'
 import { labelApplicationStatus } from '@/lib/labels'
 import { APPLICATION_STATUS, DOC_TYPE_LABELS, HOUSING_STATUS_LABELS } from '@/lib/constants'
@@ -42,23 +47,7 @@ function DetailRow({ label, value, danger }: { label: string; value: string; dan
   )
 }
 
-function extractTotalCount(data: unknown): number {
-  if (!data || typeof data !== 'object') return 0
-  const o = data as Record<string, unknown>
-  if (typeof o.totalCount === 'number') return o.totalCount
-  const nested = (o.data ?? o.Data) as Record<string, unknown> | undefined
-  if (nested && typeof nested.totalCount === 'number') return nested.totalCount
-  return 0
-}
-
-function extractTotalPages(data: unknown): number {
-  if (!data || typeof data !== 'object') return 1
-  const o = data as Record<string, unknown>
-  if (typeof o.totalPages === 'number') return o.totalPages
-  const nested = (o.data ?? o.Data) as Record<string, unknown> | undefined
-  if (nested && typeof nested.totalPages === 'number') return nested.totalPages
-  return 1
-}
+const PAGE_SIZE = 10
 
 export function ApplicationsPage() {
   const role = getRole()
@@ -84,16 +73,13 @@ export function ApplicationsPage() {
   const [bulkSending, setBulkSending] = useState(false)
   const [bulkMsg, setBulkMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [exporting, setExporting] = useState(false)
-  const [tick, setTick] = useState(0)
-  const PAGE_SIZE = 100 // Tăng để hiển thị tất cả hồ sơ
+
+  // SXD bulk actions
+  const [sxdBulkSending, setSxdBulkSending] = useState(false)
 
   useEffect(() => {
-    // Auto-refresh: Applicant 500ms (fast), SXD/CĐT mỗi 30s
-    if (!role || role === 'System Administrator') return
-    const ms = isApplicant ? 500 : 30_000
-    const id = window.setInterval(() => setTick((t) => t + 1), ms)
-    return () => window.clearInterval(id)
-  }, [isSxd, isApplicant, isDeveloper])
+    setPageIndex(1)
+  }, [status])
 
   const load = async (filter?: { search?: string; status?: string }, page = 1) => {
     setLoading(true)
@@ -106,10 +92,12 @@ export function ApplicationsPage() {
         : role === 'Department Of Construction'
         ? await housingApplicationsApi.getSxdDashboard({ pageIndex: page, pageSize: PAGE_SIZE, ...filter })
         : await housingApplicationsApi.getAll({ pageIndex: page, pageSize: PAGE_SIZE, ...filter })
-      setApps(parsePagedApplications(data))
+      const parsed = parsePagedApplications(data)
+      const meta = parsePagedMeta(data, PAGE_SIZE)
+      setApps(parsed)
       setPageIndex(page)
-      setTotalCount(extractTotalCount(data))
-      setTotalPages(extractTotalPages(data))
+      setTotalCount(meta.totalCount)
+      setTotalPages(meta.totalPages)
     } catch (err) {
       setError(formatError(err))
     } finally {
@@ -117,7 +105,9 @@ export function ApplicationsPage() {
     }
   }
 
-  useEffect(() => { void load({ status: status || undefined }) }, [isApplicant, role, status, tick])
+  useEffect(() => {
+    void load({ search: search || undefined, status: status || undefined }, pageIndex)
+  }, [role, status, pageIndex])
 
   const submittable = useMemo(
     () => apps.filter((a) => a.applicationStatus === 'REVIEWING'),
@@ -135,8 +125,9 @@ export function ApplicationsPage() {
 
   const toggleSelectAll = () => {
     setSelected((prev) => {
-      if (prev.size === submittable.length) return new Set()
-      return new Set(submittable.map((a) => a.applicationId))
+      const pool = isDeveloper ? submittable : sxdSelectable
+      if (prev.size === pool.length) return new Set()
+      return new Set(pool.map((a) => a.applicationId))
     })
   }
 
@@ -156,6 +147,63 @@ export function ApplicationsPage() {
       setBulkMsg({ type: 'error', text: formatError(err) })
     } finally {
       setBulkSending(false)
+    }
+  }
+
+  // SXD bulk: chỉ chọn những PENDING_SXD_REVIEW
+  const sxdSelectable = useMemo(
+    () => apps.filter((a) => a.applicationStatus === 'PENDING_SXD_REVIEW'),
+    [apps],
+  )
+
+  const sxdToggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const sxdToggleSelectAll = () => {
+    setSelected((prev) => {
+      if (prev.size === sxdSelectable.length) return new Set()
+      return new Set(sxdSelectable.map((a) => a.applicationId))
+    })
+  }
+
+  const sxdBulkApprove = async () => {
+    if (selected.size === 0 || sxdBulkSending) return
+    if (!window.confirm(`Phê duyệt ${selected.size} hồ sơ đã chọn?`)) return
+    setSxdBulkSending(true)
+    setBulkMsg(null)
+    try {
+      await housingApplicationsApi.bulkSxdApprove(Array.from(selected))
+      setBulkMsg({ type: 'success', text: `Đã phê duyệt ${selected.size} hồ sơ.` })
+      setSelected(new Set())
+      await load({ search: search || undefined, status: status || undefined })
+    } catch (err) {
+      setBulkMsg({ type: 'error', text: formatError(err) })
+    } finally {
+      setSxdBulkSending(false)
+    }
+  }
+
+  const sxdBulkReject = async () => {
+    if (selected.size === 0 || sxdBulkSending) return
+    const note = window.prompt(`Từ chối ${selected.size} hồ sơ — nhập lý do (bắt buộc):`)
+    if (!note?.trim()) return
+    setSxdBulkSending(true)
+    setBulkMsg(null)
+    try {
+      await housingApplicationsApi.bulkSxdReject(Array.from(selected), note.trim())
+      setBulkMsg({ type: 'success', text: `Đã từ chối ${selected.size} hồ sơ.` })
+      setSelected(new Set())
+      await load({ search: search || undefined, status: status || undefined })
+    } catch (err) {
+      setBulkMsg({ type: 'error', text: formatError(err) })
+    } finally {
+      setSxdBulkSending(false)
     }
   }
 
@@ -205,7 +253,8 @@ export function ApplicationsPage() {
         </div>
         <form className="mb-6 grid gap-3 sm:grid-cols-3" onSubmit={(e) => {
           e.preventDefault()
-          void load({ search: search || undefined, status: status || undefined })
+          setPageIndex(1)
+          void load({ search: search || undefined, status: status || undefined }, 1)
         }}>
           <FormField label="Tìm kiếm" htmlFor="search"><Input id="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Họ tên / CCCD" /></FormField>
           <FormField label="Trạng thái" htmlFor="status">
@@ -216,7 +265,7 @@ export function ApplicationsPage() {
           </FormField>
           <div className="flex items-end gap-2">
             <Button type="submit" variant="outline">Lọc</Button>
-            <Button type="button" variant="ghost" onClick={() => void load({ search: search || undefined, status: status || undefined })} title="Tải lại danh sách">
+            <Button type="button" variant="ghost" onClick={() => void load({ search: search || undefined, status: status || undefined }, pageIndex)} title="Tải lại danh sách">
               <Sparkles className="h-4 w-4" />
             </Button>
           </div>
@@ -244,6 +293,42 @@ export function ApplicationsPage() {
             </Button>
           </div>
         )}
+
+        {/* SXD bulk approve/reject toolbar */}
+        {isSxd && sxdSelectable.length > 0 && (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 dark:border-indigo-800 dark:bg-indigo-950/30">
+            <label className="flex items-center gap-2 text-sm font-semibold text-indigo-900 dark:text-indigo-200">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-indigo-600"
+                checked={sxdSelectable.length > 0 && selected.size === sxdSelectable.length}
+                onChange={sxdToggleSelectAll}
+              />
+              Đã chọn <strong>{selected.size}</strong> / {sxdSelectable.length} hồ sơ chờ SXD duyệt
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="accent"
+                size="sm"
+                disabled={selected.size === 0 || sxdBulkSending}
+                onClick={() => void sxdBulkApprove()}
+              >
+                <CheckCheck className="mr-1.5 h-4 w-4" />
+                {sxdBulkSending ? 'Đang duyệt…' : `Duyệt đồng loạt (${selected.size || 0})`}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-amber-400 text-amber-700 dark:text-amber-300"
+                disabled={selected.size === 0 || sxdBulkSending}
+                onClick={() => void sxdBulkReject()}
+              >
+                <X className="mr-1.5 h-4 w-4" />
+                Từ chối đồng loạt
+              </Button>
+            </div>
+          </div>
+        )}
         {bulkMsg && (
           <Alert variant={bulkMsg.type === 'error' ? 'error' : 'success'} className="mb-4">
             {bulkMsg.text}
@@ -261,7 +346,7 @@ export function ApplicationsPage() {
             <table className="min-w-full text-left text-sm">
               <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
                 <tr>
-                  {isDeveloper && <th className="px-3 py-2">Chọn</th>}
+                  {(isDeveloper || isSxd) && <th className="px-3 py-2">Chọn</th>}
                   <th className="px-3 py-2">Họ tên</th>
                   <th className="px-3 py-2">CCCD</th>
                   <th className="px-3 py-2">Dự án</th>
@@ -273,6 +358,7 @@ export function ApplicationsPage() {
               <tbody>
                 {apps.map((app) => {
                   const canSelect = isDeveloper && app.applicationStatus === 'REVIEWING'
+                    || isSxd && app.applicationStatus === 'PENDING_SXD_REVIEW'
                   const countdown =
                     isSxd && app.applicationStatus === 'PENDING_SXD_REVIEW'
                       ? formatSxdCountdown(app.submittedAt || app.createdAt)
@@ -348,12 +434,12 @@ export function ApplicationsPage() {
                 })}
               </tbody>
             </table>
-            {totalPages > 1 && (
-              <div className="mt-4 flex items-center justify-between px-3 pb-3">
+            {totalCount > PAGE_SIZE && (
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 px-3 pb-3">
                 <p className="text-sm text-slate-500 dark:text-slate-400">
                   Hiển thị {(pageIndex - 1) * PAGE_SIZE + 1}–{Math.min(pageIndex * PAGE_SIZE, totalCount)} trong {totalCount} hồ sơ
                 </p>
-                <Pagination pageIndex={pageIndex} totalPages={totalPages} onPageChange={(p) => void load({ search: search || undefined, status: status || undefined }, p)} />
+                <Pagination pageIndex={pageIndex} totalPages={totalPages} onPageChange={(p) => setPageIndex(p)} />
               </div>
             )}
           </div>
@@ -386,6 +472,14 @@ export function ApplicationsPage() {
               </button>
               )
             })}
+            {totalCount > PAGE_SIZE && (
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Hiển thị {(pageIndex - 1) * PAGE_SIZE + 1}–{Math.min(pageIndex * PAGE_SIZE, totalCount)} trong {totalCount} hồ sơ
+                </p>
+                <Pagination pageIndex={pageIndex} totalPages={totalPages} onPageChange={(p) => setPageIndex(p)} />
+              </div>
+            )}
           </div>
         )}
       </PageCard>
@@ -455,10 +549,45 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
   const [aiAuditResult, setAiAuditResult] = useState<AuditChecklistResponse | null>(null)
   const [aiAuditOpen, setAiAuditOpen] = useState(false)
   const [aiAuditError, setAiAuditError] = useState('')
+  // Payment / contract state
+  const [contractStatus, setContractStatus] = useState<{
+    isSigned: boolean
+    signedAt?: string | null
+    applicationStatus: string
+  } | null>(null)
+  const [installments, setInstallments] = useState<import('@/api/contracts').PaymentInstallment[]>([])
+  const [installmentsError, setInstallmentsError] = useState(false)
+  const [contractPrice, setContractPrice] = useState<number | null>(null)
+  const [housePrice, setHousePrice] = useState<number | null>(null)
+  const [officialPrice, setOfficialPrice] = useState<number | null>(null)
+  const [signing, setSigning] = useState(false)
 
   const refresh = async () => {
     const data = await housingApplicationsApi.getById(appId)
     setApp(parseApplicationDetail(data))
+
+    // Load contract status + installments
+    try {
+      const s = await contractApi.getStatus(appId)
+      const parsed = parseContractStatus(s)
+      setContractStatus(parsed ? { isSigned: parsed.isSigned, signedAt: parsed.signedAt, applicationStatus: parsed.applicationStatus } : null)
+    } catch { setContractStatus(null) }
+
+    try {
+      const i = await contractApi.getInstallments(appId)
+      const env = parseInstallmentsEnvelope(i)
+      setInstallments(env.installments)
+      setInstallmentsError(false)
+      setContractPrice(env.contractPrice ?? null)
+      setHousePrice(env.housePrice ?? null)
+      setOfficialPrice(env.officialPrice ?? null)
+    } catch {
+      setInstallments([])
+      setInstallmentsError(true)
+      setContractPrice(null)
+      setHousePrice(null)
+      setOfficialPrice(null)
+    }
   }
 
   useEffect(() => {
@@ -600,6 +729,21 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
     }
   }
 
+  const handleSign = async () => {
+    if (signing) return
+    setSigning(true)
+    setMsg(null)
+    try {
+      await contractApi.sign(appId)
+      await refresh()
+      setMsg({ type: 'success', text: 'Đã ký HĐ thành công. Đợt 2 (20%) đã tự mở — có thể đóng ngay.' })
+    } catch (err) {
+      setMsg({ type: 'error', text: formatError(err) })
+    } finally {
+      setSigning(false)
+    }
+  }
+
   const confirmWithdraw = async () => {
     if (!withdrawReason.trim()) {
       setMsg({ type: 'error', text: 'Vui lòng nhập lý do rút hồ sơ.' })
@@ -631,7 +775,9 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
     app.applicationStatus === 'PENDING_SXD_REVIEW'
       ? formatSxdCountdown(app.submittedAt || app.createdAt)
       : null
-  const depositCountdown = formatDepositCountdown(app.applicationStatus, app.updatedAt)
+  const deposit1Paid = installments.some(i => i.ordinal === 1 && i.status === 'PAID')
+  const deposit2Paid = installments.some(i => i.ordinal === 2 && i.status === 'PAID')
+  const depositCountdown = !deposit1Paid && !deposit2Paid ? formatDepositCountdown(app.applicationStatus, app.updatedAt) : null
   const pdfDoc = (app.documents ?? []).find((d) => d.fileUrl?.toLowerCase().includes('.pdf') || d.fileName?.toLowerCase().endsWith('.pdf'))
   const isStaff = role === 'Housing Developer' || role === 'Department Of Construction'
 
@@ -642,13 +788,6 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
           <strong>Cảnh báo vi phạm:</strong> {app.violationReason || 'Hồ sơ bị đánh dấu vi phạm (trùng CCCD / đã có nhà đất).'}
         </Alert>
       )}
-      {role === 'Applicant' && ['APPROVED', 'APPROVED_BY_TIMEOUT'].includes(app.applicationStatus) && (
-        <Alert variant="info">
-          <strong>Hồ sơ đã được Sở duyệt.</strong> Tiếp theo cần qua bốc thăm / chốt danh sách → ký{' '}
-          <strong>hợp đồng mua bán nhà ở xã hội</strong> → rồi thanh toán Đợt 1 qua VNPay. Trạng thái cần để thanh toán:{' '}
-          <code>CONTRACT_SIGNED</code>.
-        </Alert>
-      )}
       {role === 'Applicant' && depositCountdown && (
         <Alert variant={depositCountdown.isOverdue ? 'error' : 'warning'}>
           <strong>Hạn thanh toán Đợt 1 ({depositCountdown.daysLimit} ngày sau khi ký).</strong>{' '}
@@ -656,18 +795,6 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
             ? <>Đã quá hạn Đợt 1 — tải lại trang để xem trạng thái mới nhất từ hệ thống.</>
             : <>Còn lại: <strong>{depositCountdown.label}</strong></>}
           {' · '}đến {depositCountdown.deadline.toLocaleString('vi-VN')}
-        </Alert>
-      )}
-      {role === 'Applicant' && app.applicationStatus === 'CONTRACT_PENDING' && (
-        <Alert variant="info">
-          <strong>Chờ ký hợp đồng mua bán nhà ở xã hội.</strong> Vào mục <strong>Hợp đồng</strong> để xem và ký,
-          sau đó mới thanh toán Đợt 1 được.
-        </Alert>
-      )}
-      {role === 'Applicant' && app.applicationStatus === 'CONTRACT_SIGNED' && (
-        <Alert variant="info">
-          <strong>Đã ký hợp đồng mua bán nhà ở xã hội.</strong> Vui lòng thanh toán Đợt 1 qua VNPay.
-          Thẻ sandbox: NCB · <code>9704198526191432198</code> · hết hạn <code>07/15</code> · OTP <code>123456</code>.
         </Alert>
       )}
       {role === 'Applicant' && app.applicationStatus === 'NEED_MORE_DOCUMENTS' && (
@@ -686,7 +813,7 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
 
       <div className="glass-card p-4">
         <h3 className="mb-3 font-semibold">Tiến độ hồ sơ</h3>
-        <ApplicationTimeline currentStatus={app.applicationStatus} histories={app.reviewHistories} />
+        <ApplicationTimeline currentStatus={app.applicationStatus} depositPaid={deposit1Paid} histories={app.reviewHistories} />
       </div>
 
       <div className={`glass-card p-4 ${app.isViolation ? 'ring-2 ring-rose-400' : ''}`}>
@@ -720,7 +847,76 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
         {app.officerFullName && <DetailRow label="Cán bộ thẩm định" value={app.officerFullName} />}
         {app.slotCode && <DetailRow label="Mã suất" value={app.slotCode} />}
         {app.lotteryResult && <DetailRow label="Kết quả bốc thăm" value={app.lotteryResult} />}
+        {app.priorityScore != null && app.priorityScore > 0 && (
+          <DetailRow label="Điểm ưu tiên" value={`${app.priorityScore} điểm`} />
+        )}
+        {app.maritalStatus && <DetailRow label="Tình trạng hôn nhân" value={app.maritalStatus} />}
+        {app.averageHousingAreaPerPerson != null && (
+          <DetailRow label="DT ở/người" value={`${app.averageHousingAreaPerPerson} m²`} />
+        )}
       </div>
+
+      {/* Kết quả thẩm định điều kiện (SXD) */}
+      {role === 'Department Of Construction' && app.eligibility && (
+        <div className={`rounded-xl border p-4 ${app.eligibility.isEligible ? 'border-emerald-200 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/20' : 'border-rose-200 bg-rose-50/50 dark:border-rose-800 dark:bg-rose-950/20'}`}>
+          <h3 className={`mb-3 font-semibold ${app.eligibility.isEligible ? 'text-emerald-800 dark:text-emerald-200' : 'text-rose-800 dark:text-rose-200'}`}>
+            Kết quả thẩm định điều kiện
+          </h3>
+          <div className="grid gap-2 text-sm sm:grid-cols-2">
+            <div className="flex items-center gap-2">
+              {app.eligibility.isIncomeEligible ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <XCircle className="h-4 w-4 text-rose-500" />}
+              <span>Thu nhập hợp lệ</span>
+              {app.eligibility.totalScore != null && <span className="ml-auto font-medium">{app.eligibility.totalScore} điểm</span>}
+            </div>
+            <div className="flex items-center gap-2">
+              {app.eligibility.isHousingStatusEligible ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <XCircle className="h-4 w-4 text-rose-500" />}
+              <span>Thực trạng nhà ở</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {app.eligibility.isPriorityGroupEligible ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <XCircle className="h-4 w-4 text-rose-500" />}
+              <span>Nhóm ưu tiên</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {app.eligibility.isEligible ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <XCircle className="h-4 w-4 text-rose-500" />}
+              <span className="font-medium">Tổng kết: {app.eligibility.isEligible ? 'Đủ điều kiện' : 'Không đủ điều kiện'}</span>
+            </div>
+          </div>
+          {app.eligibility.verifiedAt && (
+            <p className="mt-2 text-xs text-slate-500">Xác minh lúc: {new Date(app.eligibility.verifiedAt).toLocaleString('vi-VN')}</p>
+          )}
+        </div>
+      )}
+
+      {/* Thành viên hộ gia đình (SXD) */}
+      {role === 'Department Of Construction' && app.householdMembers && app.householdMembers.length > 0 && (
+        <div className="glass-card p-4">
+          <h3 className="mb-3 font-semibold">Thành viên hộ gia đình ({app.householdMembers.length} người)</h3>
+          <div className="overflow-x-auto rounded-lg border border-slate-100 dark:border-slate-800">
+            <table className="min-w-full text-sm">
+              <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
+                <tr>
+                  <th className="px-3 py-2 text-left">Họ tên</th>
+                  <th className="px-3 py-2 text-left">Quan hệ</th>
+                  <th className="px-3 py-2 text-left">Ngày sinh</th>
+                  <th className="px-3 py-2 text-left">CCCD</th>
+                </tr>
+              </thead>
+              <tbody>
+                {app.householdMembers.map((m, i) => (
+                  <tr key={i} className="border-t border-slate-100 dark:border-slate-800">
+                    <td className="px-3 py-2 font-medium">{m.fullName}</td>
+                    <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{m.relationship}</td>
+                    <td className="px-3 py-2 text-slate-600 dark:text-slate-400">
+                      {m.dateOfBirth ? new Date(m.dateOfBirth).toLocaleDateString('vi-VN') : '—'}
+                    </td>
+                    <td className="px-3 py-2 font-mono text-xs text-slate-600 dark:text-slate-400">{m.citizenId || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {(isStaff || app.apartmentId) && (
         <div className="glass-card space-y-3 p-4">
@@ -789,6 +985,51 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
           )}
         </div>
       )}
+
+      {/* Căn được cấp */}
+      <ApartmentCard
+        apartmentUnitName={app.apartmentUnitName}
+        apartmentArea={app.apartmentArea}
+        apartmentPrice={app.apartmentPrice}
+        projectName={app.projectName}
+        lotteryResult={app.lotteryResult}
+      />
+
+      {/* Ký HĐ */}
+      <SignContractSection
+        canSign={
+          role === 'Applicant' &&
+          !!app.apartmentId &&
+          !contractStatus?.isSigned &&
+          (
+            contractStatus?.applicationStatus === 'CONTRACT_PENDING' ||
+            contractStatus?.applicationStatus === 'DEPOSIT_PENDING' ||
+            contractStatus?.applicationStatus === 'CONTRACTING'
+          )
+        }
+        signing={signing}
+        onSign={() => void handleSign()}
+        applicationStatus={contractStatus?.applicationStatus ?? app.applicationStatus}
+      />
+
+      {/* Lịch 6 đợt thanh toán + nút thanh toán + lịch sử GD */}
+      <PaymentSection
+        installments={installments}
+        paid={installments.filter(i => i.status === 'PAID').reduce((s, i) => s + (i.paidAmount ?? i.amount), 0)}
+        remaining={summarizeInstallments(installments).remaining}
+        progress={summarizeInstallments(installments).progress}
+        contractPrice={contractPrice}
+        officialPrice={officialPrice}
+        housePrice={housePrice}
+        signedAt={contractStatus?.signedAt ?? null}
+        applicationId={appId}
+        applicationStatus={contractStatus?.applicationStatus ?? app.applicationStatus}
+        hasError={installmentsError}
+        hasApartment={!!app.apartmentId}
+        onReload={() => void refresh()}
+        role={role}
+        projectId={app.projectId}
+      />
 
       <div className="glass-card p-4">
         <h3 className="mb-2 font-semibold">Tài liệu đính kèm</h3>
@@ -976,45 +1217,7 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
             }
           }}>{acting === 'submit' ? 'Đang nộp…' : 'Nộp lại sau bổ sung'}</Button>
         )}
-        {role === 'Applicant' && app.applicationStatus === 'CONTRACT_PENDING' && (
-          <Button variant="accent" onClick={() => navigate('contracts')}>
-            Xem &amp; ký hợp đồng mua bán NOXH
-          </Button>
-        )}
-        {role === 'Applicant' && app.applicationStatus === 'CONTRACT_SIGNED' && (
-          <Button
-            variant="accent"
-            disabled={acting === 'pay'}
-            onClick={async () => {
-              if (acting) return
-              setActing('pay')
-              setMsg(null)
-              try {
-                const { url, orderId } = await startVnPayPayment(
-                  app.applicationId,
-                  `Dat coc ho so ${app.applicationId.slice(0, 8)}`,
-                )
-                setMsg({ type: 'success', text: 'Đã mở cổng VNPay — đang chờ kết quả…' })
-                const result = await openVnPayPopupAndWait(url, orderId)
-                const notice = vnPayResultMessage(result)
-                setMsg(notice)
-                if (result === 'success') await refresh()
-              } catch (err) {
-                setMsg({ type: 'error', text: formatError(err) })
-              } finally {
-                setActing('')
-              }
-            }}
-          >
-            {acting === 'pay' ? 'Đang chờ thanh toán…' : 'Thanh toán Đợt 1 / VNPay'}
-          </Button>
-        )}
-        {role === 'Applicant' && app.applicationStatus === 'DEPOSIT_PAID' && (
-          <Button variant="outline" onClick={() => navigate('payments')}>
-            Xem lịch sử thanh toán
-          </Button>
-        )}
-        {role === 'Applicant' && !['APPROVED', 'APPROVED_BY_TIMEOUT', 'DEPOSIT_PAID', 'CONTRACT_SIGNED', 'CONTRACT_PENDING', 'REJECTED', 'CANCELED', 'EXPIRED', 'LOTTERY_LOST'].includes(app.applicationStatus) && (
+        {!['APPROVED', 'APPROVED_BY_TIMEOUT', 'DEPOSIT_PAID', 'CONTRACT_SIGNED', 'CONTRACT_PENDING', 'REJECTED', 'CANCELED', 'EXPIRED', 'LOTTERY_LOST'].includes(app.applicationStatus) && (
           <Button variant="outline" className="text-red-600" disabled={acting === 'cancel'} onClick={() => setWithdrawOpen(true)}>
             Rút hồ sơ
           </Button>
@@ -1047,6 +1250,69 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
           <>
             <Button variant="accent" disabled={!!acting} onClick={() => void review('APPROVE')}>Phê duyệt</Button>
             <Button variant="outline" disabled={!!acting} onClick={() => void review('REJECT', true)}>Từ chối</Button>
+            <Button variant="outline" className="border-amber-400 text-amber-700 dark:text-amber-300" disabled={!!acting} onClick={async () => {
+              const note = window.prompt('Yêu cầu CĐT bổ sung giấy tờ — nhập nội dung:')
+              if (!note?.trim()) return
+              setActing('request-docs')
+              try {
+                await housingApplicationsApi.sxdRequestDocs(app.applicationId, note.trim())
+                await refresh()
+                setMsg({ type: 'success', text: 'Đã gửi yêu cầu bổ sung giấy tờ.' })
+              } catch (err) {
+                setMsg({ type: 'error', text: formatError(err) })
+              } finally {
+                setActing('')
+              }
+            }}>
+              <FilePlus className="mr-1.5 h-4 w-4" />
+              Yêu cầu CĐT bổ sung
+            </Button>
+            {app.isViolation ? (
+              <Button
+                variant="outline"
+                className="border-emerald-400 text-emerald-700 dark:text-emerald-300"
+                disabled={!!acting}
+                onClick={async () => {
+                  if (!window.confirm('Gỡ cờ vi phạm cho hồ sơ này?')) return
+                  setActing('unflag')
+                  try {
+                    await housingApplicationsApi.unflagViolation(app.applicationId)
+                    await refresh()
+                    setMsg({ type: 'success', text: 'Đã gỡ cờ vi phạm.' })
+                  } catch (err) {
+                    setMsg({ type: 'error', text: formatError(err) })
+                  } finally {
+                    setActing('')
+                  }
+                }}
+              >
+                <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                Gỡ cờ vi phạm
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                className="border-rose-400 text-rose-700 dark:text-rose-300"
+                disabled={!!acting}
+                onClick={async () => {
+                  const reason = window.prompt('Lý do gắn cờ vi phạm (VD: CCCD trùng, đã có nhà đất):')
+                  if (!reason?.trim()) return
+                  setActing('flag')
+                  try {
+                    await housingApplicationsApi.flagViolation(app.applicationId, reason.trim())
+                    await refresh()
+                    setMsg({ type: 'success', text: 'Đã gắn cờ vi phạm cho hồ sơ.' })
+                  } catch (err) {
+                    setMsg({ type: 'error', text: formatError(err) })
+                  } finally {
+                    setActing('')
+                  }
+                }}
+              >
+                <AlertTriangle className="mr-1.5 h-4 w-4" />
+                Gắn cờ vi phạm
+              </Button>
+            )}
           </>
         )}
       </div>

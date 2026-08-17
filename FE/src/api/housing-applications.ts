@@ -26,13 +26,53 @@ function str(v: unknown): string {
   return v == null ? '' : String(v)
 }
 
+function pagedBody(data: unknown): Record<string, unknown> {
+  if (!data || typeof data !== 'object') return {}
+  const o = data as Record<string, unknown>
+  const nested = o.data ?? o.Data
+  if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
+    return nested as Record<string, unknown>
+  }
+  return o
+}
+
+function extractApplicationItems(data: unknown): unknown[] {
+  if (!data || typeof data !== 'object') return []
+  if (Array.isArray(data)) return data
+
+  const o = data as Record<string, unknown>
+  const direct = o.items ?? o.Items
+  if (Array.isArray(direct)) return direct
+
+  const nested = o.data ?? o.Data
+  if (Array.isArray(nested)) return nested
+  if (nested && typeof nested === 'object') {
+    const inner = nested as Record<string, unknown>
+    const innerItems = inner.items ?? inner.Items ?? inner.data ?? inner.Data
+    if (Array.isArray(innerItems)) return innerItems
+  }
+
+  return []
+}
+
+/** Đọc totalCount / totalPages từ phản hồi phân trang (camelCase + PascalCase + wrapper data). */
+export function parsePagedMeta(
+  data: unknown,
+  fallbackPageSize: number,
+): { totalCount: number; totalPages: number; pageIndex: number; pageSize: number } {
+  const body = pagedBody(data)
+  const totalCount = Number(body.totalCount ?? body.TotalCount ?? extractApplicationItems(data).length)
+  const pageSize = Math.max(1, Number(body.pageSize ?? body.PageSize ?? fallbackPageSize))
+  const pageIndex = Math.max(1, Number(body.pageIndex ?? body.PageIndex ?? 1))
+  const fromApi = Number(body.totalPages ?? body.TotalPages ?? 0)
+  const totalPages =
+    fromApi > 0 ? fromApi : totalCount > 0 ? Math.max(1, Math.ceil(totalCount / pageSize)) : 1
+  return { totalCount, totalPages, pageIndex, pageSize }
+}
+
 /** Normalize list/dashboard items so web always gets applicantFullName + citizenId. */
 export function parsePagedApplications(data: unknown): ApplicationSummaryDto[] {
-  if (!data || typeof data !== 'object') return []
-  const o = data as Record<string, unknown>
-  const items = o.items ?? o.Items
-  if (!Array.isArray(items)) return []
-  return items.map((raw) => {
+  return extractApplicationItems(data).map((raw) => {
     const x = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
     const fullName =
       str(x.applicantFullName) ||
@@ -111,6 +151,31 @@ export function parseApplicationDetail(data: unknown): ApplicationDetailDto | nu
     apartmentArea: aptArea != null && aptArea !== '' ? Number(aptArea) : null,
     apartmentPrice: aptPrice != null && aptPrice !== '' ? Number(aptPrice) : null,
     apartmentStatus: aptStatus != null ? String(aptStatus) : null,
+    householdMembers: (() => {
+      const raw = o.householdMembers ?? o.HouseholdMembers
+      if (!Array.isArray(raw)) return undefined
+      return raw.map((m: Record<string, unknown>) => ({
+        memberId: (m.memberId ?? m.MemberId) as string | null,
+        fullName: String(m.fullName ?? m.FullName ?? ''),
+        citizenId: m.citizenId != null ? String(m.citizenId) : null,
+        dateOfBirth: m.dateOfBirth != null ? String(m.dateOfBirth) : null,
+        relationship: String(m.relationship ?? m.Relationship ?? ''),
+        note: (m.note ?? m.Note) as string | null | undefined,
+      }))
+    })(),
+    eligibility: (() => {
+      const raw = o.eligibility ?? o.Eligibility
+      if (!raw || typeof raw !== 'object') return null
+      const e = raw as Record<string, unknown>
+      return {
+        isEligible: Boolean(e.isEligible ?? e.IsEligible),
+        isIncomeEligible: Boolean(e.isIncomeEligible ?? e.IsIncomeEligible),
+        isHousingStatusEligible: Boolean(e.isHousingStatusEligible ?? e.IsHousingStatusEligible),
+        isPriorityGroupEligible: Boolean(e.isPriorityGroupEligible ?? e.IsPriorityGroupEligible),
+        totalScore: e.totalScore != null ? Number(e.totalScore) : null,
+        verifiedAt: e.verifiedAt ? String(e.verifiedAt) : null,
+      }
+    })(),
   }
 }
 
@@ -228,6 +293,30 @@ export const housingApplicationsApi = {
       auth: true,
     }),
 
+  /** SXD bulk approve nhiều PENDING_SXD_REVIEW cùng lúc */
+  bulkSxdApprove: (ids: string[]) =>
+    request<ApiResult>('/api/housing-applications/bulk-sxd-approve', {
+      method: 'PATCH',
+      body: JSON.stringify({ ids }),
+      auth: true,
+    }),
+
+  /** SXD bulk reject nhiều PENDING_SXD_REVIEW cùng lúc */
+  bulkSxdReject: (ids: string[], note: string) =>
+    request<ApiResult>('/api/housing-applications/bulk-sxd-reject', {
+      method: 'PATCH',
+      body: JSON.stringify({ ids, note }),
+      auth: true,
+    }),
+
+  /** SXD yêu cầu CĐT bổ sung giấy tờ → application quay về NEED_MORE_DOCUMENTS */
+  sxdRequestDocs: (id: string, note: string) =>
+    request<ApiResult>(`/api/housing-applications/${id}/sxd-request-docs`, {
+      method: 'PATCH',
+      body: JSON.stringify({ note }),
+      auth: true,
+    }),
+
   cancel: (id: string, reason?: string) =>
     request<ApiResult>(`/api/housing-applications/${id}/cancel`, {
       method: 'PATCH',
@@ -248,6 +337,21 @@ export const housingApplicationsApi = {
   assign: (id: string) =>
     request<ApiResult>(`/api/housing-applications/${id}/assign`, {
       method: 'PATCH',
+      auth: true,
+    }),
+
+  /** Gắn cờ vi phạm (gian lận đất đai) */
+  flagViolation: (id: string, reason: string) =>
+    request<ApiResult>(`/api/housing-applications/${id}/flag-violation`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+      auth: true,
+    }),
+
+  /** Gỡ cờ vi phạm */
+  unflagViolation: (id: string) =>
+    request<ApiResult>(`/api/housing-applications/${id}/unflag-violation`, {
+      method: 'POST',
       auth: true,
     }),
 

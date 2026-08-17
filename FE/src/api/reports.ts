@@ -1,7 +1,7 @@
 const baseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 
 async function authFetch(path: string, init?: RequestInit): Promise<Response> {
-  const token = localStorage.getItem('accessToken')
+  const token = sessionStorage.getItem('accessToken')
   const headers = new Headers(init?.headers)
   if (token) headers.set('Authorization', `Bearer ${token}`)
   if (init?.body && !(init.body instanceof FormData) && !headers.has('Content-Type')) {

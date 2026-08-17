@@ -3,6 +3,8 @@ import {
   getRoute,
   navigate,
   onRouteChange,
+  getHashQuery,
+  navigateWithQuery,
   type RouteId,
 } from '@/router'
 
@@ -14,4 +16,4 @@ export function useHashRoute(): RouteId {
   return route
 }
 
-export { navigate, type RouteId }
+export { navigate, getHashQuery, navigateWithQuery, type RouteId }

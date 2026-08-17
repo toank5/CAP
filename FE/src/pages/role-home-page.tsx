@@ -165,8 +165,7 @@ function PaymentCalloutBanner() {
   const cta = first.status === 'FULLY_PAID' ? 'Xem chi tiết' : 'Mở hợp đồng'
 
   const handleClick = () => {
-    sessionStorage.setItem('contractApplicationId', first.applicationId)
-    navigate('contracts')
+    navigate('my-apartment')
   }
 
   return (

@@ -4,7 +4,6 @@ import {
   Building2,
   Gavel,
   Radio,
-  FileSignature,
   User,
 } from 'lucide-react'
 import { useHashRoute, navigate } from '@/hooks/useHashRoute'
@@ -45,12 +44,6 @@ const ITEMS: NavItem[] = [
     label: 'Bốc thăm trực tiếp',
     icon: Radio,
   },
-  {
-    route: 'contracts',
-    label: 'Hợp đồng',
-    icon: FileSignature,
-    aliases: ['contract-detail'],
-  },
   { route: 'profile', label: 'Tài khoản', icon: User, aliases: ['change-password'] },
 ]
 
@@ -65,8 +58,6 @@ export const DEVELOPER_SUB_NAV_ROUTES: RouteId[] = [
   'lottery-sessions',
   'lottery-live',
   'my-lottery',
-  'contracts',
-  'contract-detail',
   'dashboard',
   'profile',
   'change-password',
@@ -79,13 +70,13 @@ function isActive(current: RouteId, item: NavItem): boolean {
   return item.aliases?.includes(current) ?? false
 }
 
-/** Menu ngang dành riêng cho Chủ đầu tư — thay thế hoàn toàn header nav cũ. */
+/** Menu phẳng tối giản dành cho Chủ đầu tư. */
 export function DeveloperSubNav() {
   const route = useHashRoute()
 
   return (
-    <nav className={`${THEME.navBg}`} aria-label="Điều hướng chủ đầu tư">
-      <div className="mx-auto flex w-full max-w-[1600px] items-center justify-center overflow-x-auto px-4 lg:px-8 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <nav aria-label="Điều hướng chủ đầu tư">
+      <div className="mx-auto flex max-w-[1760px] items-center gap-1 px-4 lg:px-6">
         {ITEMS.map((item) => {
           const active = isActive(route, item)
           const Icon = item.icon
@@ -94,18 +85,14 @@ export function DeveloperSubNav() {
               key={item.route}
               type="button"
               onClick={() => navigate(item.route)}
-              data-active={active}
-              className={`relative inline-flex flex-1 items-center justify-center gap-2 px-5 py-3 text-sm font-medium transition-colors min-w-[120px] ${
+              className={`relative inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${
                 active
-                  ? `${THEME.navActiveBg} ${THEME.navActiveTextColor}`
-                  : `${THEME.navTextColor} ${THEME.navBgHover}`
+                  ? `${THEME.navActiveBg} ${THEME.navActiveTextColor} font-semibold`
+                  : `text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white`
               }`}
             >
               <Icon className="h-4 w-4" />
               <span className="whitespace-nowrap">{item.label}</span>
-              {active && (
-                <span className={`absolute inset-x-2 bottom-0 h-0.5 rounded-full ${THEME.activeBar}`} />
-              )}
             </button>
           )
         })}

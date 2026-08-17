@@ -230,6 +230,24 @@ export const housingProjectsApi = {
       body: JSON.stringify(body),
       auth: true,
     }),
+
+  /**
+   * SXD phê duyệt hoặc từ chối dự án mới.
+   * Dùng chung BE endpoint với patchStatus nhưng mang action 'approve'/'reject'.
+   */
+  sxdReviewProject: (id: string, body: { action: 'APPROVE' | 'REJECT'; note?: string }) => {
+    const action = body.action === 'APPROVE' ? 'APPROVE' : 'REJECT'
+    const qs = new URLSearchParams({ action })
+    if (body.note) qs.set('rejectReason', body.note)
+    return request<ApiResult>(`/api/HousingProjects/${id}/status?${qs.toString()}`, {
+      method: 'PATCH',
+      auth: true,
+    })
+  },
+
+  /** Lấy danh sách dự án chờ SXD duyệt (PENDING) */
+  listSxdPendingProjects: () =>
+    request<ApiResult>('/api/HousingProjects/sxd-pending', { auth: true }),
 }
 
 /** Action SXD dùng để chuyển trạng thái dự án. Match với BE controller. */

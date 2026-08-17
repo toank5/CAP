@@ -5,6 +5,8 @@ import {
   HubConnectionState,
   LogLevel,
 } from '@microsoft/signalr'
+import type { LiveStateDto } from './lottery'
+import { parseLiveState } from './lottery'
 
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? ''
 
@@ -27,6 +29,8 @@ export type LotteryHubHandlers = {
   onSxdSupervisorCount?: (count: number) => void
   onDrawResult?: (data: unknown) => void
   onStatus?: (status: string) => void
+  /** Nhận toàn bộ live-state khi CĐT bốc tiếp (thay thế các event rời) */
+  onLiveState?: (state: LiveStateDto) => void
 }
 
 export async function connectLotteryHub(
@@ -34,14 +38,14 @@ export async function connectLotteryHub(
   joinCode: string | undefined,
   handlers: LotteryHubHandlers,
 ): Promise<HubConnection> {
-  const token = localStorage.getItem('accessToken') ?? ''
+  const token = sessionStorage.getItem('accessToken') ?? ''
   if (!token) throw new Error('Chưa đăng nhập — không kết nối được sảnh realtime.')
   if (!projectId) throw new Error('Thiếu mã dự án để vào sảnh.')
 
   const url = hubUrl()
   const connection = new HubConnectionBuilder()
     .withUrl(url, {
-      accessTokenFactory: () => localStorage.getItem('accessToken') ?? token,
+      accessTokenFactory: () => sessionStorage.getItem('accessToken') ?? token,
       transport:
         HttpTransportType.WebSockets |
         HttpTransportType.ServerSentEvents |
@@ -57,6 +61,11 @@ export async function connectLotteryHub(
   )
   connection.on('ReceiveDrawResult', (data: unknown) => handlers.onDrawResult?.(data))
   connection.on('ReceiveLotteryStatus', (status: string) => handlers.onStatus?.(String(status ?? '')))
+  // ReceiveLiveState: BE gửi toàn bộ live-state khi CĐT bốc tiếp / trạng thái đổi
+  connection.on('ReceiveLiveState', (data: unknown) => {
+    const state = parseLiveState(data)
+    if (state) handlers.onLiveState?.(state)
+  })
 
   const join = async () => {
     await connection.invoke('JoinProjectLobby', projectId, joinCode ?? null)

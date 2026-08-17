@@ -1,9 +1,6 @@
 import { Bell, FolderTree, Home, ListTree, User, Users } from 'lucide-react'
 import { useHashRoute, navigate } from '@/hooks/useHashRoute'
 import { type RouteId } from '@/router'
-import { ROLE_THEMES } from '@/lib/role-theme'
-
-const THEME = ROLE_THEMES.admin
 
 interface NavItem {
   route: RouteId
@@ -42,35 +39,28 @@ export function AdminSubNav() {
   const route = useHashRoute()
 
   return (
-    <div className="relative">
-      <div className="h-1 w-full bg-gradient-to-r from-rose-500 via-amber-400 to-cyan-400" aria-hidden />
-      <nav className={`${THEME.navBg} text-white`} aria-label="Điều hướng quản trị">
-        <div className="mx-auto flex max-w-7xl items-center overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {ITEMS.map((item) => {
-            const active = isActive(route, item)
-            const Icon = item.icon
-            return (
-              <button
-                key={item.route}
-                type="button"
-                onClick={() => navigate(item.route)}
-                data-active={active}
-                className={`relative inline-flex shrink-0 items-center gap-2 px-4 py-3 text-sm font-semibold transition-colors ${
-                  active
-                    ? `${THEME.navActiveBg} ${THEME.navActiveTextColor}`
-                    : `${THEME.navTextColor} ${THEME.navBgHover}`
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                <span className="whitespace-nowrap">{item.label}</span>
-                {active && (
-                  <span className={`absolute inset-x-2 bottom-0 h-0.5 rounded-full ${THEME.activeBar}`} />
-                )}
-              </button>
-            )
-          })}
-        </div>
-      </nav>
-    </div>
+    <nav aria-label="Điều hướng quản trị">
+      <div className="mx-auto flex max-w-[1760px] items-center gap-1 px-4 lg:px-6">
+        {ITEMS.map((item) => {
+          const active = isActive(route, item)
+          const Icon = item.icon
+          return (
+            <button
+              key={item.route}
+              type="button"
+              onClick={() => navigate(item.route)}
+              className={`relative inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+                active
+                  ? 'bg-white text-slate-900 font-semibold shadow-sm dark:bg-slate-700 dark:text-white'
+                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+              }`}
+            >
+              <Icon className="h-4 w-4" />
+              <span className="whitespace-nowrap">{item.label}</span>
+            </button>
+          )
+        })}
+      </div>
+    </nav>
   )
 }

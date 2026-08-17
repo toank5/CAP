@@ -63,11 +63,13 @@ function readProjectRow(p: Record<string, unknown>): HousingProjectDto {
     minArea: Number(p.minArea ?? p.MinArea ?? 0),
     maxArea: Number(p.maxArea ?? p.MaxArea ?? 0),
     availableUnits: Number(p.availableUnits ?? p.AvailableUnits ?? 0),
+    totalUnits: Number(p.totalUnits ?? p.TotalUnits ?? 0) || undefined,
     phase1Percentage: Number(p.phase1Percentage ?? p.Phase1Percentage ?? 0) || undefined,
     housingProjectStatusId: String(
       p.housingProjectStatusId ?? p.HousingProjectStatusId ?? '',
     ) || undefined,
     thumbnailUrl: thumbnail ? String(thumbnail) : undefined,
+    imageUrl: p.imageUrl ? String(p.imageUrl) : p.ImageUrl ? String(p.ImageUrl) : undefined,
     apartments: (() => {
       const raw = p.apartments ?? p.Apartments
       if (!Array.isArray(raw)) return undefined
@@ -88,12 +90,21 @@ function readProjectRow(p: Record<string, unknown>): HousingProjectDto {
         p.status ?? p.Status ??
         p.statusName ?? p.StatusName ??
         p.housingProjectStatusName ?? p.HousingProjectStatusName
-      return raw ? labelProjectStatus(String(raw)) : undefined
+      return raw ? String(raw) : undefined
     })(),
     publicAnnounceAt: p.publicAnnounceAt ? String(p.publicAnnounceAt ?? p.PublicAnnounceAt) : undefined,
     rejectReason: p.rejectReason ? String(p.rejectReason ?? p.RejectReason) : undefined,
     createdAt: p.createdAt ? String(p.createdAt ?? p.CreatedAt) : undefined,
     updatedAt: p.updatedAt ? String(p.updatedAt ?? p.UpdatedAt) : undefined,
+    images: (() => {
+      const raw = p.images ?? p.Images ?? p.imageUrls ?? p.ImageUrls
+      if (!Array.isArray(raw)) return undefined
+      return (raw as Record<string, unknown>[]).map((it) => ({
+        id: String(it.id ?? it.Id ?? it.imageId ?? it.ImageId ?? ''),
+        imageUrl: String(it.imageUrl ?? it.ImageUrl ?? it.url ?? it.Url ?? ''),
+        displayOrder: Number(it.displayOrder ?? it.DisplayOrder ?? it.sortOrder ?? it.SortOrder ?? 0),
+      }))
+    })(),
   }
 }
 
@@ -143,6 +154,5 @@ export function parseProfile(data: unknown): Record<string, unknown> | null {
 }
 
 export function appSummaries(data: unknown): ApplicationSummaryDto[] {
-  // Reuse dashboard-aware parser (applicantName → applicantFullName, citizenId, …)
   return parsePagedApplications(data)
 }
