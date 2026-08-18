@@ -12,6 +12,7 @@ import {
 import { housingProjectsApi, parseProjectEvaluation, type ProjectApplicationEvaluationDto } from '@/api/housing-projects'
 import { extractProjects, extractSingleProject } from '@/lib/parsers'
 import { navigate, getHashQuery } from '@/hooks/useHashRoute'
+import { Modal } from '@/components/ui/modal'
 import { PageCard, PageHeader } from '@/components/layout/page-header'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -285,6 +286,7 @@ function ProjectRow({
   onNavigateToDetail: (id: string) => void
 }) {
   const [busy, setBusy] = useState(false)
+  const [approveOpen, setApproveOpen] = useState(false)
   const [rejectOpen, setRejectOpen] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
 
@@ -293,7 +295,7 @@ function ProjectRow({
 
   const handleApprove = async () => {
     if (busy) return
-    if (!window.confirm(`Phê duyệt dự án "${project.projectName || project.name}"?`)) return
+    setApproveOpen(false)
     setBusy(true)
     try {
       await housingProjectsApi.sxdReviewProject(project.id!, { action: 'APPROVE' })
@@ -380,7 +382,7 @@ function ProjectRow({
                   variant="accent"
                   size="sm"
                   disabled={busy}
-                  onClick={() => void handleApprove()}
+                  onClick={() => setApproveOpen(true)}
                 >
                   {busy ? <><Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> Đang duyệt...</> : 'Phê duyệt'}
                 </Button>
@@ -399,43 +401,70 @@ function ProjectRow({
         </td>
       </tr>
 
+      {/* Approve confirmation */}
+      <Modal
+        open={approveOpen}
+        onClose={() => (busy ? undefined : setApproveOpen(false))}
+        title="Phê duyệt dự án"
+        description={`Xác nhận phê duyệt dự án "${project.projectName || project.name}"?`}
+        size="sm"
+      >
+        <div className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50/70 p-3 text-sm text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200">
+          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" />
+          <p>
+            Dự án sẽ chuyển sang trạng thái <strong>Sắp mở bán (UPCOMING)</strong> và công khai
+            trên cổng thông tin Sở Xây dựng. Hành động này không thể hoàn tác từ giao diện này.
+          </p>
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="outline" size="sm" disabled={busy} onClick={() => setApproveOpen(false)}>
+            Huỷ
+          </Button>
+          <Button variant="accent" size="sm" disabled={busy} onClick={() => void handleApprove()}>
+            {busy ? <><Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> Đang duyệt...</> : 'Xác nhận phê duyệt'}
+          </Button>
+        </div>
+      </Modal>
+
       {/* Reject modal */}
-      {rejectOpen && (
-        <tr>
-          <td colSpan={6} className="border-t border-slate-100 bg-rose-50/50 px-4 py-4 dark:border-slate-800 dark:bg-rose-950/20">
-            <div className="rounded-lg border border-rose-200 bg-white p-4 dark:border-rose-800 dark:bg-slate-900">
-              <p className="mb-2 text-sm font-semibold text-rose-800 dark:text-rose-200">
-                Lý do từ chối dự án "{project.projectName || project.name}"
-              </p>
-              <textarea
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-                rows={3}
-                placeholder="VD: Hồ sơ pháp lý chưa đầy đủ, vui lòng bổ sung..."
-                className="mb-3 block w-full rounded-md border border-rose-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-rose-500 focus:outline-none dark:border-rose-700 dark:bg-slate-800 dark:text-slate-50"
-              />
-              <div className="flex gap-2">
-                <Button
-                  variant="accent"
-                  size="sm"
-                  disabled={busy || !rejectReason.trim()}
-                  onClick={() => void handleReject()}
-                >
-                  {busy ? <><Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> Đang gửi...</> : 'Xác nhận từ chối'}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={busy}
-                  onClick={() => { setRejectOpen(false); setRejectReason('') }}
-                >
-                  Huỷ
-                </Button>
-              </div>
-            </div>
-          </td>
-        </tr>
-      )}
+      <Modal
+        open={rejectOpen}
+        onClose={() => (busy ? undefined : (() => { setRejectOpen(false); setRejectReason('') })())}
+        title="Từ chối dự án"
+        description={`Nhập lý do từ chối dự án "${project.projectName || project.name}".`}
+        size="md"
+      >
+        <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+          Lý do từ chối <span className="text-rose-500">*</span>
+        </label>
+        <textarea
+          autoFocus
+          value={rejectReason}
+          onChange={(e) => setRejectReason(e.target.value)}
+          rows={4}
+          placeholder="VD: Hồ sơ pháp lý chưa đầy đủ, vui lòng bổ sung..."
+          className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-50"
+        />
+        <div className="mt-4 flex justify-end gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={() => { setRejectOpen(false); setRejectReason('') }}
+          >
+            Huỷ
+          </Button>
+          <Button
+            variant="accent"
+            size="sm"
+            className="bg-rose-600 hover:bg-rose-700"
+            disabled={busy || !rejectReason.trim()}
+            onClick={() => void handleReject()}
+          >
+            {busy ? <><Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> Đang gửi...</> : 'Xác nhận từ chối'}
+          </Button>
+        </div>
+      </Modal>
     </>
   )
 }
@@ -512,10 +541,15 @@ export function SxdProjectDetailPage() {
 
   const raw = project ? normalizeStatus(project.status) : ''
   const isPend = project ? (isPending(project) || raw === 'PENDING') : false
+  const [busy, setBusy] = useState(false)
+  const [approveOpen, setApproveOpen] = useState(false)
+  const [rejectOpen, setRejectOpen] = useState(false)
+  const [rejectReason, setRejectReason] = useState('')
 
   const handleApprove = async () => {
     if (!project) return
-    if (!window.confirm(`Phê duyệt dự án "${project.projectName || project.name}"?`)) return
+    setApproveOpen(false)
+    setBusy(true)
     try {
       await housingProjectsApi.sxdReviewProject(project.id!, { action: 'APPROVE' })
       window.dispatchEvent(new CustomEvent('fecaps:project-status-changed'))
@@ -523,20 +557,29 @@ export function SxdProjectDetailPage() {
       load()
     } catch (err) {
       setMsg({ type: 'error', text: formatError(err) })
+    } finally {
+      setBusy(false)
     }
   }
 
   const handleReject = async () => {
-    const reason = window.prompt('Nhập lý do từ chối:')
-    if (!reason?.trim()) return
+    if (!rejectReason.trim()) {
+      setMsg({ type: 'error', text: 'Vui lòng nhập lý do từ chối.' })
+      return
+    }
     if (!project) return
+    setBusy(true)
     try {
-      await housingProjectsApi.sxdReviewProject(project.id!, { action: 'REJECT', note: reason.trim() })
+      await housingProjectsApi.sxdReviewProject(project.id!, { action: 'REJECT', note: rejectReason.trim() })
       window.dispatchEvent(new CustomEvent('fecaps:project-status-changed'))
       setMsg({ type: 'success', text: 'Đã từ chối dự án.' })
+      setRejectOpen(false)
+      setRejectReason('')
       load()
     } catch (err) {
       setMsg({ type: 'error', text: formatError(err) })
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -613,14 +656,15 @@ export function SxdProjectDetailPage() {
                   Dự án đang chờ phê duyệt. Vui lòng xem xét trước khi duyệt hoặc từ chối.
                 </p>
                 <div className="flex flex-wrap gap-3">
-                  <Button variant="accent" onClick={handleApprove}>
+                  <Button variant="accent" disabled={busy} onClick={() => setApproveOpen(true)}>
                     <CheckCircle2 className="mr-1.5 h-4 w-4" />
                     Phê duyệt dự án
                   </Button>
                   <Button
                     variant="outline"
                     className="border-rose-300 text-rose-700 dark:text-rose-300"
-                    onClick={handleReject}
+                    disabled={busy}
+                    onClick={() => setRejectOpen(true)}
                   >
                     <X className="mr-1.5 h-4 w-4" />
                     Từ chối
@@ -709,6 +753,71 @@ export function SxdProjectDetailPage() {
           </>
         )}
       </PageCard>
+
+      {/* Approve confirmation (detail) */}
+      <Modal
+        open={approveOpen}
+        onClose={() => (busy ? undefined : setApproveOpen(false))}
+        title="Phê duyệt dự án"
+        description={`Xác nhận phê duyệt dự án "${project?.projectName || project?.name}"?`}
+        size="sm"
+      >
+        <div className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50/70 p-3 text-sm text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200">
+          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" />
+          <p>
+            Dự án sẽ chuyển sang trạng thái <strong>Sắp mở bán (UPCOMING)</strong> và công khai
+            trên cổng thông tin Sở Xây dựng. Hành động này không thể hoàn tác từ giao diện này.
+          </p>
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="outline" size="sm" disabled={busy} onClick={() => setApproveOpen(false)}>
+            Huỷ
+          </Button>
+          <Button variant="accent" size="sm" disabled={busy} onClick={() => void handleApprove()}>
+            {busy ? <><Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> Đang duyệt...</> : 'Xác nhận phê duyệt'}
+          </Button>
+        </div>
+      </Modal>
+
+      {/* Reject modal (detail) */}
+      <Modal
+        open={rejectOpen}
+        onClose={() => (busy ? undefined : (() => { setRejectOpen(false); setRejectReason('') })())}
+        title="Từ chối dự án"
+        description={`Nhập lý do từ chối dự án "${project?.projectName || project?.name}".`}
+        size="md"
+      >
+        <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+          Lý do từ chối <span className="text-rose-500">*</span>
+        </label>
+        <textarea
+          autoFocus
+          value={rejectReason}
+          onChange={(e) => setRejectReason(e.target.value)}
+          rows={4}
+          placeholder="VD: Hồ sơ pháp lý chưa đầy đủ, vui lòng bổ sung..."
+          className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-50"
+        />
+        <div className="mt-4 flex justify-end gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={() => { setRejectOpen(false); setRejectReason('') }}
+          >
+            Huỷ
+          </Button>
+          <Button
+            variant="accent"
+            size="sm"
+            className="bg-rose-600 hover:bg-rose-700"
+            disabled={busy || !rejectReason.trim()}
+            onClick={() => void handleReject()}
+          >
+            {busy ? <><Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> Đang gửi...</> : 'Xác nhận từ chối'}
+          </Button>
+        </div>
+      </Modal>
     </div>
   )
 }
