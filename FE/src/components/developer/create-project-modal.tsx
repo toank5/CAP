@@ -203,8 +203,6 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
         maxArea: areas.length ? Math.max(...areas) : 0,
         availableUnits: aptPayload.length,
         decisionNumber: decisionNumber.trim() || undefined,
-        isConfirmed: true,
-        housingProjectStatusId: 'f4f45259-46f8-4061-9916-7ede2422c159',
         thumbnailFile: thumbnailFile ?? undefined,
         imagesFiles: imagesFiles.length > 0 ? imagesFiles : undefined,
         apartments: aptPayload,

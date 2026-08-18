@@ -6,9 +6,7 @@ import { mapProjectToCard, type ProjectCard } from '@/lib/projects'
 import { FEATURED_HOUSES } from '@/lib/featured-houses'
 
 function fallbackCards(): ProjectCard[] {
-  return FEATURED_HOUSES
-    .filter((h) => parseInt(h.units.replace(/\D/g, ''), 10) > 0)
-    .map((h) => ({
+  return FEATURED_HOUSES.map((h) => ({
     id: h.id,
     name: h.name,
     location: h.location,
@@ -41,9 +39,7 @@ export function useHousingProjects(pageSize = 12) {
         pageSize,
         province: HCM_PROVINCE,
       })
-      const items = extractProjects(data)
-        .map(mapProjectToCard)
-        .filter((p) => (p.availableUnits ?? 0) > 0)
+      const items = extractProjects(data).map(mapProjectToCard)
       setProjects(items.length > 0 ? items : fallbackCards())
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Không tải được danh sách dự án')
