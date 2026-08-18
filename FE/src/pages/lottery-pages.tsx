@@ -685,7 +685,6 @@ export function LotteryDetailPage() {
                   </div>
                   <div className="text-right">
                     <Badge variant="success">Trúng #{i + 1}</Badge>
-                    {w.slotCode && <p className="mt-1 font-mono text-xs text-emerald-700 dark:text-emerald-300">Mã căn: {w.slotCode}</p>}
                   </div>
                 </div>
               ))}

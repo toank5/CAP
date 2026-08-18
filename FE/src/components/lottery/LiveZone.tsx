@@ -15,11 +15,6 @@ function maskCccd(cid: string | null | undefined): string {
   return cid.slice(0, 3) + '****' + cid.slice(-4)
 }
 
-function slotLabel(code: string | null | undefined) {
-  if (code) return <span className="font-mono text-sm font-bold text-emerald-600 dark:text-emerald-400">{code}</span>
-  return <span className="text-sm font-medium text-amber-600 dark:text-amber-400">Chờ CĐT chọn căn</span>
-}
-
 export function LiveZone({ state, sessionStatus, isDev, onDrawNext, busy }: Props) {
   const rawTotal = state?.totalUnits ?? 0
   const rawDrawn = state?.drawnUnitsCount ?? 0
@@ -142,7 +137,6 @@ export function LiveZone({ state, sessionStatus, isDev, onDrawNext, busy }: Prop
                  state.latestDrawResult.result === 'LOST' ? 'Trượt' :
                  state.latestDrawResult.result}
               </Badge>
-              <p className="mt-1 block">{slotLabel(state.latestDrawResult.slotCode)}</p>
             </div>
           </div>
         </div>

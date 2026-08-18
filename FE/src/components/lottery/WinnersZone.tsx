@@ -37,12 +37,11 @@ export function WinnersZone({ state, myAppId }: Props) {
       ) : (
         <div className="space-y-2">
           {/* Header */}
-          <div className="grid grid-cols-[2rem_1fr_1fr_1fr_1fr] gap-1 px-2 text-[11px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+          <div className="grid grid-cols-[2rem_1fr_1fr_1fr] gap-1 px-2 text-[11px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
             <span>#</span>
             <span>Mã HS</span>
             <span>Họ tên</span>
             <span>CCCD</span>
-            <span>Căn hộ</span>
           </div>
 
           {winners.map((w, idx) => {
@@ -50,7 +49,7 @@ export function WinnersZone({ state, myAppId }: Props) {
             return (
               <div
                 key={w.applicationId}
-                className={`grid grid-cols-[2rem_1fr_1fr_1fr_1fr] items-center gap-1 rounded-xl px-3 py-2.5 text-sm transition-all ${
+                className={`grid grid-cols-[2rem_1fr_1fr_1fr] items-center gap-1 rounded-xl px-3 py-2.5 text-sm transition-all ${
                   isMine
                     ? 'border-2 border-blue-400 bg-blue-50 dark:border-blue-600 dark:bg-blue-950/40'
                     : 'border border-emerald-200 bg-white/70 dark:border-emerald-800 dark:bg-emerald-900/20'
@@ -65,9 +64,6 @@ export function WinnersZone({ state, myAppId }: Props) {
                   {isMine && <span className="ml-1 text-[10px] font-bold text-blue-600 dark:text-blue-300">(bạn)</span>}
                 </span>
                 <span className="font-mono text-xs text-slate-500">{maskCccd(w.maskedCitizenId)}</span>
-                <span className="font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                  {w.slotCode || '—'}
-                </span>
               </div>
             )
           })}
