@@ -61,10 +61,14 @@ export function ProjectStatusControl({ project, onChanged }: Props) {
     setError('')
     setSuccess('')
     try {
-      await housingProjectsApi.patchStatus(project.id ?? '', {
-        action,
-        rejectReason: opts?.rejectReason,
-      })
+      if (action === 'open') {
+        await housingProjectsApi.changeLifecycleStatus(project.id ?? '', 'OPEN')
+      } else {
+        await housingProjectsApi.patchStatus(project.id ?? '', {
+          action,
+          rejectReason: opts?.rejectReason,
+        })
+      }
       // Refetch project để lấy status + publicAnnounceAt mới nhất
       const data = await housingProjectsApi.getById(project.id ?? '')
       // Sau refetch, ProjectDetailView cha sẽ tự cập nhật (vì navigate cùng projectId,

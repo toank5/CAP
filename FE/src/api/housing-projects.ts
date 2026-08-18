@@ -231,6 +231,14 @@ export const housingProjectsApi = {
       auth: true,
     }),
 
+  /** CĐT/SXD/Admin: UPCOMING → OPEN (mở bán / mở đăng ký). */
+  changeLifecycleStatus: (id: string, statusCode: 'UPCOMING' | 'OPEN' | 'CLOSED' | 'FULL', note?: string) =>
+    request<ApiResult>(`/api/HousingProjects/${id}/lifecycle-status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ statusCode, note }),
+      auth: true,
+    }),
+
   /**
    * SXD phê duyệt hoặc từ chối dự án mới.
    * Dùng chung BE endpoint với patchStatus nhưng mang action 'approve'/'reject'.

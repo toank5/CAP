@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, Heart, MapPin, Plus, Trash2, X, ChevronLeft, ChevronRight } from 'lucide-react'
+import { CheckCircle2, Heart, MapPin, Plus, Trash2, X, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import { housingProjectsApi, parseApartments } from '@/api/housing-projects'
 import { housingProjectStatusesApi, parseStatuses } from '@/api/housing-project-statuses'
 import { CreateProjectModal } from '@/components/developer/create-project-modal'
@@ -27,6 +27,7 @@ import { matchesOpenStatus } from '@/lib/housing-search'
 import { FLASH_CREATE_PROJECT_KEY, FLASH_DELETE_PROJECT_KEY } from '@/lib/constants'
 import { ensureVerifiedForApplication } from '@/lib/ekyc-gate'
 import { getRole, isLoggedIn } from '@/router'
+import { isPending, isUpcoming } from '@/lib/project-status-flow'
 import {
   applyClientFilters,
   EMPTY_HOUSING_SEARCH,
@@ -631,6 +632,7 @@ export function CreateProjectPage() {
 
 export function ProjectDetailPage() {
   const [projectId] = useState(() => sessionStorage.getItem('projectId') ?? '')
+  const [project, setProject] = useState<HousingProjectDto | null>(null)
   const role = getRole()
   const logged = isLoggedIn()
   const isApplicant = role === 'Applicant'
@@ -638,6 +640,7 @@ export function ProjectDetailPage() {
   const isAdmin = role === 'System Administrator'
   const isStaffEditor = logged && (isDeveloper || isAdmin || role === 'Department Of Construction')
   const showPublicView = !logged || isApplicant || !isStaffEditor
+  const canEditProject = isStaffEditor && isPending(project)
 
   return (
     <div>
@@ -655,7 +658,7 @@ export function ProjectDetailPage() {
             Không tìm thấy dự án. Quay lại danh sách và chọn lại dự án.
           </Alert>
         ) : showPublicView ? (
-          <ProjectDetailView projectId={projectId} />
+          <ProjectDetailView projectId={projectId} onLoaded={setProject} />
         ) : (
           <>
             {(isDeveloper || isAdmin) && (
@@ -672,6 +675,7 @@ export function ProjectDetailPage() {
             {/* Với SXD/Admin: vẫn render view công khai để xem chi tiết + chèn panel duyệt/từ chối ở đầu */}
             <ProjectDetailView
               projectId={projectId}
+              onLoaded={setProject}
               headerSlot={(p) =>
                 role === 'Department Of Construction' ? (
                   <section className="mb-6 rounded-xl border-2 border-indigo-200 bg-indigo-50/60 p-4 dark:border-indigo-800 dark:bg-indigo-950/30">
@@ -683,14 +687,16 @@ export function ProjectDetailPage() {
                 ) : null
               }
             />
-            <details className="mt-6 rounded-xl border border-slate-200 dark:border-slate-700">
-              <summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-slate-800 dark:text-slate-100">
-                Sửa thông tin dự án (tên, căn, tỉ lệ trả trước…)
-              </summary>
-              <div className="border-t border-slate-200 p-4 dark:border-slate-700">
-                <ProjectForm projectId={projectId} />
-              </div>
-            </details>
+            {canEditProject && (
+              <details className="mt-6 rounded-xl border border-slate-200 dark:border-slate-700">
+                <summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-slate-800 dark:text-slate-100">
+                  Sửa thông tin dự án (tên, căn, tỉ lệ trả trước…)
+                </summary>
+                <div className="border-t border-slate-200 p-4 dark:border-slate-700">
+                  <ProjectForm projectId={projectId} />
+                </div>
+              </details>
+            )}
           </>
         )}
       </PageCard>
@@ -701,10 +707,12 @@ export function ProjectDetailPage() {
 function ProjectDetailView({
   projectId,
   headerSlot,
+  onLoaded,
 }: {
   projectId: string
   /** Render prop để inject nội dung ở đầu trang (vd: panel SXD). */
   headerSlot?: (project: HousingProjectDto) => React.ReactNode
+  onLoaded?: (project: HousingProjectDto | null) => void
 }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -712,28 +720,42 @@ function ProjectDetailView({
   const [currentGalleryIdx, setCurrentGalleryIdx] = useState(0)
   const { isWishlisted, toggle } = useWishlist()
   const [wishlistBusy, setWishlistBusy] = useState(false)
+  const [openingSale, setOpeningSale] = useState(false)
   const logged = isLoggedIn()
-  const isApplicant = getRole() === 'Applicant'
+  const role = getRole()
+  const isApplicant = role === 'Applicant'
+  const isDeveloper = role === 'Housing Developer'
+  const isAdmin = role === 'System Administrator'
+  const canOpenSale = (isDeveloper || isAdmin) && isUpcoming(project)
+  const showApply = !logged || isApplicant
 
   useEffect(() => {
     let cancelled = false
-    void housingProjectsApi
-      .getById(projectId)
-      .then((data) => {
-        if (cancelled) return
-        const p = extractSingleProject(data)
-        setProject(p)
-        setCurrentGalleryIdx(0)
-      })
-      .catch((err) => {
-        if (cancelled) return
-        setError(formatError(err))
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
+    const load = () => {
+      void housingProjectsApi
+        .getById(projectId)
+        .then((data) => {
+          if (cancelled) return
+          const p = extractSingleProject(data)
+          setProject(p)
+          onLoaded?.(p)
+          setCurrentGalleryIdx(0)
+        })
+        .catch((err) => {
+          if (cancelled) return
+          setError(formatError(err))
+          onLoaded?.(null)
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false)
+        })
+    }
+    load()
+    const onStatusChanged = () => load()
+    window.addEventListener('fecaps:project-status-changed', onStatusChanged)
     return () => {
       cancelled = true
+      window.removeEventListener('fecaps:project-status-changed', onStatusChanged)
     }
   }, [projectId])
 
@@ -778,6 +800,21 @@ function ProjectDetailView({
     const ok = await ensureVerifiedForApplication({ projectId })
     if (!ok) return
     navigate('create-application')
+  }
+
+  const handleOpenSale = async () => {
+    if (!project?.id || openingSale) return
+    if (!window.confirm('Mở bán dự án này? Người dân sẽ được nộp hồ sơ (chuyển sang Đang mở đăng ký).')) return
+    setOpeningSale(true)
+    setError('')
+    try {
+      await housingProjectsApi.changeLifecycleStatus(project.id, 'OPEN')
+      window.dispatchEvent(new CustomEvent('fecaps:project-status-changed'))
+    } catch (err) {
+      setError(formatError(err))
+    } finally {
+      setOpeningSale(false)
+    }
   }
 
   const scrollGallery = (idx: number) => {
@@ -987,13 +1024,31 @@ function ProjectDetailView({
                   {wishlisted ? 'Đã quan tâm' : 'Quan tâm'}
                 </button>
               )}
-              <button
-                disabled={!canApply && logged && isApplicant}
-                onClick={() => void handleApply()}
-                className="flex-1 rounded-2xl bg-white py-3 text-center text-sm font-bold text-blue-700 shadow-xl transition-all hover:bg-blue-50 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none sm:px-8"
-              >
-                {!logged ? 'Đăng nhập để nộp hồ sơ' : '📝 Nộp hồ sơ ngay'}
-              </button>
+              {canOpenSale && (
+                <button
+                  type="button"
+                  disabled={openingSale}
+                  onClick={() => void handleOpenSale()}
+                  className="flex-1 rounded-2xl bg-emerald-400 py-3 text-center text-sm font-bold text-emerald-950 shadow-xl transition-all hover:bg-emerald-300 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none sm:px-8"
+                >
+                  {openingSale ? (
+                    <span className="inline-flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Đang mở bán…
+                    </span>
+                  ) : (
+                    'Mở bán'
+                  )}
+                </button>
+              )}
+              {showApply && (
+                <button
+                  disabled={!canApply && logged && isApplicant}
+                  onClick={() => void handleApply()}
+                  className="flex-1 rounded-2xl bg-white py-3 text-center text-sm font-bold text-blue-700 shadow-xl transition-all hover:bg-blue-50 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none sm:px-8"
+                >
+                  {!logged ? 'Đăng nhập để nộp hồ sơ' : '📝 Nộp hồ sơ ngay'}
+                </button>
+              )}
             </div>
           </div>
         </div>
