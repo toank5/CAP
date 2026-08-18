@@ -1241,69 +1241,6 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
           <>
             <Button variant="accent" disabled={!!acting} onClick={() => void review('APPROVE')}>Phê duyệt</Button>
             <Button variant="outline" disabled={!!acting} onClick={() => void review('REJECT', true)}>Từ chối</Button>
-            <Button variant="outline" className="border-amber-400 text-amber-700 dark:text-amber-300" disabled={!!acting} onClick={async () => {
-              const note = window.prompt('Yêu cầu CĐT bổ sung giấy tờ — nhập nội dung:')
-              if (!note?.trim()) return
-              setActing('request-docs')
-              try {
-                await housingApplicationsApi.sxdRequestDocs(app.applicationId, note.trim())
-                await refresh()
-                setMsg({ type: 'success', text: 'Đã gửi yêu cầu bổ sung giấy tờ.' })
-              } catch (err) {
-                setMsg({ type: 'error', text: formatError(err) })
-              } finally {
-                setActing('')
-              }
-            }}>
-              <FilePlus className="mr-1.5 h-4 w-4" />
-              Yêu cầu CĐT bổ sung
-            </Button>
-            {app.isViolation ? (
-              <Button
-                variant="outline"
-                className="border-emerald-400 text-emerald-700 dark:text-emerald-300"
-                disabled={!!acting}
-                onClick={async () => {
-                  if (!window.confirm('Gỡ cờ vi phạm cho hồ sơ này?')) return
-                  setActing('unflag')
-                  try {
-                    await housingApplicationsApi.unflagViolation(app.applicationId)
-                    await refresh()
-                    setMsg({ type: 'success', text: 'Đã gỡ cờ vi phạm.' })
-                  } catch (err) {
-                    setMsg({ type: 'error', text: formatError(err) })
-                  } finally {
-                    setActing('')
-                  }
-                }}
-              >
-                <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                Gỡ cờ vi phạm
-              </Button>
-            ) : (
-              <Button
-                variant="outline"
-                className="border-rose-400 text-rose-700 dark:text-rose-300"
-                disabled={!!acting}
-                onClick={async () => {
-                  const reason = window.prompt('Lý do gắn cờ vi phạm (VD: CCCD trùng, đã có nhà đất):')
-                  if (!reason?.trim()) return
-                  setActing('flag')
-                  try {
-                    await housingApplicationsApi.flagViolation(app.applicationId, reason.trim())
-                    await refresh()
-                    setMsg({ type: 'success', text: 'Đã gắn cờ vi phạm cho hồ sơ.' })
-                  } catch (err) {
-                    setMsg({ type: 'error', text: formatError(err) })
-                  } finally {
-                    setActing('')
-                  }
-                }}
-              >
-                <AlertTriangle className="mr-1.5 h-4 w-4" />
-                Gắn cờ vi phạm
-              </Button>
-            )}
           </>
         )}
       </div>
