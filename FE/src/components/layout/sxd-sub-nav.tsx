@@ -1,7 +1,6 @@
 import {
   Home,
   FileText,
-  Building2,
   Gavel,
   Radio,
   FileSignature,

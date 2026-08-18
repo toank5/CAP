@@ -50,6 +50,8 @@ export type RouteId =
   | 'audit-list'
   | 'audit-detail'
   | 'audit-create'
+  // Reporter issue (Applicant)
+  | 'report-issue'
   // Admin extras (mock)
   | 'admin-logs'
   | 'admin-categories'

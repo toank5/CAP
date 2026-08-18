@@ -276,13 +276,13 @@ export function SxdPaymentsPage() {
   )
 }
 
-function parseItems(raw: Record<string, unknown>[]): SxdPaymentItem[] {
+function parseItems(raw: Record<string, any>[]): SxdPaymentItem[] {
   return raw.map((r) => ({
-    installmentId: String(r.installmentId ?? r.installmentId ?? r.id ?? ''),
+    installmentId: String(r.installmentId ?? r.id ?? ''),
     applicationId: String(r.applicationId ?? ''),
-    projectName: String(r.projectName ?? r.project?.projectName ?? r.projectName ?? ''),
-    developerName: String(r.developerName ?? r.developerName ?? ''),
-    applicantName: String(r.applicantName ?? r.applicant?.fullName ?? r.fullName ?? ''),
+    projectName: String(r.projectName ?? r.project?.projectName ?? ''),
+    developerName: String(r.developerName ?? ''),
+    applicantName: String(r.applicantName ?? r.applicant?.fullName ?? ''),
     citizenId: String(r.citizenId ?? r.applicant?.citizenId ?? ''),
     amount: Number(r.amount ?? r.paidAmount ?? 0),
     dueDate: r.dueDate as string | undefined,

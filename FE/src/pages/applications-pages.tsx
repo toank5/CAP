@@ -156,15 +156,6 @@ export function ApplicationsPage() {
     [apps],
   )
 
-  const sxdToggleSelect = (id: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
   const sxdToggleSelectAll = () => {
     setSelected((prev) => {
       if (prev.size === sxdSelectable.length) return new Set()

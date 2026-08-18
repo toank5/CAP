@@ -14,8 +14,6 @@ import { Button } from '@/components/ui/button'
 import { Input, Select } from '@/components/ui/input'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Skeleton } from '@/components/ui/skeleton'
-import { navigate } from '@/hooks/useHashRoute'
-import { getRole } from '@/router'
 import { formatError } from '@/lib/format-error'
 
 const TYPE_OPTIONS = [
@@ -218,7 +216,6 @@ export function SxdAnnouncementsPage() {
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
   const [type, setType] = useState('')
-  const [total, setTotal] = useState(0)
   const [exporting, setExporting] = useState(false)
 
   // Form tạo/sửa
@@ -246,7 +243,6 @@ export function SxdAnnouncementsPage() {
       })
       const parsed = parsePagedAnnouncements(data)
       setItems(parsed.items)
-      setTotal(parsed.totalCount)
     } catch (err) {
       setError(formatError(err))
     } finally {
