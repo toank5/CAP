@@ -817,22 +817,21 @@ function ProjectDetailView({
     }
   }
 
+  const totalSlides = (project.thumbnailUrl ? 1 : 0) + (project.images?.length ?? 0)
+
   const scrollGallery = (idx: number) => {
-    if (!project?.images?.length) return
-    const len = project.images.length
-    setCurrentGalleryIdx(((idx % len) + len) % len)
+    if (totalSlides <= 1) return
+    setCurrentGalleryIdx(((idx % totalSlides) + totalSlides) % totalSlides)
   }
 
   const prevGallery = () => {
-    if (!project?.images?.length) return
-    const len = project.images.length
-    setCurrentGalleryIdx((currentGalleryIdx - 1 + len) % len)
+    if (totalSlides <= 1) return
+    setCurrentGalleryIdx((currentGalleryIdx - 1 + totalSlides) % totalSlides)
   }
 
   const nextGallery = () => {
-    if (!project?.images?.length) return
-    const len = project.images.length
-    setCurrentGalleryIdx((currentGalleryIdx + 1) % len)
+    if (totalSlides <= 1) return
+    setCurrentGalleryIdx((currentGalleryIdx + 1) % totalSlides)
   }
 
   const formatPrice = (v?: number) => {
@@ -862,85 +861,80 @@ function ProjectDetailView({
         <div className="absolute -bottom-12 -left-12 h-48 w-48 rounded-full bg-indigo-400/20 blur-2xl" />
 
         <div className="relative grid gap-6 lg:grid-cols-5">
-          {/* Ảnh */}
+          {/* Ảnh carousel (thumbnail + ảnh bổ sung gộp chung) */}
           <div className="lg:col-span-2">
-            {project.thumbnailUrl ? (
-              <div className="overflow-hidden rounded-2xl shadow-xl">
-                <img
-                  src={project.thumbnailUrl}
-                  alt={project.projectName || project.name || 'Dự án'}
-                  className="aspect-[4/3] w-full object-cover"
-                />
-              </div>
-            ) : (
-              <div className="flex aspect-[4/3] items-center justify-center rounded-2xl bg-white/10 text-6xl">
-                🏠
-              </div>
-            )}
-            {/* Gallery carousel */}
-            {project.images && project.images.length > 0 && (
-              <div className="mt-3 relative group/gallery">
-                <div className="overflow-hidden rounded-2xl">
-                  <div
-                    id="gallery-track"
-                    className="flex transition-transform duration-500 ease-in-out"
-                    style={{ transform: `translateX(-${currentGalleryIdx * 100}%)` }}
-                  >
-                    {project.images.map((img, idx) => (
-                      <div key={img.id} className="w-full flex-shrink-0">
-                        <img
-                          src={img.imageUrl}
-                          alt={`Ảnh ${idx + 1}`}
-                          className="aspect-[16/9] w-full object-cover"
-                          loading="lazy"
-                          decoding="async"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Nút mũi tên */}
-                {project.images.length > 1 && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={prevGallery}
-                      className="absolute left-2 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white opacity-0 transition-all hover:bg-black/60 group-hover/gallery:opacity-100"
-                      aria-label="Ảnh trước"
-                    >
-                      <ChevronLeft className="h-5 w-5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={nextGallery}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white opacity-0 transition-all hover:bg-black/60 group-hover/gallery:opacity-100"
-                      aria-label="Ảnh tiếp theo"
-                    >
-                      <ChevronRight className="h-5 w-5" />
-                    </button>
-                  </>
-                )}
-
-                {/* Dots + đếm */}
-                <div className="mt-2 flex items-center justify-center gap-2">
-                  {project.images.length > 1 && project.images.map((_, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      className={`h-2 rounded-full transition-all ${
-                        idx === currentGalleryIdx ? 'w-5 bg-blue-500' : 'w-2 bg-slate-300 dark:bg-slate-600'
-                      }`}
-                      onClick={() => scrollGallery(idx)}
-                      aria-label={`Ảnh ${idx + 1}`}
+            <div className="overflow-hidden rounded-2xl shadow-xl">
+              <div
+                id="gallery-track"
+                className="flex transition-transform duration-500 ease-in-out"
+                style={{ transform: `translateX(-${currentGalleryIdx * 100}%)` }}
+              >
+                {/* Slide 0: thumbnail */}
+                {project.thumbnailUrl && (
+                  <div className="w-full flex-shrink-0">
+                    <img
+                      src={project.thumbnailUrl}
+                      alt={project.projectName || project.name || 'Dự án'}
+                      className="aspect-[4/3] w-full object-cover"
                     />
-                  ))}
-                  <span className="ml-1 text-xs text-slate-400">
-                    {currentGalleryIdx + 1}/{project.images.length}
-                  </span>
-                </div>
+                  </div>
+                )}
+                {/* Slide 1+: ảnh bổ sung */}
+                {project.images && project.images.map((img, idx) => (
+                  <div key={img.id} className="w-full flex-shrink-0">
+                    <img
+                      src={img.imageUrl}
+                      alt={`Ảnh ${idx + 1}`}
+                      className="aspect-[4/3] w-full object-cover"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  </div>
+                ))}
               </div>
+            </div>
+
+            {/* Nút mũi tên */}
+            {totalSlides > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={prevGallery}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white opacity-0 transition-all hover:bg-black/60 group-hover/gallery:opacity-100"
+                  aria-label="Ảnh trước"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={nextGallery}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white opacity-0 transition-all hover:bg-black/60 group-hover/gallery:opacity-100"
+                  aria-label="Ảnh tiếp theo"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              </>
             )}
+
+            {/* Dots + đếm */}
+            <div className="relative group/gallery mt-3">
+              <div className="flex items-center justify-center gap-2">
+                {totalSlides > 1 && Array.from({ length: totalSlides }).map((_, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    className={`h-2 rounded-full transition-all ${
+                      idx === currentGalleryIdx ? 'w-5 bg-blue-500' : 'w-2 bg-slate-300 dark:bg-slate-600'
+                    }`}
+                    onClick={() => scrollGallery(idx)}
+                    aria-label={`Ảnh ${idx + 1}`}
+                  />
+                ))}
+                <span className="ml-1 text-xs text-slate-400">
+                  {currentGalleryIdx + 1}/{totalSlides}
+                </span>
+              </div>
+            </div>
           </div>
 
           {/* Thông tin */}
