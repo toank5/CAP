@@ -39,21 +39,6 @@ function tabToStatusCode(tab: Tab): string | undefined {
   }
 }
 
-/** Lấy role từ JWT (claim: role | Role | UserRole | roleClaim). */
-function getJwtRole(): string | null {
-  const token =
-    sessionStorage.getItem('accessToken') ||
-    localStorage.getItem('token') ||
-    sessionStorage.getItem('token')
-  if (!token) return null
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]))
-    return payload.role ?? payload.Role ?? payload.userRole ?? payload.UserRole ?? payload.RoleName ?? null
-  } catch {
-    return null
-  }
-}
-
 function getTotalCount(data: unknown): number {
   if (!data || typeof data !== 'object') return 0
   const o = data as Record<string, unknown>
@@ -86,7 +71,6 @@ export function SxdProjectsPage() {
   const [pageIndex, setPageIndex] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
-  const [debugInfo, setDebugInfo] = useState<string>('')
 
   const load = async (page = pageIndex, currentTab: Tab = tab) => {
     setLoading(true)
@@ -107,13 +91,11 @@ export function SxdProjectsPage() {
       const tp = getTotalPages(data, PAGE_SIZE)
       setTotalPages(Math.max(1, tp))
       setPageIndex(page)
-      setDebugInfo(`statusCode=${statusCode ?? 'ALL'} | role=${getJwtRole() ?? 'N/A'} | returned=${parsed.length}/${getTotalCount(data)}`)
     } catch (err) {
       setError(formatError(err))
       setProjects([])
       setTotalCount(0)
       setTotalPages(1)
-      setDebugInfo(`Lỗi: ${formatError(err)}`)
     } finally {
       setLoading(false)
     }
@@ -140,7 +122,6 @@ export function SxdProjectsPage() {
     approved: tab === 'approved' ? totalCount : 0,
     rejected: tab === 'rejected' ? totalCount : 0,
   }
-  const activeFilterInfo = `Đang hiển thị: ${filtered.length} dự án trong tổng ${totalCount} (tab ${tab})`
 
   return (
     <div>
@@ -165,12 +146,6 @@ export function SxdProjectsPage() {
             Tải lại
           </Button>
         </div>
-
-        {debugInfo && (
-          <p className="rounded-lg bg-slate-50 px-3 py-1.5 font-mono text-xs text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
-            {activeFilterInfo} · {debugInfo}
-          </p>
-        )}
 
         {/* Tabs */}
         <div className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-700">
