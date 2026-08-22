@@ -13,6 +13,7 @@ import { housingProjectsApi, parseProjectEvaluation, type ProjectApplicationEval
 import { extractProjects, extractSingleProject } from '@/lib/parsers'
 import { navigate, getHashQuery } from '@/hooks/useHashRoute'
 import { Modal } from '@/components/ui/modal'
+import { ImageCarousel } from '@/components/ui/image-carousel'
 import { PageCard, PageHeader } from '@/components/layout/page-header'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -699,16 +700,13 @@ export function SxdProjectDetailPage() {
               {/* Cột phải */}
               <div className="space-y-4">
                 <h2 className="border-b border-slate-200 pb-2 text-base font-semibold dark:border-slate-700">Hình ảnh &amp; Mô tả</h2>
-                {project.thumbnailUrl && (
-                  <img src={project.thumbnailUrl} alt="thumbnail" className="w-full rounded-xl object-cover" style={{ maxHeight: 200 }} />
-                )}
-                {project.images && project.images.length > 0 && (
-                  <div className="grid grid-cols-3 gap-2">
-                    {project.images.map((img) => (
-                      <img key={img.id} src={img.imageUrl} alt="" className="w-full rounded-lg object-cover" style={{ height: 80 }} />
-                    ))}
-                  </div>
-                )}
+                <ImageCarousel
+                  images={[
+                    ...(project.thumbnailUrl ? [{ id: 'thumb', imageUrl: project.thumbnailUrl }] : []),
+                    ...(project.images ?? []).map((img) => ({ id: img.id, imageUrl: img.imageUrl })),
+                  ]}
+                  className="w-full"
+                />
                 {project.description && (
                   <div>
                     <p className="mb-1 text-xs font-semibold text-slate-500">Mô tả</p>
