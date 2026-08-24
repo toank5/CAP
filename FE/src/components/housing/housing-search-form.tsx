@@ -71,7 +71,7 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
         <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <Input
-            className="h-12 w-full border-slate-200 bg-slate-50 pl-11 pr-10 text-sm dark:border-slate-700 dark:bg-slate-800"
+            className="h-12 w-full border-slate-200 bg-slate-50 pl-12 pr-12 text-sm dark:border-slate-700 dark:bg-slate-800"
             placeholder="Tìm theo tên dự án..."
             value={locked.search}
             onChange={(e) => set({ search: e.target.value })}
@@ -80,7 +80,7 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
             <button
               type="button"
               onClick={() => set({ search: '' })}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700"
+              className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700"
             >
               <X className="h-4 w-4" />
             </button>
@@ -94,14 +94,14 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
           </label>
           <div className="relative">
             <select
-              className="input h-12 w-full cursor-not-allowed appearance-none border-slate-200 bg-slate-100 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+              className="input h-12 w-full cursor-not-allowed appearance-none border-slate-200 bg-slate-100 px-4 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
               value={HCM_PROVINCE}
               disabled
               aria-label="Tỉnh/thành (chỉ TP. Hồ Chí Minh)"
             >
               <option value={HCM_PROVINCE}>{HCM_PROVINCE}</option>
             </select>
-            <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           </div>
         </div>
 
@@ -112,7 +112,7 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
           </label>
           <div className="relative">
             <select
-              className="input h-12 w-full appearance-none border-slate-200 bg-slate-50 text-sm dark:border-slate-700 dark:bg-slate-800"
+              className="input h-12 w-full appearance-none border-slate-200 bg-slate-50 px-4 pr-10 text-sm dark:border-slate-700 dark:bg-slate-800"
               value={locked.ward}
               disabled={wardsLoading}
               onChange={(e) => {
@@ -126,7 +126,7 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
                 <option key={w} value={w}>{w}</option>
               ))}
             </select>
-            <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           </div>
         </div>
 
@@ -137,7 +137,7 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
           </label>
           <div className="relative">
             <select
-              className="input h-12 w-full appearance-none border-slate-200 bg-slate-50 text-sm dark:border-slate-700 dark:bg-slate-800"
+              className="input h-12 w-full appearance-none border-slate-200 bg-slate-50 px-4 pr-10 text-sm dark:border-slate-700 dark:bg-slate-800"
               value={locked.sort}
               onChange={(e) => {
                 const next = {
@@ -154,7 +154,7 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
                 <option key={o.key} value={o.key}>{o.label}</option>
               ))}
             </select>
-            <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           </div>
         </div>
 

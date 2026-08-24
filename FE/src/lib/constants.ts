@@ -23,6 +23,43 @@ export const APPLICATION_STATUS: Record<string, { label: string; variant: 'defau
 
 export const CLOSED_APPLICATION_STATUSES = ['APPROVED', 'DEPOSIT_PAID', 'REJECTED', 'CANCELED', 'EXPIRED', 'LOTTERY_LOST']
 
+/**
+ * Trạng thái hồ sơ ĐANG chạy (chặn tạo mới).
+ * Chỉ khi hồ sơ rơi vào nhóm "thất bại" thì mới được tạo mới.
+ * Quy tắc:
+ *  - Nháp (DRAFT): KHÔNG chặn — user có thể tiếp tục chỉnh nháp cũ hoặc tạo hồ sơ mới.
+ *  - Đã nộp / đang thẩm định / chờ SXD / chờ đặt cọc / chờ ký HĐ / đang ký / đang thanh toán: CHẶN.
+ *  - Trượt duyệt (REJECTED) / Trượt bốc thăm (LOTTERY_LOST) / Đã hủy (CANCELED): CHO PHÉP tạo mới.
+ *  - Hết hạn (EXPIRED): CHO PHÉP tạo mới.
+ *  - Đã duyệt / Đã ký HĐ / Đã thanh toán: CHẶN (đã trúng suất rồi).
+ */
+export const BLOCKING_APPLICATION_STATUSES = [
+  'SUBMITTED',
+  'REVIEWING',
+  'NEED_MORE_DOCUMENTS',
+  'PENDING_SXD_REVIEW',
+  'APPROVED',
+  'APPROVED_BY_TIMEOUT',
+  'DEPOSIT_PENDING',
+  'CONTRACT_PENDING',
+  'CONTRACTING',
+  'CONTRACT_SIGNED',
+  'DEPOSIT_PAID',
+  'INSTALLMENT_IN_PROGRESS',
+  'PARTIALLY_PAID',
+  'PAID',
+  'FULLY_PAID',
+] as const
+
+/**
+ * Quyết định user có được tạo hồ sơ mới hay không, dựa trên danh sách trạng thái
+ * các hồ sơ hiện có. Nếu bất kỳ hồ sơ nào ở trạng thái chặn, trả false.
+ */
+export function canCreateNewApplication(existingStatuses: Array<string | null | undefined>): boolean {
+  if (!existingStatuses || existingStatuses.length === 0) return true
+  return !existingStatuses.some((s) => s && BLOCKING_APPLICATION_STATUSES.includes(s as never))
+}
+
 /** Trạng thái kết thúc (Applicant không thể cancel/edit). */
 export function isClosedStatus(status: string | null | undefined): boolean {
   if (!status) return false

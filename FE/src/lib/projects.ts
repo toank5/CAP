@@ -69,7 +69,7 @@ export function mapProjectToCard(p: HousingProjectDto): ProjectCard {
     price: formatPriceRange(minPrice, maxPrice),
     units: `Còn ${p.availableUnits ?? 0} căn`,
     type: 'Nhà ở xã hội',
-    area: `${p.availableUnits ?? 0} căn`,
+    area: formatAreaRange(p.minArea ?? 0, p.maxArea ?? 0),
     status: labelProjectStatus(p.status),
     description: p.description || '',
     paymentAmount: phase1Amount(minPrice),

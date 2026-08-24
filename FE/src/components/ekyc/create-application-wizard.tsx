@@ -23,7 +23,14 @@ import { Button } from '@/components/ui/button'
 import { FormField } from '@/components/ui/label'
 import { Input, Select } from '@/components/ui/input'
 import { navigate } from '@/hooks/useHashRoute'
-import { DOC_TYPE_LABELS, HOUSING_STATUS_LABELS, getRequiredDocsForPriorityGroup } from '@/lib/constants'
+import {
+  APPLICATION_STATUS,
+  BLOCKING_APPLICATION_STATUSES,
+  DOC_TYPE_LABELS,
+  HOUSING_STATUS_LABELS,
+  canCreateNewApplication,
+  getRequiredDocsForPriorityGroup,
+} from '@/lib/constants'
 import {
   validateDocumentFile,
 } from '@/lib/ekyc-helpers'
@@ -218,23 +225,49 @@ export function CreateApplicationWizard() {
 
   useEffect(() => {
     let cancelled = false
-    void housingApplicationsApi
-      .activeCheck()
-      .then((data) => {
+    void (async () => {
+      try {
+        // Lấy tất cả hồ sơ của user hiện tại (tối đa 50) để FE tự quyết định
+        // được phép tạo mới hay không — đúng quy tắc:
+        //  - Chỉ hồ sơ ở trạng thái "thất bại" (REJECTED / LOTTERY_LOST / CANCELED) mới cho tạo mới.
+        //  - Nháp (DRAFT) không chặn — user có thể tiếp tục hoặc tạo mới.
+        const paged = await housingApplicationsApi.getMy({ pageIndex: 1, pageSize: 50 })
         if (cancelled) return
-        const has =
-          Boolean((data as { hasActiveApplication?: boolean })?.hasActiveApplication) ||
-          Boolean((data as { HasActiveApplication?: boolean })?.HasActiveApplication)
-        if (has) {
-          const message =
-            (data as { message?: string })?.message ||
-            'Bạn đang có hồ sơ khác đang hoạt động. Không thể tạo hồ sơ mới.'
-          setActiveBlock(message)
+        const items = Array.isArray(paged?.items) ? paged.items : []
+        const statuses = items
+          .map((it) => (it?.applicationStatus ?? null) as string | null)
+          .filter(Boolean)
+        if (!canCreateNewApplication(statuses)) {
+          const blockingLabel = APPLICATION_STATUS[statuses.find((s) =>
+            s ? BLOCKING_APPLICATION_STATUSES.includes(s as never) : false,
+          ) || '']?.label
+          setActiveBlock(
+            blockingLabel
+              ? `Bạn đang có hồ sơ ở trạng thái "${blockingLabel}". Vui lòng chờ hồ sơ hoàn tất (trượt/đã hủy) trước khi tạo hồ sơ mới.`
+              : 'Bạn đang có hồ sơ đang xử lý. Vui lòng chờ hồ sơ hoàn tất (trượt/đã hủy) trước khi tạo hồ sơ mới.',
+          )
+        } else {
+          setActiveBlock(null)
         }
-      })
-      .catch(() => {
-        /* ignore — BE vẫn chặn khi tạo */
-      })
+      } catch {
+        // Fallback: nếu không lấy được my-applications, dùng active-check cũ
+        try {
+          const data = await housingApplicationsApi.activeCheck()
+          if (cancelled) return
+          const has =
+            Boolean((data as { hasActiveApplication?: boolean })?.hasActiveApplication) ||
+            Boolean((data as { HasActiveApplication?: boolean })?.HasActiveApplication)
+          if (has) {
+            setActiveBlock(
+              (data as { message?: string })?.message ||
+                'Bạn đang có hồ sơ khác đang hoạt động. Không thể tạo hồ sơ mới.',
+            )
+          }
+        } catch {
+          /* ignore — BE vẫn chặn khi tạo */
+        }
+      }
+    })()
     return () => {
       cancelled = true
     }

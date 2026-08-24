@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button'
 import { resolveRoleTheme } from '@/lib/role-theme'
 import { useHashRoute, navigate } from '@/hooks/useHashRoute'
 import { isLoggedIn, ADMIN_ROLE, AUTH_FORM_ROUTES, getRole, type RouteId } from '@/router'
-import { Sparkles, ChevronDown, LogOut, User, Settings, UserCircle2 } from 'lucide-react'
+import { Sparkles, ChevronDown, LogOut, User, Settings } from 'lucide-react'
 import { useUserProfile } from '@/providers/user-profile-provider'
 import { clearTokens } from '@/lib/token'
 
@@ -175,22 +175,6 @@ function InternalHeader({ logged, role }: { logged: boolean; role: string }) {
           {/* Right cluster */}
           <div className="flex shrink-0 items-center gap-2">
             <ThemeToggle />
-            {logged && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className={`hidden gap-2 rounded-lg font-semibold sm:inline-flex ${
-                  route === 'profile' || route === 'change-password'
-                    ? 'bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-white'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
-                }`}
-                onClick={() => navigate('profile')}
-                aria-label="Tài khoản"
-              >
-                <UserCircle2 className="h-4 w-4" />
-                <span>Tài khoản</span>
-              </Button>
-            )}
             {logged && <NotificationBell />}
             {logged && <UserAccountCluster />}
             {!logged && (

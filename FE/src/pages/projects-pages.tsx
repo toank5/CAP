@@ -19,10 +19,12 @@ import { Pagination } from '@/components/ui/pagination'
 import { Skeleton } from '@/components/ui/skeleton'
 import { navigate } from '@/hooks/useHashRoute'
 import { useWishlist } from '@/hooks/useWishlist'
+import { useExistingApplicationBlocker } from '@/hooks/useExistingApplicationBlocker'
 import { extractProjects, extractSingleProject } from '@/lib/parsers'
 import { formatError, formatSuccess } from '@/lib/format-error'
 import { resolveProvinceName } from '@/lib/vietnam-locations'
 import { mapProjectToCard } from '@/lib/projects'
+import { labelProjectStatus } from '@/lib/labels'
 import { matchesOpenStatus } from '@/lib/housing-search'
 import { FLASH_CREATE_PROJECT_KEY, FLASH_DELETE_PROJECT_KEY } from '@/lib/constants'
 import { ensureVerifiedForApplication } from '@/lib/ekyc-gate'
@@ -719,6 +721,7 @@ function ProjectDetailView({
   const [project, setProject] = useState<HousingProjectDto | null>(null)
   const [currentGalleryIdx, setCurrentGalleryIdx] = useState(0)
   const { isWishlisted, toggle } = useWishlist()
+  const { canCreate: canCreateNew, message: applicantBlockMessage } = useExistingApplicationBlocker()
   const [wishlistBusy, setWishlistBusy] = useState(false)
   const [openingSale, setOpeningSale] = useState(false)
   const logged = isLoggedIn()
@@ -728,6 +731,7 @@ function ProjectDetailView({
   const isAdmin = role === 'System Administrator'
   const canOpenSale = (isDeveloper || isAdmin) && isUpcoming(project)
   const showApply = !logged || isApplicant
+  const blockedByExisting = logged && isApplicant && !canCreateNew
 
   useEffect(() => {
     let cancelled = false
@@ -855,15 +859,15 @@ function ProjectDetailView({
       <EvaluationPanel projectId={projectId} />
 
       {/* ═══ Hero banner ══════════════════════════════════════════ */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-700 via-blue-600 to-indigo-700 p-8 shadow-2xl shadow-blue-900/30 lg:p-10">
+      <div className="relative overflow-hidden rounded-3xl border border-emerald-700/40 bg-gradient-to-br from-emerald-500 via-emerald-600 to-green-600 p-8 shadow-2xl shadow-emerald-900/30 lg:p-10 dark:border-emerald-800/50 dark:from-emerald-950 dark:via-slate-900 dark:to-green-950 dark:shadow-black/40">
         {/* decorative blobs */}
-        <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
-        <div className="absolute -bottom-12 -left-12 h-48 w-48 rounded-full bg-indigo-400/20 blur-2xl" />
+        <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/10 blur-3xl dark:bg-emerald-400/10" />
+        <div className="absolute -bottom-12 -left-12 h-48 w-48 rounded-full bg-green-400/20 blur-2xl dark:bg-emerald-500/15" />
 
         <div className="relative grid gap-6 lg:grid-cols-5">
           {/* Ảnh carousel (thumbnail + ảnh bổ sung gộp chung) */}
-          <div className="lg:col-span-2">
-            <div className="overflow-hidden rounded-2xl shadow-xl">
+          <div className="lg:col-span-2 group/gallery">
+            <div className="relative overflow-hidden rounded-2xl shadow-xl">
               <div
                 id="gallery-track"
                 className="flex transition-transform duration-500 ease-in-out"
@@ -892,32 +896,32 @@ function ProjectDetailView({
                   </div>
                 ))}
               </div>
+
+              {/* Nút mũi tên trái/phải — luôn hiển thị khi có nhiều ảnh */}
+              {totalSlides > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={prevGallery}
+                    className="absolute left-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white shadow-lg backdrop-blur-sm transition-all hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-white/60"
+                    aria-label="Ảnh trước"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={nextGallery}
+                    className="absolute right-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white shadow-lg backdrop-blur-sm transition-all hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-white/60"
+                    aria-label="Ảnh tiếp theo"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                </>
+              )}
             </div>
 
-            {/* Nút mũi tên */}
-            {totalSlides > 1 && (
-              <>
-                <button
-                  type="button"
-                  onClick={prevGallery}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white opacity-0 transition-all hover:bg-black/60 group-hover/gallery:opacity-100"
-                  aria-label="Ảnh trước"
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={nextGallery}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white opacity-0 transition-all hover:bg-black/60 group-hover/gallery:opacity-100"
-                  aria-label="Ảnh tiếp theo"
-                >
-                  <ChevronRight className="h-5 w-5" />
-                </button>
-              </>
-            )}
-
             {/* Dots + đếm */}
-            <div className="relative group/gallery mt-3">
+            <div className="mt-3">
               <div className="flex items-center justify-center gap-2">
                 {totalSlides > 1 && Array.from({ length: totalSlides }).map((_, idx) => (
                   <button
@@ -942,16 +946,16 @@ function ProjectDetailView({
             {/* Tiêu đề + badge */}
             <div className="space-y-3">
               {project.status && (
-                <span className="inline-block rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm">
-                  {project.status}
+                <span className="inline-block rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm dark:bg-white/10 dark:text-emerald-100">
+                  {labelProjectStatus(project.status)}
                 </span>
               )}
               <h2 className="text-3xl font-black leading-tight text-white lg:text-4xl">
                 {project.projectName || project.name}
               </h2>
               {(project.address || project.district || project.province) && (
-                <div className="flex items-center gap-2 text-blue-100">
-                  <MapPin className="h-4 w-4 shrink-0 text-blue-200" />
+                <div className="flex items-center gap-2 text-green-100 dark:text-emerald-200/80">
+                  <MapPin className="h-4 w-4 shrink-0 text-green-200 dark:text-emerald-300" />
                   <span className="text-sm">
                     {[project.address, project.district, project.province].filter(Boolean).join(', ')}
                   </span>
@@ -960,15 +964,15 @@ function ProjectDetailView({
             </div>
 
             {/* Giá nổi bật */}
-            <div className="rounded-2xl border border-white/20 bg-white/10 p-5 backdrop-blur-sm">
-              <p className="text-xs font-medium uppercase tracking-widest text-blue-200">Giá khởi điểm</p>
+            <div className="rounded-2xl border border-white/20 bg-white/10 p-5 backdrop-blur-sm dark:border-white/10 dark:bg-white/5">
+              <p className="text-xs font-medium uppercase tracking-widest text-green-200 dark:text-emerald-300">Giá khởi điểm</p>
               <div className="mt-1 flex items-baseline gap-3">
                 <span className="text-4xl font-black text-white">{formatPrice(project.minPrice)}</span>
                 {project.maxPrice && project.maxPrice !== project.minPrice && (
-                  <span className="text-xl font-semibold text-blue-200">— {formatPrice(project.maxPrice)}</span>
+                  <span className="text-xl font-semibold text-green-200 dark:text-emerald-300">— {formatPrice(project.maxPrice)}</span>
                 )}
               </div>
-              <div className="mt-3 flex flex-wrap gap-4 text-sm text-blue-100">
+              <div className="mt-3 flex flex-wrap gap-4 text-sm text-green-100 dark:text-emerald-200/80">
                 {(project.availableUnits ?? 0) > 0 && (
                   <div className="flex items-center gap-1.5">
                     <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 text-xs font-bold">🏠</span>
@@ -994,13 +998,22 @@ function ProjectDetailView({
                   value: project.phase1Percentage != null ? `${project.phase1Percentage}%` : '—',
                   icon: '💰',
                 },
-                { label: 'Diện tích', value: project.minArea ? `${project.minArea} m²` : '—', icon: '📐' },
+                {
+                  label: 'Diện tích',
+                  value:
+                    project.minArea && project.maxArea && project.minArea !== project.maxArea
+                      ? `${project.minArea}–${project.maxArea} m²`
+                      : project.minArea
+                        ? `${project.minArea} m²`
+                        : '—',
+                  icon: '📐',
+                },
               ]
                 .filter(i => i.value !== '—')
                 .map((item, idx) => (
-                  <div key={idx} className="rounded-xl border border-white/15 bg-white/10 p-3 text-center backdrop-blur-sm">
+                  <div key={idx} className="rounded-xl border border-white/15 bg-white/10 p-3 text-center backdrop-blur-sm dark:border-white/10 dark:bg-white/5">
                     <p className="text-lg">{item.icon}</p>
-                    <p className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-200">{item.label}</p>
+                    <p className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-green-200 dark:text-emerald-300">{item.label}</p>
                     <p className="mt-0.5 text-sm font-bold text-white">{item.value}</p>
                   </div>
                 ))}
@@ -1012,7 +1025,7 @@ function ProjectDetailView({
                 <button
                   disabled={wishlistBusy}
                   onClick={handleWishlist}
-                  className="flex items-center gap-2 rounded-2xl border border-white/30 bg-white/10 px-5 py-3 text-sm font-semibold text-white backdrop-blur-sm transition-all hover:bg-white/20 active:scale-[0.98] disabled:opacity-50"
+                  className="flex items-center gap-2 rounded-2xl border border-white/30 bg-white/10 px-5 py-3 text-sm font-semibold text-white backdrop-blur-sm transition-all hover:bg-white/20 active:scale-[0.98] disabled:opacity-50 dark:border-white/20 dark:bg-white/5 dark:hover:bg-white/15"
                 >
                   <Heart className={`h-5 w-5 ${wishlisted ? 'fill-rose-400 text-rose-400' : ''}`} />
                   {wishlisted ? 'Đã quan tâm' : 'Quan tâm'}
@@ -1036,11 +1049,16 @@ function ProjectDetailView({
               )}
               {showApply && (
                 <button
-                  disabled={!canApply && logged && isApplicant}
+                  disabled={(!canApply && logged && isApplicant) || blockedByExisting}
+                  title={blockedByExisting ? applicantBlockMessage || undefined : undefined}
                   onClick={() => void handleApply()}
-                  className="flex-1 rounded-2xl bg-white py-3 text-center text-sm font-bold text-blue-700 shadow-xl transition-all hover:bg-blue-50 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none sm:px-8"
+                  className="flex-1 rounded-2xl border border-white/40 bg-white py-3 text-center text-sm font-bold text-emerald-700 shadow-xl transition-all hover:bg-green-50 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none sm:px-8 dark:border-white/30 dark:bg-emerald-50 dark:text-emerald-800 dark:hover:bg-white"
                 >
-                  {!logged ? 'Đăng nhập để nộp hồ sơ' : '📝 Nộp hồ sơ ngay'}
+                  {!logged
+                    ? 'Đăng nhập để nộp hồ sơ'
+                    : blockedByExisting
+                      ? '⛔ Bạn đã có hồ sơ đang xử lý'
+                      : '📝 Nộp hồ sơ ngay'}
                 </button>
               )}
             </div>

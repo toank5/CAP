@@ -39,7 +39,9 @@ export function useHousingProjects(pageSize = 12) {
         pageSize,
         province: HCM_PROVINCE,
       })
-      const items = extractProjects(data).map(mapProjectToCard)
+      const items = extractProjects(data)
+        .filter((p) => (p.availableUnits ?? 0) > 0)
+        .map(mapProjectToCard)
       setProjects(items.length > 0 ? items : fallbackCards())
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Không tải được danh sách dự án')

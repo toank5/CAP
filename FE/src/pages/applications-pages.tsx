@@ -29,6 +29,7 @@ import { Input, Select, Textarea } from '@/components/ui/input'
 import { Modal } from '@/components/ui/modal'
 import { Pagination } from '@/components/ui/pagination'
 import { navigate } from '@/hooks/useHashRoute'
+import { useExistingApplicationBlocker } from '@/hooks/useExistingApplicationBlocker'
 import { labelApplicationStatus } from '@/lib/labels'
 import { APPLICATION_STATUS, DOC_TYPE_LABELS, HOUSING_STATUS_LABELS } from '@/lib/constants'
 import { formatError } from '@/lib/format-error'
@@ -73,6 +74,7 @@ export function ApplicationsPage() {
   const [bulkSending, setBulkSending] = useState(false)
   const [bulkMsg, setBulkMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [exporting, setExporting] = useState(false)
+  const applicantBlocker = useExistingApplicationBlocker()
 
   // SXD bulk actions
   const [sxdBulkSending, setSxdBulkSending] = useState(false)
@@ -231,13 +233,15 @@ export function ApplicationsPage() {
             {isApplicant && (
               <Button
                 variant="accent"
+                disabled={!applicantBlocker.canCreate}
+                title={applicantBlocker.canCreate ? undefined : applicantBlocker.message || undefined}
                 onClick={() => {
                   void ensureVerifiedForApplication().then((ok) => {
                     if (ok) navigate('create-application')
                   })
                 }}
               >
-                + Tạo hồ sơ mới
+                {applicantBlocker.canCreate ? '+ Tạo hồ sơ mới' : '⛔ Đã có hồ sơ đang xử lý'}
               </Button>
             )}
           </div>
