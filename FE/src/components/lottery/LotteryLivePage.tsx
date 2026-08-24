@@ -316,7 +316,7 @@ export function LotteryLivePage() {
               {schedule?.projectName ?? liveState?.projectName ?? 'Dự án bốc thăm'}
             </h1>
           </div>
-          <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+          <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
             <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 font-mono tabular-nums dark:border-slate-700 dark:bg-slate-800">
               🕒 {now.toLocaleTimeString('vi-VN')}
             </span>

@@ -87,7 +87,7 @@ export function MyLotteryPage() {
         setInfo(
           apps.length === 0
             ? 'Bạn chưa có hồ sơ nào. Hãy tạo và nộp hồ sơ trước khi tham gia bốc thăm.'
-            : 'Chưa có hồ sơ nào đủ điều kiện. Hồ sơ cần được Sở duyệt (APPROVED) trước khi vào sảnh.',
+            : 'Chưa có hồ sơ nào đủ điều kiện. Hồ sơ cần được Sở duyệt trước khi vào sảnh.',
         )
         return
       }
