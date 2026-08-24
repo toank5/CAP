@@ -87,7 +87,7 @@ export function MyLotteryPage() {
         setInfo(
           apps.length === 0
             ? 'Bạn chưa có hồ sơ nào. Hãy tạo và nộp hồ sơ trước khi tham gia bốc thăm.'
-            : 'Chưa có hồ sơ nào đủ điều kiện. Hồ sơ cần được Sở duyệt trước khi vào sảnh.',
+            : 'Chưa có hồ sơ nào đủ điều kiện. Hồ sơ cần được Sở duyệt (APPROVED) trước khi vào sảnh.',
         )
         return
       }
@@ -176,8 +176,9 @@ export function MyLotteryPage() {
       <PageCard className="space-y-4 p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-sm text-slate-600 dark:text-slate-400">
-              Nhập OTP từ email/SMS để vào sảnh Live, theo dõi kết quả bốc thăm do Chủ đầu tư công bố.
+            <h2 className="text-xl font-bold">Bốc thăm của tôi</h2>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              Hồ sơ đã được duyệt sẽ hiển thị ở đây. Bạn vào sảnh chờ bằng OTP và theo dõi kết quả do Chủ đầu tư công bố.
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={() => void load()}>
@@ -187,7 +188,7 @@ export function MyLotteryPage() {
 
         {error && <Alert variant="error">{error}</Alert>}
         {info && <Alert variant="info">{info}</Alert>}
-        {loading && <p className="text-sm text-slate-600 dark:text-slate-400">Đang tải...</p>}
+        {loading && <p className="text-sm text-slate-500 dark:text-slate-400">Đang tải...</p>}
 
         {/* ── PHIÊN ĐANG LIVE — công khai cho mọi Applicant (NĐ 100/2024 Đ36: minh bạch) ── */}
         {!publicLoading && publicLive.length > 0 && (
@@ -219,13 +220,13 @@ export function MyLotteryPage() {
                         </Badge>
                       </div>
                       {sd.scheduledAt && (
-                        <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                           <Calendar className="mr-1 inline h-3 w-3" />
                           Lịch: {new Date(sd.scheduledAt).toLocaleString('vi-VN')}
                         </p>
                       )}
                       {sd.joinCode && (
-                        <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                           OTP vào sảnh:{' '}
                           <strong className="font-mono text-blue-700 dark:text-blue-300">
                             {sd.joinCode}
@@ -268,7 +269,7 @@ export function MyLotteryPage() {
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="font-semibold text-slate-900 dark:text-white">{row.application.projectName}</h3>
+                        <h3 className="font-semibold">{row.application.projectName}</h3>
                         <Badge variant={LOTTERY_STATUS_TONE[phase] ?? 'secondary'}>
                           {LOTTERY_STATUS_LABEL[phase] ?? phase}
                         </Badge>
@@ -279,17 +280,17 @@ export function MyLotteryPage() {
                           <Badge variant="warning">Chưa trúng</Badge>
                         )}
                       </div>
-                      <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                         Hồ sơ #{row.application.applicationId.slice(0, 8)} · CCCD {row.application.citizenId}
                       </p>
                       {row.schedule?.scheduledAt && (
-                        <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                           <Calendar className="mr-1 inline h-3 w-3" />
                           Lịch: {new Date(row.schedule.scheduledAt).toLocaleString('vi-VN')}
                         </p>
                       )}
                       {row.schedule?.joinCode && (
-                        <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                           Mã OTP vào sảnh:{' '}
                           <strong className="font-mono text-blue-700 dark:text-blue-300">{row.schedule.joinCode}</strong>
                         </p>
@@ -352,7 +353,7 @@ export function MyLotteryPage() {
                   )}
 
                   {!own && isFinished && (
-                    <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-300">
+                    <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm dark:border-slate-700 dark:bg-slate-800/40">
                       <p>Phiên đã kết thúc — chưa có kết quả cho hồ sơ của bạn trong lần chạy này.</p>
                     </div>
                   )}

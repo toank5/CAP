@@ -22,9 +22,9 @@ export function WinnersZone({ state, myAppId }: Props) {
           <span className="text-2xl">🏆</span> Danh sách trúng
           <Badge variant="success">{winners.length}</Badge>
         </h2>
-        <div className="flex gap-3 text-xs text-slate-600 dark:text-slate-400">
-          <span>Ưu tiên: <strong className="text-emerald-600 dark:text-emerald-400">{state?.priorityWinnersCount ?? 0}</strong></span>
-          <span>Ngẫu nhiên: <strong className="text-emerald-600 dark:text-emerald-400">{state?.randomWinnersCount ?? 0}</strong></span>
+        <div className="flex gap-3 text-xs text-slate-500">
+          <span>Ưu tiên: <strong className="text-emerald-600">{state?.priorityWinnersCount ?? 0}</strong></span>
+          <span>Ngẫu nhiên: <strong className="text-emerald-600">{state?.randomWinnersCount ?? 0}</strong></span>
         </div>
       </div>
 
@@ -32,7 +32,7 @@ export function WinnersZone({ state, myAppId }: Props) {
         <div className="rounded-xl border border-dashed border-emerald-300 bg-white/50 py-8 text-center dark:border-emerald-800 dark:bg-emerald-950/20">
           <p className="text-3xl">🎲</p>
           <p className="mt-2 font-medium text-emerald-600 dark:text-emerald-400">Chưa có hồ sơ trúng nào</p>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Danh sách sẽ cập nhật sau mỗi lượt bốc</p>
+          <p className="mt-1 text-sm text-slate-500">Danh sách sẽ cập nhật sau mỗi lượt bốc</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -63,7 +63,7 @@ export function WinnersZone({ state, myAppId }: Props) {
                   {w.applicantName}
                   {isMine && <span className="ml-1 text-[10px] font-bold text-blue-600 dark:text-blue-300">(bạn)</span>}
                 </span>
-                <span className="font-mono text-xs text-slate-600 dark:text-slate-400">{maskCccd(w.maskedCitizenId)}</span>
+                <span className="font-mono text-xs text-slate-500">{maskCccd(w.maskedCitizenId)}</span>
               </div>
             )
           })}

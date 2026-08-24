@@ -714,7 +714,7 @@ export function LotteryDetailPage() {
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h3 className="font-semibold">Danh sách đủ điều kiện ({eligible.length})</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Tự động từ hồ sơ đã duyệt — không cần xác nhận tay.
+                Tự động từ hồ sơ APPROVED / APPROVED_BY_TIMEOUT — không cần xác nhận tay.
               </p>
             </div>
             <div className="grid gap-2">

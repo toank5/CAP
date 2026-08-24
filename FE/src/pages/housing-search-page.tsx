@@ -101,7 +101,7 @@ export function HousingSearchPage() {
     return () => window.removeEventListener('hashchange', sync)
   }, [route, runSearch])
 
-  const cards = results.filter(p => (p.availableUnits ?? 0) > 0).map(mapProjectToCard)
+  const cards = results.map(mapProjectToCard)
 
   return (
     <div className="space-y-6">

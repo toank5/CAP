@@ -41,7 +41,7 @@ export function ApartmentFundZone({ state }: Props) {
               style={{ width: `${pct}%` }}
             />
           </div>
-          <div className="mt-1 flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
+          <div className="mt-1 flex items-center justify-between text-xs text-slate-500">
             <span className="text-amber-600 dark:text-amber-400">Đã gán: {assigned} căn</span>
             <span className="font-bold text-amber-600 dark:text-amber-400">{pct}%</span>
           </div>
@@ -64,7 +64,7 @@ export function ApartmentFundZone({ state }: Props) {
                   <span className="font-semibold text-amber-900 dark:text-amber-100">
                     {f.categoryName || `Loại ${idx + 1}`}
                   </span>
-                  <span className="text-xs text-slate-600 dark:text-slate-400 tabular-nums">
+                  <span className="text-xs text-slate-500 tabular-nums">
                     {r} / {t} căn còn
                   </span>
                 </div>
@@ -82,7 +82,7 @@ export function ApartmentFundZone({ state }: Props) {
         <div className="rounded-xl border border-dashed border-amber-300 bg-white/40 py-6 text-center dark:border-amber-800 dark:bg-amber-950/20">
           <p className="text-3xl">🏗</p>
           <p className="mt-2 font-medium text-amber-600 dark:text-amber-400">Chưa có thông tin quỹ căn</p>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Quỹ căn sẽ hiển thị sau khi bắt đầu Live</p>
+          <p className="mt-1 text-sm text-slate-500">Quỹ căn sẽ hiển thị sau khi bắt đầu Live</p>
         </div>
       )}
     </section>

@@ -71,7 +71,7 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
         <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <Input
-            className="h-12 w-full border-slate-200 bg-slate-50 px-4 pl-11 pr-10 text-sm py-2 dark:border-slate-700 dark:bg-slate-800"
+            className="h-12 w-full border-slate-200 bg-slate-50 pl-11 pr-10 text-sm dark:border-slate-700 dark:bg-slate-800"
             placeholder="Tìm theo tên dự án..."
             value={locked.search}
             onChange={(e) => set({ search: e.target.value })}
@@ -94,7 +94,7 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
           </label>
           <div className="relative">
             <select
-              className="input h-12 w-full cursor-not-allowed appearance-none border-slate-200 bg-slate-100 px-4 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+              className="input h-12 w-full cursor-not-allowed appearance-none border-slate-200 bg-slate-100 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
               value={HCM_PROVINCE}
               disabled
               aria-label="Tỉnh/thành (chỉ TP. Hồ Chí Minh)"
@@ -112,7 +112,7 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
           </label>
           <div className="relative">
             <select
-              className="input h-12 w-full appearance-none border-slate-200 bg-slate-50 px-4 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
+              className="input h-12 w-full appearance-none border-slate-200 bg-slate-50 text-sm dark:border-slate-700 dark:bg-slate-800"
               value={locked.ward}
               disabled={wardsLoading}
               onChange={(e) => {
@@ -137,7 +137,7 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
           </label>
           <div className="relative">
             <select
-              className="input h-12 w-full appearance-none border-slate-200 bg-slate-50 px-4 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
+              className="input h-12 w-full appearance-none border-slate-200 bg-slate-50 text-sm dark:border-slate-700 dark:bg-slate-800"
               value={locked.sort}
               onChange={(e) => {
                 const next = {
@@ -244,7 +244,7 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
             <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Trạng thái</label>
             <div className="relative">
               <select
-                className="input h-10 w-full appearance-none px-4 py-2 text-sm"
+                className="input h-10 w-full appearance-none text-sm"
                 value={locked.statusCode || locked.statusId}
                 onChange={(e) => {
                   const v = e.target.value

@@ -184,7 +184,7 @@ export function ControlPanel({ phase, session, liveState, isDev, isSxd, isApplic
         <div className="flex items-center justify-between">
           <h3 className="font-bold text-indigo-800 dark:text-indigo-200">🏗 Điều khiển Chủ đầu tư</h3>
           <div className="flex items-center gap-2 text-xs">
-            <span className="text-slate-600 dark:text-slate-400">SXD online:</span>
+            <span className="text-slate-500">SXD online:</span>
             <Badge variant={sxdCount > 0 ? 'success' : 'warning'}>{sxdCount}</Badge>
           </div>
         </div>
