@@ -1,218 +1,50 @@
-1) Flow tổng quan
-Applicant
-→ xem dự án
-→ tạo hồ sơ
-→ upload giấy tờ
-→ submit
-→ theo dõi trạng thái
-→ bổ sung nếu cần
-→ chờ xét duyệt
-→ nếu vượt số căn thì bốc thăm
-→ nếu trúng thì ký hợp đồng
-→ thanh toán
-→ hoàn tất
-
-Housing Developer
-→ tạo dự án
-→ công khai thông tin
-→ tiếp nhận hồ sơ
-→ kiểm tra hợp lệ
-→ yêu cầu bổ sung / từ chối / xác nhận hợp lệ
-→ lập danh sách dự kiến
-→ gửi Sở
-→ nhận phản hồi
-→ tổ chức bốc thăm nếu cần
-→ tạo hợp đồng
-→ theo dõi thanh toán
-→ công bố danh sách chính thức
-
-Department of Construction
-→ nhận danh sách từ chủ đầu tư
-→ xác minh
-→ loại hồ sơ không đủ điều kiện
-→ trả kết quả
-→ hậu kiểm danh sách chính thức
-
-Admin
-→ quản lý user/role/danh mục/log
-2) Flow của Applicant
-Mục tiêu
-Người dân nộp hồ sơ đúng dự án, theo dõi được trạng thái và biết mình có được chọn hay không.
-Luồng chi tiết
-1. Mở danh sách dự án công khai.
-2. Xem chi tiết dự án.
-3. Nhấn "Tạo hồ sơ".
-4. Nhập thông tin cá nhân.
-5. Nhập thông tin hộ gia đình.
-6. Chọn nhóm đối tượng.
-7. Upload giấy tờ bắt buộc.
-8. Kiểm tra lại hồ sơ.
-9. Submit hồ sơ.
-10. Chờ chủ đầu tư kiểm tra.
-11. Nếu bị yêu cầu bổ sung:
-    - mở màn hình hồ sơ
-    - upload lại giấy tờ thiếu
-    - submit bổ sung
-12. Nếu hồ sơ hợp lệ:
-    - chờ gửi Sở
-13. Nếu được đưa vào danh sách đủ điều kiện:
-    - chờ bốc thăm hoặc ký hợp đồng
-14. Nếu trúng:
-    - xem hợp đồng
-    - ký hợp đồng
-    - thanh toán
-15. Nếu không trúng:
-    - kết thúc hồ sơ
-Trạng thái hồ sơ của Applicant
-Draft
-→ Submitted
-→ Waiting Review
-→ Need Additional
-→ Valid by Developer
-→ Sent to Department
-→ Under Verification
-→ Approved Candidate
-→ Lottery Pending
-→ Won / Lost
-→ Contracting
-→ Contract Signed
-→ Payment Pending
-→ Paid
-→ Finalized
-3) Flow của Housing Developer
-Mục tiêu
-Chủ đầu tư tiếp nhận, lọc hồ sơ, gửi Sở, tổ chức bốc thăm, ký hợp đồng.
-Luồng chi tiết
-1. Tạo và công khai dự án.
-2. Nhận hồ sơ từ Applicant.
-3. Mở màn hình danh sách hồ sơ.
-4. Chọn một hồ sơ để xem chi tiết.
-5. Kiểm tra đủ giấy tờ chưa.
-6. Kiểm tra đúng đối tượng chưa.
-7. Nếu thiếu:
-    - yêu cầu bổ sung
-8. Nếu sai:
-    - từ chối hồ sơ
-9. Nếu hợp lệ:
-    - ghi nhận hợp lệ
-    - tạo phiếu tiếp nhận
-10. Gom các hồ sơ hợp lệ vào danh sách dự kiến.
-11. Gửi danh sách sang Sở Xây dựng.
-12. Chờ phản hồi:
-    - nếu Sở loại hồ sơ nào → cập nhật lại danh sách
-    - nếu Sở không phản hồi trong hạn → chuyển sang bước tiếp
-13. Nếu số hồ sơ > số căn:
-    - tạo phiên bốc thăm
-    - mở phòng chờ
-    - chạy bốc thăm
-14. Nếu hồ sơ trúng:
-    - tạo hợp đồng
-15. Sau khi ký:
-    - quản lý lịch thanh toán
-16. Lập danh sách chính thức
-17. Gửi hậu kiểm
-Trạng thái nghiệp vụ của Developer
-Received
-→ Under Review
-→ Need Additional
-→ Rejected
-→ Validated
-→ Sent to Department
-→ Department Feedback Received / Timeout Passed
-→ Lottery Scheduled
-→ Lottery Running
-→ Winner Selected
-→ Contract Created
-→ Contract Signed
-→ Payment Tracking
-→ Final List Published
-4) Flow của Department of Construction
-Mục tiêu
-Xác minh lại danh sách để đảm bảo đúng đối tượng.
-Luồng chi tiết
-1. Nhận danh sách từ chủ đầu tư.
-2. Mở danh sách cần xác minh.
-3. Xem từng hồ sơ.
-4. Đối chiếu thông tin.
-5. Nếu đúng:
-    - đánh dấu đủ điều kiện
-6. Nếu sai:
-    - đánh dấu không đủ điều kiện
-    - nhập lý do loại
-7. Trả kết quả cho chủ đầu tư.
-8. Sau khi có danh sách chính thức:
-    - lưu và công bố hậu kiểm
-Trạng thái của Sở
-Queued
-→ Verifying
-→ Eligible
-→ Ineligible
-→ Returned Result
-→ Final Archived
-5) Flow bốc thăm live
-Mục tiêu
-Chọn người mua công khai khi hồ sơ hợp lệ vượt số căn.
-Luồng chi tiết
-
-1. Chủ đầu tư tạo phiên bốc thăm.
-2. Chọn danh sách đủ điều kiện tham gia.
-3. Phân nhóm ưu tiên nếu có.
-4. Gửi link/OTP cho người tham gia.
-5. Người dân vào sảnh chờ.
-6. Đến giờ thì mở nút bốc thăm.
-7. Hệ thống chạy bốc và sinh kết quả.
-8. Hiển thị người trúng / không trúng.
-9. Lưu log.
-10. Xuất biên bản.
-11. Chuyển người trúng sang bước ký hợp đồng.
-
-Trạng thái của phiên bốc thăm
-Scheduled
-→ Waiting Lobby
-→ Live
-→ Finished
-→ Published
-6) Flow hợp đồng và thanh toán
-Luồng chi tiết
-1. Sau khi trúng hoặc được chọn trực tiếp, chủ đầu tư tạo hợp đồng.
-2. Applicant mở chi tiết hợp đồng.
-3. Hai bên ký hợp đồng.
-4. Hệ thống tạo lịch thanh toán.
-5. Ghi nhận đợt thanh toán 1, 2, cuối.
-6. Cập nhật trạng thái paid / unpaid / overdue.
-7. Sau khi hoàn tất thì chuyển sang hậu kiểm.
-Trạng thái
-Contract Draft
-→ Contracting
-→ Signed
-→ Payment Pending
-→ Partially Paid
-→ Paid
-→ Finalized
-7) Flow admin
-1. Đăng nhập admin.
-2. Quản lý user.
-3. Gán role.
-4. Quản lý danh mục.
-5. Quản lý trạng thái hồ sơ.
-6. Xem log hệ thống.
-7. Xem dữ liệu cấu hình.
-8) Flow dữ liệu liên kết giữa các vai trò
-Applicant tạo hồ sơ
-→ Developer nhận và review
-→ Developer gửi Sở
-→ Sở xác minh
-→ Developer tổ chức bốc thăm nếu cần
-→ Applicant trúng thì ký hợp đồng
-→ Developer theo dõi thanh toán
-→ Sở và Developer công bố danh sách chính thức
-9) Nếu bạn đưa vào đồ án thì nên trình bày thế nào
-Bạn có thể đưa vào báo cáo theo 4 sơ đồ:
-Use case diagram theo role.
-Activity diagram cho luồng hồ sơ.
-State machine cho application.
-Sequence diagram cho bốc thăm và ký hợp đồng.
-10) Kết luận ngắn
-Nếu nói dễ hiểu thì toàn bộ hệ thống của bạn chỉ xoay quanh 1 vòng đời:
-xem dự án → nộp hồ sơ → duyệt → xác minh → bốc thăm → ký hợp đồng → thanh toán → hậu kiểm
-
+Tài Liệu Đặc Tả Nghiệp Vụ Hệ Thống Nhà Ở Xã Hội (NOXH)
+Mục đích: Giải thích thuần túy logic nghiệp vụ, quy định pháp lý, quy trình xét duyệt và cơ chế vận hành hệ thống Nhà ở Xã hội.
+1. Nghiệp Vụ Hồ Sơ Cá Nhân & Xác Thực (Citizen Profile & eKYC)
+Xác thực danh tính (eKYC): Người dân quét Căn cước công dân gắn chip và nhận diện khuôn mặt để đảm bảo mỗi công dân chỉ sở hữu một mã định danh duy nhất trên hệ thống, ngăn chặn tình trạng tạo nhiều tài khoản để gom căn.
+Hồ sơ nhân thân & Tình trạng hôn nhân:
+Ghi nhận tình trạng: Độc thân, Đã kết hôn hoặc Đã ly hôn kèm giấy xác nhận tư pháp.
+Chứng minh thu nhập: Thu thập bảng lương, sao kê tài khoản ngân hàng hoặc xác nhận thu nhập từ cơ quan/doanh nghiệp.
+Tình trạng nhà ở hiện tại: Giấy xác nhận chưa có nhà thuộc sở hữu hoặc diện tích bình quân đầu người tại nơi ở hiện tại quá chật hẹp.
+Cấu trúc Hộ gia đình (Household):
+Khai báo danh sách người sống cùng (Cha mẹ, Vợ/Chồng, Con cái).
+Quy định về độ tuổi & người phụ thuộc: Con cái dưới 18 tuổi (chưa đến tuổi lao động) hoặc người đang theo học đại học/người mất sức lao động được xếp vào diện người phụ thuộc (không tính thu nhập vào tổng thu nhập hộ nhưng được tính vào tổng số nhân khẩu để xét diện tích bình quân).
+2. Nghiệp Vụ Thiết Lập Dự Án & Phân Bổ Căn Hộ (Project & Unit Setup)
+Cấu trúc sản phẩm bất động sản: Chủ đầu tư (CĐT) thiết lập sơ đồ tầng và thông tin chi tiết từng căn: Mã căn, số phòng ngủ, diện tích sàn (tim tường/thông thủy), hướng cửa chính, view ban công/cửa sổ, sức chứa số người khuyến nghị và khoảng thu nhập phù hợp.
+Hình thức mở bán:
+Bán toàn bộ căn: Khách hàng đứng tên sở hữu 100% căn hộ.
+Bán một phần căn (Đồng sở hữu): CĐT chia nhỏ tỷ lệ sở hữu theo quy định của đề án dự án.
+Phân nhóm căn hộ:
+Căn Ưu Tiên: Quỹ căn dành riêng cho các hộ gia đình có điểm số chính sách cao nhất (người có công cách mạng, hộ nghèo, khuyết tật...).
+Căn Tiêu Chuẩn: Quỹ căn mở rộng cho các đối tượng còn lại tham gia bốc thăm bình đẳng.
+Chính sách thanh toán theo tiến độ:
+CĐT cấu hình linh hoạt từ 3 đến 6 đợt đóng tiền cho toàn dự án.
+Tỷ lệ phần trăm (%) thanh toán đợt đầu (bao gồm tiền cọc + đợt 1) được tính toán tương ứng dựa trên tổng số đợt để đảm bảo tính khả thi tài chính cho người mua NOXH.
+3. Nghiệp Vụ Đăng Ký Mua Nhà & Quy Chuẩn Thẩm Định (Application & Legal Rules)
+Tự động kế thừa thông tin: Khi đăng ký mua căn hộ cụ thể, dữ liệu từ Hồ sơ cá nhân sẽ được tự động trích xuất sang đơn đăng ký, người dân không cần nhập lại giấy tờ từ đầu.
+Quy tắc luật định cứng (Hard Rules):
+Chuẩn diện tích: Diện tích căn hộ đăng ký mua phải đảm bảo tối thiểu trên 10m² sàn sử dụng / 1 nhân khẩu trong hộ gia đình.
+Chuẩn thu nhập: Tổng thu nhập bình quân đầu người trong độ tuổi lao động của hộ gia đình không được vượt quá mức trần quy định (15 triệu VNĐ/người/tháng).
+Quy trình thẩm định 2 cấp:
+Cấp 1 - Chủ đầu tư kiểm tra: Đối soát tính hợp lệ, rõ ràng của các bản sao y giấy tờ, bảng lương, chứng nhận kết hôn. Trường hợp giấy tờ mờ hoặc thiếu sót, CĐT trả hồ sơ kèm lý do chi tiết để người dân cập nhật bổ sung.
+Cấp 2 - Sở Xây Dựng xác minh: Cơ quan quản lý nhà nước kiểm tra chéo trên cơ sở dữ liệu địa chính/bất động sản toàn tỉnh/thành phố để xác định người nộp đơn và các thành viên trong gia đình thực tế đã có nhà ở hoặc đất ở hay chưa.
+Thuật toán Thang điểm ưu tiên (Scoring Policy):
+Đánh giá "độ khó khăn" và diện chính sách để phân loại ưu tiên cấp căn minh bạch.
+Điểm đối tượng: Bản thân chủ hộ thuộc nhóm ưu tiên (Thương binh, Người có công cách mạng, Hộ nghèo, Công nhân KCN).
+Điểm thành viên phụ thuộc: Trường hợp chủ hộ không thuộc diện ưu tiên nhưng trong hộ gia đình có thành viên cùng sinh sống là Người có công với cách mạng hoặc thân nhân liệt sĩ, hồ sơ được cộng thêm điểm ưu tiên thành viên (có quy định mức trần tối đa) nhằm ghi nhận công lao gia đình.
+4. Nghiệp Vụ Bốc Thăm, Cấp Căn & Cơ Chế Danh Sách Chờ (Lottery & Waitlist)
+Phân bổ quyền mua:
+Căn hộ ưu tiên được xét duyệt trực tiếp cho các hồ sơ có thang điểm cao nhất.
+Nếu số lượng hồ sơ hợp lệ vượt quá quỹ căn mở bán còn lại, hệ thống áp dụng cơ chế bốc thăm ngẫu nhiên công khai.
+Cơ chế Danh sách chờ (Waitlist):
+Tất cả hồ sơ không trúng trong đợt bốc thăm chính thức không bị hủy bỏ mà được tự động xếp vào Danh sách dự bị (Waitlist) theo thứ hạng (Thứ tự 1, 2, 3...).
+Khi có căn bị trả lại do hủy hợp đồng hoặc không nộp tiền cọc, hệ thống không mở lại đợt bốc thăm mới tốn kém mà tự động chuyển quyền mua cho người đứng đầu danh sách Waitlist với thời hạn xác nhận cụ thể (VD: 48 - 72 giờ).
+5. Nghiệp Vụ Thanh Toán, Tính Lãi Phạt & Xử Lý Luồng Xấu (Billing & Penalty)
+Trễ hạn đóng tiền & Tính lãi phạt: Người mua đóng tiền theo từng đợt cam kết. Nếu trễ hạn, hệ thống tính lãi phạt theo ngày trên số tiền chậm trả và tự động cộng dồn vào thông báo thanh toán tiếp theo.
+Đơn xin ngừng thanh toán (Tự nguyện rút hồ sơ): Khách hàng gặp khó khăn tài chính có quyền làm đơn xin dừng mua nhà. CĐT chấp thuận đơn, hoàn trả lại các khoản tiền đã đóng sau khi trừ tiền phạt vi phạm hợp đồng (mất tiền cọc đợt đầu).
+Cưỡng chế hủy căn do quá 2 đợt không thanh toán: Nếu người mua chậm đóng tiền liên tiếp quá 2 đợt mà không có lý do chính đáng, CĐT có quyền đơn phương chấm dứt thỏa thuận: Cưỡng chế thu hồi căn hộ, phạt mất toàn bộ tiền đặt cọc, thanh lý hợp đồng và chuyển giao căn hộ cho ứng viên tiếp theo trong Danh sách chờ (Waitlist).
+6. Nghiệp Vụ Quản Trị Hệ Thống Cấp Cao (Super Admin)
+Quản trị chính sách (Policy Configuration): Cấu hình linh hoạt định mức diện tích (m²/người), trần thu nhập theo từng giai đoạn điều chỉnh của Nhà nước, công thức tính lãi suất chậm nộp và bảng thang điểm ưu tiên.
+Giám sát & Cấp quyền: Khởi tạo và quản lý tài khoản cho các Chủ đầu tư và Cán bộ chuyên trách thuộc Sở Xây dựng.
+Nhật ký kiểm toán (Audit Trail): Ghi nhận vết toàn bộ các hành động nhạy cảm (Ai duyệt hồ sơ, sửa điểm, thay đổi trạng thái căn hộ, thu hồi cọc) phục vụ công tác thanh tra, hậu kiểm.
+Báo cáo tổng hợp: Thống kê tỷ lệ giải ngân, mức độ hấp thụ căn hộ NOXH trên địa bàn, tỷ lệ hồ sơ hợp lệ/không hợp lệ để phục vụ báo cáo cơ quan nhà nước.

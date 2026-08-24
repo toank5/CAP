@@ -67,8 +67,8 @@ export function LiveZone({ state, sessionStatus, isDev, onDrawNext, busy }: Prop
           />
         </div>
         {remaining > 0 && (
-          <p className="mt-1 text-xs text-slate-500">
-            Còn lại: <strong className="text-amber-600">{remaining} căn</strong> · Tỷ lệ trúng: <strong className="text-emerald-600">{state?.winRatePercentage ?? 0}%</strong>
+          <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
+            Còn lại: <strong className="text-amber-600 dark:text-amber-400">{remaining} căn</strong> · Tỷ lệ trúng: <strong className="text-emerald-600 dark:text-emerald-400">{state?.winRatePercentage ?? 0}%</strong>
           </p>
         )}
       </div>
@@ -106,7 +106,7 @@ export function LiveZone({ state, sessionStatus, isDev, onDrawNext, busy }: Prop
         ) : (
           <div className="space-y-1">
             <p className="text-2xl">⏳</p>
-            <p className="font-medium text-slate-500">Chờ CĐT bắt đầu bốc</p>
+            <p className="font-medium text-slate-600 dark:text-slate-300">Chờ CĐT bắt đầu bốc</p>
           </div>
         )}
       </div>

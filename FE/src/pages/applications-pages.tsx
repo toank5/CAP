@@ -114,6 +114,13 @@ export function ApplicationsPage() {
     [apps],
   )
 
+  // Mỗi tài khoản chỉ được 1 hồ sơ đăng ký, chỉ tạo mới được khi hồ sơ cũ bị trượt
+  const failedStatuses = ['REJECTED', 'CANCELED', 'EXPIRED', 'LOTTERY_LOST']
+  const canCreateNewApplication = useMemo(() => {
+    if (apps.length === 0) return true
+    return apps.every((a) => failedStatuses.includes(a.applicationStatus))
+  }, [apps])
+
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
       const next = new Set(prev)
@@ -231,6 +238,8 @@ export function ApplicationsPage() {
             {isApplicant && (
               <Button
                 variant="accent"
+                disabled={!canCreateNewApplication}
+                title={!canCreateNewApplication ? 'Bạn đã có hồ sơ đang xử lý. Chỉ có thể tạo hồ sơ mới khi hồ sơ cũ bị từ chối, hủy hoặc trượt bốc thăm.' : undefined}
                 onClick={() => {
                   void ensureVerifiedForApplication().then((ok) => {
                     if (ok) navigate('create-application')

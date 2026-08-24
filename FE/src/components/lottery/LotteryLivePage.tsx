@@ -283,7 +283,7 @@ export function LotteryLivePage() {
         <PageCard className="p-6">
           <div className="flex items-center gap-3">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            <span className="text-slate-500">Đang tải sảnh Live…</span>
+            <span className="text-slate-600 dark:text-slate-400">Đang tải sảnh Live…</span>
           </div>
         </PageCard>
       </div>
@@ -316,7 +316,7 @@ export function LotteryLivePage() {
               {schedule?.projectName ?? liveState?.projectName ?? 'Dự án bốc thăm'}
             </h1>
           </div>
-          <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+          <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600 dark:text-slate-400">
             <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 font-mono tabular-nums dark:border-slate-700 dark:bg-slate-800">
               🕒 {now.toLocaleTimeString('vi-VN')}
             </span>
@@ -431,7 +431,7 @@ export function LotteryLivePage() {
         {/* ── Footer nav ── */}
         <div className="flex justify-end">
           <button
-            className="rounded-lg px-3 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+            className="rounded-lg px-3 py-1.5 text-sm text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
             onClick={() => navigate('lottery-detail')}
           >
             ← Về chi tiết bốc thăm

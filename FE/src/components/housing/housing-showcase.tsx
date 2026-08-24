@@ -347,7 +347,8 @@ export function HousingShowcase() {
   }, [projects, handleToggle])
 
   const { hero, rest } = useMemo(() => {
-    const [first, ...others] = projects
+    const filtered = projects.filter(p => (p.availableUnits ?? 0) > 0)
+    const [first, ...others] = filtered
     return { hero: first, rest: others }
   }, [projects])
 
