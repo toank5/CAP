@@ -214,7 +214,7 @@ export function ProfilePage() {
   const [uploadingDocument, setUploadingDocument] = useState<string | null>(null)
   const [householdMembers, setHouseholdMembers] = useState<HouseholdMemberDraft[]>([])
   const [householdRelationships, setHouseholdRelationships] = useState<DocumentTypeDto[]>([])
-  const [savingHousehold, setSavingHousehold] = useState(false)
+
   const fileRef = useRef<HTMLInputElement>(null)
 
   const readProfileData = (data: unknown) => {
@@ -357,6 +357,16 @@ export function ProfilePage() {
   }
 
   const saveCitizenDeclaration = async () => {
+    const invalidMember = householdMembers.find((member) =>
+      !member.fullName.trim() || !member.relationship ||
+      (member.citizenId.trim() && !/^\d{9}(\d{3})?$/.test(member.citizenId.trim())) ||
+      (member.isDependent && !member.dependentReason),
+    )
+    if (invalidMember) {
+      setMsg({ type: 'error', text: 'Vui lòng nhập đủ họ tên, quan hệ; CCCD phải có 9 hoặc 12 số và người phụ thuộc phải có lý do.' })
+      return
+    }
+
     const nextErrors = validateCitizenDeclaration()
     setValidationErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) {
@@ -383,10 +393,32 @@ export function ProfilePage() {
         averageHousingAreaPerPerson: citizenInfo.averageHousingAreaPerPerson ? Number(citizenInfo.averageHousingAreaPerPerson) : null,
         priorityGroup: citizenInfo.priorityGroup || null,
       }
-      const data = await usersApi.updateCitizenProfile(payload)
-      setMsg({ type: 'success', text: formatSuccess(data) || 'Đã lưu khai báo thông tin cá nhân thành công.' })
+      await usersApi.updateCitizenProfile(payload)
+
+      for (const member of householdMembers) {
+        const body: UserHouseholdMemberRequestDto = {
+          fullName: member.fullName.trim(),
+          citizenId: member.citizenId.trim() || null,
+          dateOfBirth: member.dateOfBirth ? new Date(member.dateOfBirth).toISOString() : null,
+          relationship: member.relationship,
+          occupation: member.occupation.trim() || null,
+          monthlyIncome: member.monthlyIncome === '' ? null : Number(member.monthlyIncome),
+          isDependent: member.isDependent,
+          dependentReason: member.isDependent ? member.dependentReason : null,
+          hasMeritService: false,
+          note: member.note.trim() || null,
+        }
+        if (member.memberId) await usersApi.updateHouseholdMember(member.memberId, body)
+        else await usersApi.createHouseholdMember(body)
+      }
+
+      const [freshHousehold] = await Promise.all([
+        usersApi.getHouseholdMembers(),
+        refreshProfile(),
+      ])
+      setHouseholdMembers(parseHouseholdMembers(freshHousehold).map(toHouseholdDraft))
+      setMsg({ type: 'success', text: 'Đã lưu khai báo thông tin và hộ gia đình thành công.' })
       setIsPolicyEditing(false)
-      await refreshProfile()
     } catch (err) {
       setMsg({ type: 'error', text: formatError(err) })
     } finally {
@@ -423,44 +455,6 @@ export function ProfilePage() {
     }
   }
 
-  const saveHouseholdMembers = async () => {
-    const invalid = householdMembers.find((member) =>
-      !member.fullName.trim() || !member.relationship ||
-      (member.citizenId.trim() && !/^\d{9}(\d{3})?$/.test(member.citizenId.trim())) ||
-      (member.isDependent && !member.dependentReason),
-    )
-    if (invalid) {
-      setMsg({ type: 'error', text: 'Vui lòng nhập đủ họ tên, quan hệ; CCCD phải có 9 hoặc 12 số và người phụ thuộc phải có lý do.' })
-      return
-    }
-    setSavingHousehold(true)
-    try {
-      for (const member of householdMembers) {
-        const body: UserHouseholdMemberRequestDto = {
-          fullName: member.fullName.trim(),
-          citizenId: member.citizenId.trim() || null,
-          dateOfBirth: member.dateOfBirth ? new Date(member.dateOfBirth).toISOString() : null,
-          relationship: member.relationship,
-          occupation: member.occupation.trim() || null,
-          monthlyIncome: member.monthlyIncome === '' ? null : Number(member.monthlyIncome),
-          isDependent: member.isDependent,
-          dependentReason: member.isDependent ? member.dependentReason : null,
-          hasMeritService: false,
-          note: member.note.trim() || null,
-        }
-        if (member.memberId) await usersApi.updateHouseholdMember(member.memberId, body)
-        else await usersApi.createHouseholdMember(body)
-      }
-      const data = await usersApi.getHouseholdMembers()
-      setHouseholdMembers(parseHouseholdMembers(data).map(toHouseholdDraft))
-      setIsPolicyEditing(false)
-      setMsg({ type: 'success', text: 'Đã lưu danh sách hộ gia đình.' })
-    } catch (err) {
-      setMsg({ type: 'error', text: formatError(err) })
-    } finally {
-      setSavingHousehold(false)
-    }
-  }
 
   const removeHouseholdMember = async (member: HouseholdMemberDraft, index: number) => {
     try {
@@ -696,11 +690,7 @@ export function ProfilePage() {
                       Mọi thông tin khai báo phải đi kèm giấy tờ chứng minh hợp lệ theo quy định của NOXH.
                     </p>
                   </div>
-                  {isPolicyEditing ? (
-                    <Button type="button" variant="accent" size="sm" onClick={() => void saveCitizenDeclaration()} disabled={savingCitizenInfo}>
-                      {savingCitizenInfo ? 'Đang lưu...' : 'Lưu khai báo'}
-                    </Button>
-                  ) : (
+                  {!isPolicyEditing && (
                     <Button type="button" variant="outline" size="sm" onClick={() => setIsPolicyEditing(true)}>
                       Chỉnh sửa
                     </Button>
@@ -782,7 +772,6 @@ export function ProfilePage() {
                         </div>
                         <div className="flex gap-2">
                           <Button type="button" variant="outline" size="sm" onClick={() => setHouseholdMembers((current) => [...current, { fullName: '', citizenId: '', dateOfBirth: '', relationship: '', occupation: '', monthlyIncome: '', isDependent: false, dependentReason: '', note: '' }])}>Thêm thành viên</Button>
-                          <Button type="button" variant="accent" size="sm" disabled={savingHousehold} onClick={() => void saveHouseholdMembers()}>{savingHousehold ? 'Đang lưu...' : 'Lưu hộ gia đình'}</Button>
                         </div>
                       </div>
                       {householdMembers.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-400">Chưa khai báo thành viên sống cùng.</p>}
@@ -950,6 +939,13 @@ export function ProfilePage() {
                         />
                         {validationErrors.permanentAddress && <span className="mt-1 block text-xs text-red-600">{validationErrors.permanentAddress}</span>}
                       </FormField>
+                    </div>
+
+                    <div className="mt-6 flex items-center justify-end gap-3 border-t border-slate-200 pt-4 dark:border-slate-700">
+                      <Button type="button" variant="outline" onClick={() => setIsPolicyEditing(false)}>Hủy</Button>
+                      <Button type="button" variant="accent" onClick={() => void saveCitizenDeclaration()} disabled={savingCitizenInfo}>
+                        {savingCitizenInfo ? 'Đang lưu...' : 'Lưu khai báo'}
+                      </Button>
                     </div>
                   </>
                 )}

@@ -927,9 +927,8 @@ function ProjectDetailView({
                   <button
                     key={idx}
                     type="button"
-                    className={`h-2 rounded-full transition-all ${
-                      idx === currentGalleryIdx ? 'w-5 bg-blue-500' : 'w-2 bg-slate-300 dark:bg-slate-600'
-                    }`}
+                    className={`h-2 rounded-full transition-all ${idx === currentGalleryIdx ? 'w-5 bg-blue-500' : 'w-2 bg-slate-300 dark:bg-slate-600'
+                      }`}
                     onClick={() => scrollGallery(idx)}
                     aria-label={`Ảnh ${idx + 1}`}
                   />
@@ -1100,22 +1099,20 @@ function ProjectDetailView({
               return (
                 <div
                   key={apt.id}
-                  className={`group rounded-2xl border p-4 transition-all hover:-translate-y-0.5 hover:shadow-lg ${
-                    isAssigned
+                  className={`group rounded-2xl border p-4 transition-all hover:-translate-y-0.5 hover:shadow-lg ${isAssigned
                       ? 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/30'
                       : 'border-emerald-200 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/20 hover:border-emerald-300'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <p className="text-base font-black text-slate-900 dark:text-slate-100">{apt.unitName}</p>
                       <p className="mt-0.5 text-xs text-slate-500">{apt.area} m²</p>
                     </div>
-                    <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${
-                      isAssigned
+                    <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${isAssigned
                         ? 'bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400'
                         : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-                    }`}>
+                      }`}>
                       {isAssigned ? 'Đã giao' : 'Còn trống'}
                     </span>
                   </div>
@@ -1193,13 +1190,12 @@ function EvaluationPanel({ projectId }: { projectId: string }) {
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h3 className="font-semibold text-slate-800 dark:text-slate-100">Thống kê hồ sơ dự án</h3>
         {data.status && (
-          <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${
-            data.status === 'OVERSUBSCRIBED'
+          <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${data.status === 'OVERSUBSCRIBED'
               ? 'bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-950/50 dark:text-rose-300 dark:ring-rose-800'
               : data.status === 'SUBSCRIBED'
                 ? 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:ring-emerald-800'
                 : 'bg-slate-50 text-slate-700 ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700'
-          }`}>
+            }`}>
             {data.status === 'OVERSUBSCRIBED' ? 'Vượt suất' : data.status === 'SUBSCRIBED' ? 'Đạt suất' : 'Còn suất'}
           </span>
         )}
