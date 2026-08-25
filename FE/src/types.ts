@@ -45,6 +45,58 @@ export interface UpdateProfileDto {
   address?: string | null
 }
 
+export interface UpdateCitizenProfileDto {
+  fullName?: string | null
+  phoneNumber?: string | null
+  dateOfBirth?: string | null
+  citizenId?: string | null
+  gender?: string | null
+  nationality?: string | null
+  placeOfOrigin?: string | null
+  maritalStatus?: string | null
+  spouseFullName?: string | null
+  spouseCitizenId?: string | null
+  spouseDateOfBirth?: string | null
+  spouseMonthlyIncome?: number | null
+  occupation?: string | null
+  workPlace?: string | null
+  currentResidence?: string | null
+  permanentAddress?: string | null
+  monthlyIncome?: number | null
+  housingStatus?: string | null
+  averageHousingAreaPerPerson?: number | null
+  priorityGroup?: string | null
+}
+
+export interface CitizenFullProfileDto {
+  id?: string
+  email?: string
+  fullName?: string | null
+  phoneNumber?: string | null
+  dateOfBirth?: string | null
+  citizenId?: string | null
+  gender?: string | null
+  nationality?: string | null
+  placeOfOrigin?: string | null
+  maritalStatus?: string | null
+  spouseFullName?: string | null
+  spouseCitizenId?: string | null
+  spouseDateOfBirth?: string | null
+  spouseMonthlyIncome?: number | null
+  occupation?: string | null
+  workPlace?: string | null
+  currentResidence?: string | null
+  permanentAddress?: string | null
+  monthlyIncome?: number | null
+  housingStatus?: string | null
+  averageHousingAreaPerPerson?: number | null
+  priorityGroup?: string | null
+  householdMembersCount?: number
+  dependentMembersCount?: number
+  createdAt?: string
+  updatedAt?: string | null
+}
+
 export interface UserProfileDto {
   id?: string
   email: string

@@ -15,8 +15,12 @@ import { usersApi } from '@/api/users'
  */
 export function readVerifiedStatus(data: unknown): boolean | null {
   if (!data || typeof data !== 'object') return null
-  const root = data as Record<string, unknown>
-  const u = (root.user ?? root.User ?? root) as Record<string, unknown> | null
+  let u: Record<string, unknown> | null = data as Record<string, unknown>
+  for (let depth = 0; depth < 3; depth += 1) {
+    const nested = u.user ?? u.User ?? u.data ?? u.Data ?? u.value ?? u.Value
+    if (!nested || typeof nested !== 'object' || Array.isArray(nested)) break
+    u = nested as Record<string, unknown>
+  }
   if (!u || typeof u !== 'object') return null
 
   // 1) Ưu tiên cờ xác minh rõ ràng (boolean)

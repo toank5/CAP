@@ -12,6 +12,10 @@ export interface DocumentTypeDto {
   label: string
 }
 
+export type ProfileDocumentTypeDto = DocumentTypeDto
+
+export type HouseholdRelationshipDto = DocumentTypeDto
+
 export interface PriorityGroupDto {
   code: string
   label: string
@@ -33,6 +37,23 @@ function pickArray(data: unknown): unknown[] {
 
 export const lookupApi = {
   documentTypes: () => request<unknown>('/api/lookup/document-types'),
+
+  profileDocumentTypes: () => request<unknown>('/api/lookup/profile-document-types'),
+
+  householdRelationships: () => request<unknown>('/api/lookup/household-relationships'),
+
+  requiredProfileDocumentTypes: (params: {
+    maritalStatus?: string
+    housingStatus?: string
+    hasDependentMembers?: boolean
+  } = {}) => {
+    const query = new URLSearchParams()
+    if (params.maritalStatus) query.set('maritalStatus', params.maritalStatus)
+    if (params.housingStatus) query.set('housingStatus', params.housingStatus)
+    if (params.hasDependentMembers) query.set('hasDependentMembers', 'true')
+    const qs = query.toString()
+    return request<unknown>(`/api/lookup/profile-document-types/required${qs ? `?${qs}` : ''}`)
+  },
 
   requiredDocumentTypes: (priorityGroup?: string) => {
     const qs = priorityGroup ? `?priorityGroup=${encodeURIComponent(priorityGroup)}` : ''

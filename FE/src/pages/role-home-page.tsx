@@ -15,9 +15,12 @@ import {
   Home,
   BarChart3,
   CheckCircle2,
+  ClipboardPenLine,
+  ShieldAlert,
 } from 'lucide-react'
 import { housingApplicationsApi, parsePagedApplications } from '@/api/housing-applications'
 import { housingProjectsApi } from '@/api/housing-projects'
+import { usersApi } from '@/api/users'
 import { CreateProjectModal } from '@/components/developer/create-project-modal'
 import { HouseCard } from '@/components/housing/house-card'
 import { HousingShowcase } from '@/components/housing/housing-showcase'
@@ -30,6 +33,7 @@ import { navigate } from '@/hooks/useHashRoute'
 import { formatError } from '@/lib/format-error'
 import { mapProjectToCard } from '@/lib/projects'
 import { countFromPaged } from '@/lib/parsers'
+import { readVerifiedStatus } from '@/lib/verification'
 import { type RouteId } from '@/router'
 
 interface Stats {
@@ -87,8 +91,111 @@ function buildWeeks(items: Array<{ submittedAt?: string; createdAt?: string }>):
 export function ApplicantHomePage() {
   return (
     <div className="space-y-6">
+      <ApplicantSetupNotices />
       <PaymentCalloutBanner />
       <HousingShowcase />
+    </div>
+  )
+}
+
+function ApplicantSetupNotices() {
+  const [loading, setLoading] = useState(true)
+  const [ekycPending, setEkycPending] = useState(false)
+  const [declarationPending, setDeclarationPending] = useState(false)
+
+  const loadStatus = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [profileResult, fullProfileResult, householdResult] = await Promise.all([
+        usersApi.getProfile(),
+        usersApi.getFullProfile(),
+        usersApi.getHouseholdMembers(),
+      ])
+      const unwrapObject = (input: unknown): Record<string, unknown> => {
+        let current = input
+        for (let depth = 0; depth < 4; depth += 1) {
+          if (!current || typeof current !== 'object' || Array.isArray(current)) return {}
+          const object = current as Record<string, unknown>
+          const nested = object.user ?? object.User ?? object.data ?? object.Data ?? object.value ?? object.Value ?? object.result ?? object.Result
+          if (!nested || typeof nested !== 'object' || Array.isArray(nested)) return object
+          current = nested
+        }
+        return current && typeof current === 'object' && !Array.isArray(current) ? current as Record<string, unknown> : {}
+      }
+      const profile = unwrapObject(profileResult)
+      const full = unwrapObject(fullProfileResult)
+      const profileData = { ...profile, ...full }
+      const verified = readVerifiedStatus(profileResult)
+      const value = (key: string) => profileData[key] ?? profileData[key.charAt(0).toUpperCase() + key.slice(1)]
+      const findArray = (input: unknown, depth = 0): unknown[] => {
+        if (Array.isArray(input)) return input
+        if (!input || typeof input !== 'object' || depth > 4) return []
+        const object = input as Record<string, unknown>
+        for (const key of ['value', 'Value', 'items', 'Items', 'data', 'Data', 'result', 'Result']) {
+          const found = findArray(object[key], depth + 1)
+          if (found.length > 0 || Array.isArray(object[key])) return found
+        }
+        return []
+      }
+      const members = findArray(householdResult) as Array<Record<string, unknown>>
+      const hasSpouse = members.some((member) => (member.relationship ?? member.Relationship) === 'SPOUSE')
+      const maritalStatus = String(value('maritalStatus') ?? '')
+      const declarationComplete = Boolean(
+        maritalStatus &&
+        String(value('occupation') ?? '').trim() &&
+        String(value('workPlace') ?? '').trim() &&
+        String(value('currentResidence') ?? '').trim() &&
+        String(value('permanentAddress') ?? '').trim() &&
+        value('monthlyIncome') != null &&
+        value('housingStatus') &&
+        value('averageHousingAreaPerPerson') != null &&
+        value('priorityGroup') &&
+        (maritalStatus !== 'MARRIED' || hasSpouse),
+      )
+      setEkycPending(verified !== true)
+      setDeclarationPending(!declarationComplete)
+    } catch {
+      // Không khóa trang chủ khi API trạng thái tạm thời lỗi.
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadStatus()
+    const onFocus = () => void loadStatus()
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [loadStatus])
+
+  if (loading || (!ekycPending && !declarationPending)) return null
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-rose-200 bg-rose-50/80 shadow-sm dark:border-rose-900/70 dark:bg-slate-900">
+      <div className="flex items-center gap-2.5 bg-gradient-to-r from-rose-100 to-orange-50 px-4 py-3 dark:from-rose-950/40 dark:to-slate-900">
+        <ShieldAlert className="h-4 w-4 shrink-0 text-rose-700 dark:text-rose-300" />
+        <p className="text-sm font-semibold text-rose-950 dark:text-rose-100">Hồ sơ của bạn chưa hoàn tất</p>
+      </div>
+      <div className="grid gap-2 border-t border-rose-200/80 p-3 dark:border-rose-900/60 sm:grid-cols-2">
+        {ekycPending && (
+          <button type="button" onClick={() => navigate('verify-identity')} className="group flex min-h-12 items-center gap-2.5 rounded-lg border border-orange-200 bg-orange-100/80 px-3 py-2.5 text-left transition hover:border-orange-300 hover:bg-orange-100 dark:border-orange-900/60 dark:bg-orange-950/30 dark:hover:bg-orange-900/40">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-200/80 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300">
+              <ShieldAlert className="h-3.5 w-3.5" />
+            </span>
+            <span className="flex-1 text-sm font-medium text-slate-900 dark:text-white">Xác minh eKYC</span>
+            <ArrowRight className="h-4 w-4 shrink-0 text-orange-800 transition group-hover:translate-x-0.5 dark:text-orange-300" />
+          </button>
+        )}
+        {declarationPending && (
+          <button type="button" onClick={() => navigate('profile')} className="group flex min-h-12 items-center gap-2.5 rounded-lg border border-red-200 bg-red-100/70 px-3 py-2.5 text-left transition hover:border-red-300 hover:bg-red-100 dark:border-red-900/60 dark:bg-red-950/30 dark:hover:bg-red-900/40">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-red-200/80 text-red-700 dark:bg-red-900/50 dark:text-red-300">
+              <ClipboardPenLine className="h-3.5 w-3.5" />
+            </span>
+            <span className="flex-1 text-sm font-medium text-slate-900 dark:text-white">Kê khai chính sách</span>
+            <ArrowRight className="h-4 w-4 shrink-0 text-red-700 transition group-hover:translate-x-0.5 dark:text-red-300" />
+          </button>
+        )}
+      </div>
     </div>
   )
 }
