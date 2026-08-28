@@ -18,7 +18,12 @@ export const APPLICATION_STATUS: Record<string, { label: string; variant: 'defau
   REJECTED: { label: 'Từ chối', variant: 'danger' },
   CANCELED: { label: 'Đã hủy', variant: 'secondary' },
   EXPIRED: { label: 'Hết hạn', variant: 'danger' },
+  LOTTERY_WON: { label: 'Trúng bốc thăm', variant: 'success' },
   LOTTERY_LOST: { label: 'Không trúng bốc thăm', variant: 'danger' },
+  LOTTERY_PENDING: { label: 'Chờ bốc thăm', variant: 'warning' },
+  LOTTERY_WAITING: { label: 'Chờ bốc thăm', variant: 'warning' },
+  LOTTERY_IN_PROGRESS: { label: 'Đang bốc thăm', variant: 'warning' },
+  LOTTERY_COMPLETED: { label: 'Đã bốc thăm', variant: 'secondary' },
 }
 
 export const CLOSED_APPLICATION_STATUSES = ['APPROVED', 'DEPOSIT_PAID', 'REJECTED', 'CANCELED', 'EXPIRED', 'LOTTERY_LOST']

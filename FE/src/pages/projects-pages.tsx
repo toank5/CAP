@@ -1,5 +1,27 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, Heart, MapPin, Plus, Trash2, X, ChevronLeft, ChevronRight, Loader2, Edit3 } from 'lucide-react'
+import {
+  CheckCircle2,
+  Heart,
+  MapPin,
+  Plus,
+  Trash2,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Edit3,
+  Building2,
+  FileText,
+  Home,
+  Clock,
+  DollarSign,
+  Layers,
+  Compass,
+  Eye,
+  ShieldCheck,
+  Bed,
+  Maximize2,
+} from 'lucide-react'
 import { housingProjectsApi, parseApartments } from '@/api/housing-projects'
 import { housingProjectStatusesApi, parseStatuses } from '@/api/housing-project-statuses'
 import { CreateProjectModal } from '@/components/developer/create-project-modal'
@@ -38,7 +60,7 @@ import {
   toApiFilter,
   type HousingSearchFilter,
 } from '@/lib/housing-search'
-import type { CreateApartmentDto, CreateHousingProjectRequestDto, HousingProjectDto } from '@/types'
+import type { ApartmentDto, CreateApartmentDto, CreateHousingProjectRequestDto, HousingProjectDto } from '@/types'
 
 function getTotalCount(data: unknown): number {
   if (!data || typeof data !== 'object') return 0
@@ -379,16 +401,16 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
       decisionNumber: String(fd.get('decisionNumber')),
       approvalDate: String(fd.get('approvalDate')) || undefined,
       isConfirmed: fd.get('isConfirmed') === 'on',
-      
+
       lotteryDate: String(fd.get('lotteryDate')) || undefined,
       lotteryLocation: String(fd.get('lotteryLocation')) || undefined,
       applicationOpenDate: String(fd.get('applicationOpenDate')) || undefined,
       applicationCloseDate: String(fd.get('applicationCloseDate')) || undefined,
       housingProjectStatusId: String(fd.get('housingProjectStatusId')),
       milestones: [],
-      
-      
-      
+
+
+
     }
   }
 
@@ -756,6 +778,26 @@ export function ProjectDetailPage() {
   )
 }
 
+const DIRECTION_LABELS: Record<string, string> = {
+  EAST: 'Đông',
+  WEST: 'Tây',
+  SOUTH: 'Nam',
+  NORTH: 'Bắc',
+  SOUTH_EAST: 'Đông Nam',
+  NORTH_EAST: 'Đông Bắc',
+  SOUTH_WEST: 'Tây Nam',
+  NORTH_WEST: 'Tây Bắc',
+}
+
+const TRIGGER_EVENT_LABELS: Record<string, string> = {
+  ON_LOTTERY_WON: 'Cọc / Cấp nhà / Trúng bốc thăm',
+  FOUNDATION_COMPLETED: 'Hoàn thành móng',
+  TOPPING_OUT: 'Cất nóc công trình',
+  HANDOVER: 'Bàn giao căn hộ',
+  RED_BOOK_ISSUED: 'Cấp Giấy chứng nhận (Sổ hồng)',
+  CUSTOM: 'Theo tiến độ thực tế',
+}
+
 function ProjectDetailView({
   projectId,
   headerSlot,
@@ -774,6 +816,14 @@ function ProjectDetailView({
   const { canCreate: canCreateNew, message: applicantBlockMessage } = useExistingApplicationBlocker()
   const [wishlistBusy, setWishlistBusy] = useState(false)
   const [openingSale, setOpeningSale] = useState(false)
+
+  // Apartment filters state
+  const [selectedBlock, setSelectedBlock] = useState<string>('ALL')
+  const [selectedBedrooms, setSelectedBedrooms] = useState<string>('ALL')
+  const [selectedUnitGroup, setSelectedUnitGroup] = useState<string>('ALL')
+  const [selectedSaleType, setSelectedSaleType] = useState<string>('ALL')
+  const [searchUnitName, setSearchUnitName] = useState<string>('')
+
   const logged = isLoggedIn()
   const role = getRole()
   const isApplicant = role === 'Applicant'
@@ -813,7 +863,7 @@ function ProjectDetailView({
     }
   }, [projectId])
 
-  if (loading) return <p className="text-sm text-slate-500 dark:text-slate-400">Đang tải...</p>
+  if (loading) return <p className="text-sm text-slate-500 dark:text-slate-400">Đang tải thông tin dự án...</p>
   if (error) return <Alert variant="error">{error}</Alert>
   if (!project) return <Alert variant="error">Không tìm thấy dự án</Alert>
 
@@ -871,7 +921,16 @@ function ProjectDetailView({
     }
   }
 
-  const totalSlides = (project.thumbnailUrl ? 1 : 0) + (project.images?.length ?? 0)
+  // Gallery images list
+  const galleryImages: string[] = []
+  if (project.thumbnailUrl) galleryImages.push(project.thumbnailUrl)
+  if (project.images && Array.isArray(project.images)) {
+    project.images.forEach((img: any) => {
+      const u = typeof img === 'string' ? img : img?.imageUrl || img?.ImageUrl || img?.url
+      if (u && !galleryImages.includes(u)) galleryImages.push(u)
+    })
+  }
+  const totalSlides = galleryImages.length
 
   const scrollGallery = (idx: number) => {
     if (totalSlides <= 1) return
@@ -898,62 +957,92 @@ function ProjectDetailView({
   const formatWhen = (v?: string) => {
     if (!v) return '—'
     const d = new Date(v)
-    return Number.isNaN(d.getTime()) ? v : d.toLocaleString('vi-VN')
+    return Number.isNaN(d.getTime()) ? v : d.toLocaleDateString('vi-VN')
   }
 
+  // Available apartments & filter options
+  const allApartments: ApartmentDto[] = project.apartments || []
+  const availableBlocks = Array.from(new Set(allApartments.map((a) => a.buildingBlock || 'Block A').filter(Boolean)))
+
+  const filteredApartments = allApartments.filter((apt) => {
+    if (selectedBlock !== 'ALL' && (apt.buildingBlock || 'Block A') !== selectedBlock) return false
+    if (selectedBedrooms !== 'ALL' && String(apt.numberOfBedrooms ?? 2) !== selectedBedrooms) return false
+    if (selectedUnitGroup !== 'ALL') {
+      const g = (apt.unitGroup?.toUpperCase() === 'PRIORITY' ? 'PRIORITY' : 'STANDARD')
+      if (g !== selectedUnitGroup) return false
+    }
+    if (selectedSaleType !== 'ALL') {
+      const st = (apt.saleType?.toUpperCase() === 'CO_OWNERSHIP' ? 'CO_OWNERSHIP' : 'FULL_OWNERSHIP')
+      if (st !== selectedSaleType) return false
+    }
+    if (searchUnitName.trim()) {
+      const term = searchUnitName.trim().toLowerCase()
+      if (!apt.unitName.toLowerCase().includes(term)) return false
+    }
+    return true
+  })
+
+  const rawAddressParts = [
+    project.street,
+    project.ward,
+    project.district && project.district.trim().toLowerCase() !== project.ward?.trim().toLowerCase()
+      ? project.district
+      : null,
+    project.province,
+  ].filter(Boolean) as string[]
+  const fullAddress = Array.from(new Set(rawAddressParts)).join(', ') || project.address || 'Thành phố Hồ Chí Minh'
+
+  const milestonesList = project.milestones && project.milestones.length > 0 ? project.milestones : [
+    { phaseOrder: 1, phaseName: 'Đợt 1 (Cọc / Cấp nhà)', percentage: project.phase1Percentage ?? 30, triggerEvent: 'ON_LOTTERY_WON', dueDays: 7 },
+    { phaseOrder: 2, phaseName: 'Đợt 2 (Bàn giao căn hộ)', percentage: 65, triggerEvent: 'HANDOVER', dueDays: 14 },
+    { phaseOrder: 3, phaseName: 'Đợt 3 (Sổ hồng)', percentage: 5, triggerEvent: 'RED_BOOK_ISSUED', dueDays: 7 },
+  ]
+
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
       {project && headerSlot?.(project)}
 
       {/* Panel thống kê hồ sơ dự án — hiện cho SXD */}
       <EvaluationPanel projectId={projectId} />
 
-      {/* ═══ Hero banner ══════════════════════════════════════════ */}
-      <div className="relative overflow-hidden rounded-3xl border border-emerald-700/40 bg-gradient-to-br from-emerald-500 via-emerald-600 to-green-600 p-8 shadow-2xl shadow-emerald-900/30 lg:p-10 dark:border-emerald-800/50 dark:from-emerald-950 dark:via-slate-900 dark:to-green-950 dark:shadow-black/40">
-        {/* decorative blobs */}
-        <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/10 blur-3xl dark:bg-emerald-400/10" />
-        <div className="absolute -bottom-12 -left-12 h-48 w-48 rounded-full bg-green-400/20 blur-2xl dark:bg-emerald-500/15" />
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {/* 1. HERO BANNER & IMAGE GALLERY                                       */}
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      <div className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
+        <div className="grid gap-8 p-6 lg:grid-cols-12 lg:p-8">
+          {/* Gallery Cột Trái (5 cols) */}
+          <div className="lg:col-span-5 flex flex-col justify-between space-y-4">
+            <div className="relative overflow-hidden rounded-2xl bg-slate-950 aspect-[4/3] shadow-md">
+              {totalSlides > 0 ? (
+                <div
+                  className="flex h-full transition-transform duration-500 ease-in-out"
+                  style={{ transform: `translateX(-${currentGalleryIdx * 100}%)` }}
+                >
+                  {galleryImages.map((imgUrl, idx) => (
+                    <div key={idx} className="h-full w-full flex-shrink-0 flex items-center justify-center bg-slate-900">
+                      <img
+                        src={imgUrl}
+                        alt={`${project.projectName || 'Dự án'} - ${idx + 1}`}
+                        className="h-full w-full object-cover"
+                        loading={idx === 0 ? 'eager' : 'lazy'}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-teal-800 to-slate-900 text-slate-300">
+                  <Building2 className="h-16 w-16 opacity-40 mb-2" />
+                  <span className="text-xs">Chưa có hình ảnh dự án</span>
+                </div>
+              )}
 
-        <div className="relative grid gap-6 lg:grid-cols-5">
-          {/* Ảnh carousel (thumbnail + ảnh bổ sung gộp chung) */}
-          <div className="lg:col-span-2 group/gallery">
-            <div className="relative overflow-hidden rounded-2xl shadow-xl">
-              <div
-                id="gallery-track"
-                className="flex transition-transform duration-500 ease-in-out"
-                style={{ transform: `translateX(-${currentGalleryIdx * 100}%)` }}
-              >
-                {/* Slide 0: thumbnail */}
-                {project.thumbnailUrl && (
-                  <div className="w-full flex-shrink-0">
-                    <img
-                      src={project.thumbnailUrl}
-                      alt={project.projectName || project.name || 'Dự án'}
-                      className="aspect-[4/3] w-full object-cover"
-                    />
-                  </div>
-                )}
-                {/* Slide 1+: ảnh bổ sung */}
-                {project.images && project.images.map((img, idx) => (
-                  <div key={img.id} className="w-full flex-shrink-0">
-                    <img
-                      src={img.imageUrl}
-                      alt={`Ảnh ${idx + 1}`}
-                      className="aspect-[4/3] w-full object-cover"
-                      loading="lazy"
-                      decoding="async"
-                    />
-                  </div>
-                ))}
-              </div>
-
-              {/* Nút mũi tên trái/phải — luôn hiển thị khi có nhiều ảnh */}
+              {/* Nút điều hướng Carousel */}
               {totalSlides > 1 && (
                 <>
                   <button
                     type="button"
                     onClick={prevGallery}
-                    className="absolute left-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white shadow-lg backdrop-blur-sm transition-all hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-white/60"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm transition hover:bg-black/80 hover:scale-105 active:scale-95"
                     aria-label="Ảnh trước"
                   >
                     <ChevronLeft className="h-5 w-5" />
@@ -961,153 +1050,171 @@ function ProjectDetailView({
                   <button
                     type="button"
                     onClick={nextGallery}
-                    className="absolute right-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white shadow-lg backdrop-blur-sm transition-all hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-white/60"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm transition hover:bg-black/80 hover:scale-105 active:scale-95"
                     aria-label="Ảnh tiếp theo"
                   >
                     <ChevronRight className="h-5 w-5" />
                   </button>
+                  <div className="absolute bottom-3 right-3 rounded-md bg-black/70 px-2 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">
+                    {currentGalleryIdx + 1} / {totalSlides} ảnh
+                  </div>
                 </>
               )}
             </div>
 
-            {/* Dots + đếm */}
-            <div className="mt-3">
-              <div className="flex items-center justify-center gap-2">
-                {totalSlides > 1 && Array.from({ length: totalSlides }).map((_, idx) => (
+            {/* Dải ảnh Thumbnail nhỏ */}
+            {totalSlides > 1 && (
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+                {galleryImages.map((imgUrl, idx) => (
                   <button
                     key={idx}
                     type="button"
-                    className={`h-2 rounded-full transition-all ${idx === currentGalleryIdx ? 'w-5 bg-blue-500' : 'w-2 bg-slate-300 dark:bg-slate-600'
-                      }`}
                     onClick={() => scrollGallery(idx)}
-                    aria-label={`Ảnh ${idx + 1}`}
-                  />
+                    className={`relative h-16 w-20 flex-shrink-0 overflow-hidden rounded-xl border-2 transition ${idx === currentGalleryIdx
+                      ? 'border-teal-500 ring-2 ring-teal-500/30'
+                      : 'border-transparent opacity-60 hover:opacity-100'
+                      }`}
+                  >
+                    <img src={imgUrl} alt={`Ảnh thu nhỏ ${idx + 1}`} className="h-full w-full object-cover" />
+                  </button>
                 ))}
-                <span className="ml-1 text-xs text-slate-400">
-                  {currentGalleryIdx + 1}/{totalSlides}
-                </span>
               </div>
-            </div>
+            )}
           </div>
 
-          {/* Thông tin */}
-          <div className="lg:col-span-3 flex flex-col justify-between space-y-5">
-            {/* Tiêu đề + badge */}
+          {/* Thông tin Cột Phải (7 cols) */}
+          <div className="lg:col-span-7 flex flex-col justify-between space-y-6">
             <div className="space-y-3">
-              {project.status && (
-                <span className="inline-block rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm dark:bg-white/10 dark:text-emerald-100">
+              {/* Status & Decision Badge */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-teal-100 px-3 py-1 text-xs font-bold text-teal-800 dark:bg-teal-900/40 dark:text-teal-300">
                   {labelProjectStatus(project.status)}
                 </span>
-              )}
-              <h2 className="text-3xl font-black leading-tight text-white lg:text-4xl">
-                {project.projectName || project.name}
-              </h2>
-              {(project.address || project.district || project.province) && (
-                <div className="flex items-center gap-2 text-green-100 dark:text-emerald-200/80">
-                  <MapPin className="h-4 w-4 shrink-0 text-green-200 dark:text-emerald-300" />
-                  <span className="text-sm">
-                    {[project.address, project.district, project.province].filter(Boolean).join(', ')}
+                {project.decisionNumber && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                    <FileText className="h-3.5 w-3.5" />
+                    Số QĐ: {project.decisionNumber}
                   </span>
-                </div>
-              )}
+                )}
+                {(project as any).developerName && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                    <Building2 className="h-3.5 w-3.5" />
+                    {(project as any).developerName}
+                  </span>
+                )}
+              </div>
+
+              {/* Project Title */}
+              <h1 className="text-2xl font-black tracking-tight text-slate-900 sm:text-3xl lg:text-4xl dark:text-white">
+                {project.projectName || project.name}
+              </h1>
+
+              {/* Address */}
+              <div className="flex items-start gap-2 text-slate-600 dark:text-slate-300">
+                <MapPin className="h-4 w-4 shrink-0 text-rose-500 mt-0.5" />
+                <span className="text-sm font-medium leading-snug">{fullAddress}</span>
+              </div>
             </div>
 
-            {/* Giá nổi bật */}
-            <div className="rounded-2xl border border-white/20 bg-white/10 p-5 backdrop-blur-sm dark:border-white/10 dark:bg-white/5">
-              <p className="text-xs font-medium uppercase tracking-widest text-green-200 dark:text-emerald-300">Giá khởi điểm</p>
-              <div className="mt-1 flex items-baseline gap-3">
-                <span className="text-4xl font-black text-white">{formatPrice(project.minPrice)}</span>
+            {/* Price Box */}
+            <div className="rounded-2xl bg-gradient-to-br from-teal-50 to-emerald-50/60 p-5 border border-teal-100 dark:border-teal-900/40 dark:bg-slate-800/60">
+              <span className="text-xs font-bold uppercase tracking-wider text-teal-800 dark:text-teal-400">
+                Mức giá tham chiếu
+              </span>
+              <div className="mt-1.5 flex flex-wrap items-baseline gap-2">
+                <span className="text-3xl font-black text-teal-700 dark:text-teal-300">
+                  {formatPrice(project.minPrice)}
+                </span>
                 {project.maxPrice && project.maxPrice !== project.minPrice && (
-                  <span className="text-xl font-semibold text-green-200 dark:text-emerald-300">— {formatPrice(project.maxPrice)}</span>
+                  <span className="text-lg font-bold text-slate-600 dark:text-slate-300">
+                    — {formatPrice(project.maxPrice)}
+                  </span>
                 )}
-              </div>
-              <div className="mt-3 flex flex-wrap gap-4 text-sm text-green-100 dark:text-emerald-200/80">
-                {(project.availableUnits ?? 0) > 0 && (
-                  <div className="flex items-center gap-1.5">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 text-xs font-bold">🏠</span>
-                    <span>{project.availableUnits} căn còn</span>
-                  </div>
-                )}
-                {project.totalUnits != null && (
-                  <div className="flex items-center gap-1.5">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 text-xs font-bold">📋</span>
-                    <span>Tổng {project.totalUnits} căn</span>
-                  </div>
-                )}
+                <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                  (Đã bao gồm thuế GTGT theo quy định NOXH)
+                </span>
               </div>
             </div>
 
-            {/* Quick info grid */}
+            {/* Quick Metrics (4 cards) */}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {[
-                { label: 'Mở nhận hồ sơ', value: formatWhen(openDate), icon: '📅' },
-                { label: 'Đóng nhận hồ sơ', value: formatWhen(closeDate), icon: '⏰' },
-                {
-                  label: 'Đợt 1 (trả trước)',
-                  value: project.phase1Percentage != null ? `${project.phase1Percentage}%` : '—',
-                  icon: '💰',
-                },
-                {
-                  label: 'Diện tích',
-                  value:
-                    project.minArea && project.maxArea && project.minArea !== project.maxArea
-                      ? `${project.minArea}–${project.maxArea} m²`
-                      : project.minArea
-                        ? `${project.minArea} m²`
-                        : '—',
-                  icon: '📐',
-                },
-              ]
-                .filter(i => i.value !== '—')
-                .map((item, idx) => (
-                  <div key={idx} className="rounded-xl border border-white/15 bg-white/10 p-3 text-center backdrop-blur-sm dark:border-white/10 dark:bg-white/5">
-                    <p className="text-lg">{item.icon}</p>
-                    <p className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-green-200 dark:text-emerald-300">{item.label}</p>
-                    <p className="mt-0.5 text-sm font-bold text-white">{item.value}</p>
-                  </div>
-                ))}
+              <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3 text-center dark:border-slate-800 dark:bg-slate-800/40">
+                <p className="text-[11px] font-semibold uppercase text-slate-500 dark:text-slate-400">Quỹ căn trống</p>
+                <p className="mt-1 text-base font-bold text-teal-600 dark:text-teal-400">
+                  {project.availableUnits ?? 0} {project.totalUnits ? `/ ${project.totalUnits}` : ''} căn
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3 text-center dark:border-slate-800 dark:bg-slate-800/40">
+                <p className="text-[11px] font-semibold uppercase text-slate-500 dark:text-slate-400">Diện tích sàn</p>
+                <p className="mt-1 text-base font-bold text-slate-800 dark:text-slate-100">
+                  {project.minArea && project.maxArea && project.minArea !== project.maxArea
+                    ? `${project.minArea}–${project.maxArea} m²`
+                    : project.minArea
+                      ? `${project.minArea} m²`
+                      : '50–70 m²'}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3 text-center dark:border-slate-800 dark:bg-slate-800/40">
+                <p className="text-[11px] font-semibold uppercase text-slate-500 dark:text-slate-400">Mở nhận hồ sơ</p>
+                <p className="mt-1 text-xs font-bold text-slate-800 dark:text-slate-100">
+                  {formatWhen(openDate)}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3 text-center dark:border-slate-800 dark:bg-slate-800/40">
+                <p className="text-[11px] font-semibold uppercase text-slate-500 dark:text-slate-400">Hạn nhận hồ sơ</p>
+                <p className="mt-1 text-xs font-bold text-slate-800 dark:text-slate-100">
+                  {formatWhen(closeDate)}
+                </p>
+              </div>
             </div>
 
-            {/* Nút hành động */}
-            <div className="flex flex-wrap gap-3">
+            {/* Action Buttons */}
+            <div className="flex flex-wrap items-center gap-3 pt-2">
               {logged && isApplicant && (
                 <button
+                  type="button"
                   disabled={wishlistBusy}
                   onClick={handleWishlist}
-                  className="flex items-center gap-2 rounded-2xl border border-white/30 bg-white/10 px-5 py-3 text-sm font-semibold text-white backdrop-blur-sm transition-all hover:bg-white/20 active:scale-[0.98] disabled:opacity-50 dark:border-white/20 dark:bg-white/5 dark:hover:bg-white/15"
+                  className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 active:scale-95 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                 >
-                  <Heart className={`h-5 w-5 ${wishlisted ? 'fill-rose-400 text-rose-400' : ''}`} />
-                  {wishlisted ? 'Đã quan tâm' : 'Quan tâm'}
+                  <Heart className={`h-4 w-4 ${wishlisted ? 'fill-rose-500 text-rose-500' : 'text-slate-400'}`} />
+                  {wishlisted ? 'Đã lưu quan tâm' : 'Lưu quan tâm'}
                 </button>
               )}
+
               {canOpenSale && (
                 <button
                   type="button"
                   disabled={openingSale}
                   onClick={() => void handleOpenSale()}
-                  className="flex-1 rounded-2xl bg-emerald-400 py-3 text-center text-sm font-bold text-emerald-950 shadow-xl transition-all hover:bg-emerald-300 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none sm:px-8"
+                  className="flex-1 rounded-xl bg-teal-600 py-3 text-center text-sm font-bold text-white shadow-md transition hover:bg-teal-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none sm:px-8"
                 >
                   {openingSale ? (
                     <span className="inline-flex items-center gap-2">
                       <Loader2 className="h-4 w-4 animate-spin" /> Đang mở bán…
                     </span>
                   ) : (
-                    'Mở bán'
+                    'Mở bán dự án'
                   )}
                 </button>
               )}
+
               {showApply && (
                 <button
+                  type="button"
                   disabled={(!canApply && logged && isApplicant) || blockedByExisting}
                   title={blockedByExisting ? applicantBlockMessage || undefined : undefined}
                   onClick={() => void handleApply()}
-                  className="flex-1 rounded-2xl border border-white/40 bg-white py-3 text-center text-sm font-bold text-emerald-700 shadow-xl transition-all hover:bg-green-50 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none sm:px-8 dark:border-white/30 dark:bg-emerald-50 dark:text-emerald-800 dark:hover:bg-white"
+                  className="flex-1 rounded-xl bg-gradient-to-r from-teal-600 to-teal-700 py-3 text-center text-sm font-bold text-white shadow-lg shadow-teal-700/20 transition hover:from-teal-700 hover:to-teal-800 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none sm:px-8"
                 >
                   {!logged
                     ? 'Đăng nhập để nộp hồ sơ'
                     : blockedByExisting
                       ? '⛔ Bạn đã có hồ sơ đang xử lý'
-                      : '📝 Nộp hồ sơ ngay'}
+                      : '📝 Nộp hồ sơ đăng ký'}
                 </button>
               )}
             </div>
@@ -1115,69 +1222,377 @@ function ProjectDetailView({
         </div>
       </div>
 
-      {/* ═══ Mô tả ════════════════════════════════════════════════ */}
-      {project.description && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-900/50">
-          <h3 className="mb-4 flex items-center gap-2 text-base font-bold text-slate-800 dark:text-slate-100">
-            <span className="text-lg">📋</span> Giới thiệu dự án
-          </h3>
-          <div
-            className="prose prose-slate max-w-none text-sm leading-relaxed text-slate-600 dark:text-slate-300 dark:prose-invert"
-            dangerouslySetInnerHTML={{ __html: project.description }}
-          />
-        </div>
-      )}
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {/* 2. THÔNG TIN PHÁP LÝ & QUY MÔ DỰ ÁN                                   */}
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      <div className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-8">
+        <h2 className="flex items-center gap-2.5 text-lg font-bold text-slate-900 dark:text-white">
+          <ShieldCheck className="h-5 w-5 text-teal-600" />
+          Thông số pháp lý & Quy mô quy hoạch
+        </h2>
 
-      {/* ═══ Danh sách căn hộ ══════════════════════════════════════ */}
-      {(project.apartments && project.apartments.length > 0 && (project.availableUnits ?? 0) > 0) && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="flex items-center gap-2 text-base font-bold text-slate-800 dark:text-slate-100">
-              <span>🏠</span> Danh sách căn hộ
-              <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
-                {project.apartments.length}
-              </span>
-            </h3>
-            <div className="flex items-center gap-3 text-xs text-slate-500">
-              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-400" /> Còn trống</span>
-              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-slate-300" /> Đã bàn giao</span>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-800/40">
+            <div className="flex items-center gap-2 text-slate-500">
+              <FileText className="h-4 w-4 text-teal-600" />
+              <span className="text-xs font-semibold uppercase">Số quyết định phê duyệt</span>
             </div>
+            <p className="mt-2 text-sm font-bold text-slate-900 dark:text-white">
+              {project.decisionNumber || 'Đang cập nhật'}
+            </p>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {project.apartments.map((apt) => {
-              const isAssigned = String(apt.status).toUpperCase() === 'ASSIGNED'
-              return (
-                <div
-                  key={apt.id}
-                  className={`group rounded-2xl border p-4 transition-all hover:-translate-y-0.5 hover:shadow-lg ${isAssigned
-                      ? 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/30'
-                      : 'border-emerald-200 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/20 hover:border-emerald-300'
-                    }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="text-base font-black text-slate-900 dark:text-slate-100">{apt.unitName}</p>
-                      <p className="mt-0.5 text-xs text-slate-500">{apt.area} m²</p>
-                    </div>
-                    <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${isAssigned
-                        ? 'bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400'
-                        : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-                      }`}>
-                      {isAssigned ? 'Đã giao' : 'Còn trống'}
+
+          <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-800/40">
+            <div className="flex items-center gap-2 text-slate-500">
+              <MapPin className="h-4 w-4 text-teal-600" />
+              <span className="text-xs font-semibold uppercase">Đường / Số nhà</span>
+            </div>
+            <p className="mt-2 text-sm font-bold text-slate-900 dark:text-white">
+              {project.street || 'Chưa cập nhật tên đường'}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-800/40">
+            <div className="flex items-center gap-2 text-slate-500">
+              <Building2 className="h-4 w-4 text-teal-600" />
+              <span className="text-xs font-semibold uppercase">Phường / Xã & Quận / Huyện</span>
+            </div>
+            <p className="mt-2 text-sm font-bold text-slate-900 dark:text-white">
+              {Array.from(
+                new Set(
+                  [
+                    project.ward,
+                    project.district && project.district.trim().toLowerCase() !== project.ward?.trim().toLowerCase()
+                      ? project.district
+                      : null,
+                  ].filter(Boolean)
+                )
+              ).join(', ') || project.ward || project.district || 'Thành phố Hồ Chí Minh'}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-800/40">
+            <div className="flex items-center gap-2 text-slate-500">
+              <Home className="h-4 w-4 text-teal-600" />
+              <span className="text-xs font-semibold uppercase">Tổng quy mô căn hộ</span>
+            </div>
+            <p className="mt-2 text-sm font-bold text-slate-900 dark:text-white">
+              {project.totalUnits || project.availableUnits || 0} căn ({project.availableUnits ?? 0} căn khả dụng)
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-800/40">
+            <div className="flex items-center gap-2 text-slate-500">
+              <Layers className="h-4 w-4 text-teal-600" />
+              <span className="text-xs font-semibold uppercase">Khung diện tích điển hình</span>
+            </div>
+            <p className="mt-2 text-sm font-bold text-slate-900 dark:text-white">
+              {project.minArea || 0} m² – {project.maxArea || 0} m²
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-800/40">
+            <div className="flex items-center gap-2 text-slate-500">
+              <DollarSign className="h-4 w-4 text-teal-600" />
+              <span className="text-xs font-semibold uppercase">Tỷ lệ thanh toán Đợt 1 (Cọc)</span>
+            </div>
+            <p className="mt-2 text-sm font-bold text-teal-700 dark:text-teal-400">
+              {project.phase1Percentage ?? 30}% giá trị căn hộ
+            </p>
+          </div>
+        </div>
+
+        {/* Giới thiệu / Tiện ích dự án */}
+        {project.description && (
+          <div className="mt-6 border-t border-slate-100 pt-6 dark:border-slate-800">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">
+              Giới thiệu & Tiện ích dự án
+            </h3>
+            <div
+              className="prose prose-slate max-w-none text-sm leading-relaxed text-slate-600 dark:text-slate-300 dark:prose-invert"
+              dangerouslySetInnerHTML={{ __html: project.description }}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {/* 3. LỘ TRÌNH TIẾN ĐỘ THANH TOÁN (PAYMENT MILESTONES)                   */}
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      <div className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-8">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+          <div>
+            <h2 className="flex items-center gap-2.5 text-lg font-bold text-slate-900 dark:text-white">
+              <DollarSign className="h-5 w-5 text-teal-600" />
+              Tiến độ thanh toán ({milestonesList.length} đợt)
+            </h2>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Lộ trình đóng tiền theo từng giai đoạn chuẩn bị và bàn giao theo quy định Nhà ở xã hội
+            </p>
+          </div>
+          <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+            Tổng cộng: 100% giá trị căn hộ
+          </span>
+        </div>
+
+        {/* Timeline Stepper */}
+        <div className="grid gap-4 md:grid-cols-3">
+          {milestonesList.map((m: any, idx: number) => {
+            const phaseOrder = m.phaseOrder || idx + 1
+            const pct = Number(m.percentage) || 0
+            const eventLabel = TRIGGER_EVENT_LABELS[m.triggerEvent] || m.triggerEvent || 'Theo tiến độ'
+            const days = m.dueDays || 7
+            return (
+              <div
+                key={idx}
+                className="relative flex flex-col justify-between rounded-2xl border border-teal-100 bg-gradient-to-b from-teal-50/40 to-white p-5 dark:border-teal-900/30 dark:from-slate-800/60 dark:to-slate-900"
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-600 text-xs font-bold text-white">
+                      {phaseOrder}
+                    </span>
+                    <span className="rounded-full bg-teal-100 px-2.5 py-0.5 text-xs font-bold text-teal-800 dark:bg-teal-900/60 dark:text-teal-200">
+                      {pct}%
                     </span>
                   </div>
-                  <p className="mt-3 text-lg font-black text-blue-600 dark:text-blue-400">
-                    {Number(apt.price).toLocaleString('vi-VN')} VNĐ
+                  <h4 className="mt-3 text-sm font-bold text-slate-900 dark:text-white">
+                    {m.phaseName || `Đợt ${phaseOrder}`}
+                  </h4>
+                  <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                    Sự kiện: <strong>{eventLabel}</strong>
                   </p>
-                  {!isAssigned && (
-                    <p className="mt-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-                      ✨ Còn nhận hồ sơ
-                    </p>
-                  )}
                 </div>
-              )
-            })}
+                <div className="mt-4 pt-3 border-t border-teal-100/60 text-[11px] text-slate-500 dark:border-slate-800 flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5 text-teal-600" />
+                  <span>Thời hạn nộp: <strong>{days} ngày</strong> kể từ khi có thông báo</span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {/* 4. DANH SÁCH QUỸ CĂN HỘ CHI TIẾT                                      */}
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {allApartments.length > 0 && (
+        <div className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-8">
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+            <div>
+              <h2 className="flex items-center gap-2.5 text-lg font-bold text-slate-900 dark:text-white">
+                <Home className="h-5 w-5 text-teal-600" />
+                Quỹ căn hộ chi tiết ({filteredApartments.length} / {allApartments.length} căn)
+              </h2>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                Thông số kỹ thuật, hướng cửa, ban công, diện tích thông thủy và cơ cấu sở hữu
+              </p>
+            </div>
+
+            {/* Quick status indicators */}
+            <div className="flex items-center gap-3 text-xs">
+              <span className="flex items-center gap-1.5 font-medium text-emerald-700 dark:text-emerald-400">
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                Khả dụng ({allApartments.filter(a => String(a.status).toUpperCase() !== 'ASSIGNED').length})
+              </span>
+              <span className="flex items-center gap-1.5 font-medium text-slate-500">
+                <span className="h-2.5 w-2.5 rounded-full bg-slate-400" />
+                Đã giao ({allApartments.filter(a => String(a.status).toUpperCase() === 'ASSIGNED').length})
+              </span>
+            </div>
           </div>
+
+          {/* Bộ lọc căn hộ */}
+          <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5 rounded-2xl bg-slate-50 p-4 border border-slate-100 dark:bg-slate-800/40 dark:border-slate-800">
+            <div>
+              <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">Mã căn</label>
+              <input
+                type="text"
+                placeholder="Tìm mã căn (vd: A-101)..."
+                value={searchUnitName}
+                onChange={(e) => setSearchUnitName(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 focus:border-teal-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+              />
+            </div>
+
+            {availableBlocks.length > 1 && (
+              <div>
+                <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">Tòa / Block</label>
+                <select
+                  value={selectedBlock}
+                  onChange={(e) => setSelectedBlock(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 focus:border-teal-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                >
+                  <option value="ALL">Tất cả các tòa</option>
+                  {availableBlocks.map((b) => (
+                    <option key={b} value={b}>{b}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">Số phòng ngủ</label>
+              <select
+                value={selectedBedrooms}
+                onChange={(e) => setSelectedBedrooms(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 focus:border-teal-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+              >
+                <option value="ALL">Tất cả số phòng ngủ</option>
+                <option value="1">1 Phòng ngủ</option>
+                <option value="2">2 Phòng ngủ</option>
+                <option value="3">3 Phòng ngủ</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">Nhóm căn</label>
+              <select
+                value={selectedUnitGroup}
+                onChange={(e) => setSelectedUnitGroup(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 focus:border-teal-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+              >
+                <option value="ALL">Tất cả nhóm căn</option>
+                <option value="STANDARD">Căn chuẩn</option>
+                <option value="PRIORITY">Suất ưu tiên ⭐</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">Hình thức sở hữu</label>
+              <select
+                value={selectedSaleType}
+                onChange={(e) => setSelectedSaleType(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 focus:border-teal-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+              >
+                <option value="ALL">Tất cả hình thức</option>
+                <option value="FULL_OWNERSHIP">Sở hữu toàn phần (100%)</option>
+                <option value="CO_OWNERSHIP">Đồng sở hữu</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Grid Căn hộ */}
+          {filteredApartments.length === 0 ? (
+            <div className="p-8 text-center text-xs text-slate-500">
+              Không tìm thấy căn hộ phù hợp với bộ lọc.
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {filteredApartments.map((apt) => {
+                const isAssigned = String(apt.status).toUpperCase() === 'ASSIGNED'
+                const isPriority = apt.unitGroup?.toUpperCase() === 'PRIORITY'
+                const isCoOwnership = apt.saleType?.toUpperCase() === 'CO_OWNERSHIP'
+
+                return (
+                  <div
+                    key={apt.id || apt.unitName}
+                    className={`flex flex-col justify-between rounded-2xl border p-4 transition-all hover:shadow-md ${isAssigned
+                      ? 'border-slate-200 bg-slate-50/80 dark:border-slate-800 dark:bg-slate-900/40 opacity-75'
+                      : 'border-slate-200/90 bg-white hover:border-teal-300 dark:border-slate-800 dark:bg-slate-900'
+                      }`}
+                  >
+                    <div>
+                      {/* Top Header: Unit Name + Badges */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-base font-black text-slate-900 dark:text-white">
+                            {apt.unitName}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {apt.buildingBlock || 'Block A'} · Tầng {apt.floorNumber ?? 1}
+                          </p>
+                        </div>
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${isAssigned
+                            ? 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                            : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                            }`}
+                        >
+                          {isAssigned ? 'Đã cấp' : 'Còn trống'}
+                        </span>
+                      </div>
+
+                      {/* Thông số kỹ thuật */}
+                      <div className="mt-3 space-y-1.5 border-t border-b border-slate-100 py-2.5 text-xs text-slate-600 dark:border-slate-800 dark:text-slate-300">
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-400 flex items-center gap-1">
+                            <Maximize2 className="h-3 w-3" /> Diện tích:
+                          </span>
+                          <span className="font-semibold">
+                            {apt.area} m² {apt.grossArea ? `(${apt.grossArea} m² tim tường)` : ''}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-400 flex items-center gap-1">
+                            <Bed className="h-3 w-3" /> Cơ cấu phòng:
+                          </span>
+                          <span className="font-semibold">
+                            {apt.numberOfBedrooms ?? 2} Phòng ngủ · {apt.numberOfBathrooms ?? 1} Phòng vệ sinh
+                          </span>
+                        </div>
+
+                        {(apt.mainDoorDirection || apt.balconyDirection) && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-400 flex items-center gap-1">
+                              <Compass className="h-3 w-3" /> Hướng:
+                            </span>
+                            <span className="font-semibold">
+                              Cửa {apt.mainDoorDirection ? DIRECTION_LABELS[apt.mainDoorDirection] || apt.mainDoorDirection : 'Đông Nam'}
+                              {apt.balconyDirection ? ` · Ban công ${DIRECTION_LABELS[apt.balconyDirection] || apt.balconyDirection}` : ''}
+                            </span>
+                          </div>
+                        )}
+
+                        {apt.viewDescription && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-400 flex items-center gap-1">
+                              <Eye className="h-3 w-3" /> Hướng nhìn:
+                            </span>
+                            <span className="font-medium truncate max-w-[130px] text-right" title={apt.viewDescription}>
+                              {apt.viewDescription}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Loại hình & Tỷ lệ */}
+                      <div className="mt-2.5 flex flex-wrap gap-1.5">
+                        {isPriority && (
+                          <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                            Suất ưu tiên ⭐
+                          </span>
+                        )}
+                        {isCoOwnership ? (
+                          <span className="rounded-md bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300">
+                            Đồng sở hữu ({apt.coOwnershipRatio || 50}%)
+                          </span>
+                        ) : (
+                          <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                            Toàn quyền sở hữu
+                          </span>
+                        )}
+                        {apt.maxOccupants && (
+                          <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                            Tối đa {apt.maxOccupants} người
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Price bottom */}
+                    <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-baseline justify-between">
+                      <span className="text-[11px] text-slate-400 font-medium">Giá bán niêm yết:</span>
+                      <p className="text-base font-black text-teal-600 dark:text-teal-400">
+                        {Number(apt.price).toLocaleString('vi-VN')} VNĐ
+                      </p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -1241,10 +1656,10 @@ function EvaluationPanel({ projectId }: { projectId: string }) {
         <h3 className="font-semibold text-slate-800 dark:text-slate-100">Thống kê hồ sơ dự án</h3>
         {data.status && (
           <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${data.status === 'OVERSUBSCRIBED'
-              ? 'bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-950/50 dark:text-rose-300 dark:ring-rose-800'
-              : data.status === 'SUBSCRIBED'
-                ? 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:ring-emerald-800'
-                : 'bg-slate-50 text-slate-700 ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700'
+            ? 'bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-950/50 dark:text-rose-300 dark:ring-rose-800'
+            : data.status === 'SUBSCRIBED'
+              ? 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:ring-emerald-800'
+              : 'bg-slate-50 text-slate-700 ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700'
             }`}>
             {data.status === 'OVERSUBSCRIBED' ? 'Vượt suất' : data.status === 'SUBSCRIBED' ? 'Đạt suất' : 'Còn suất'}
           </span>

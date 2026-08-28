@@ -96,7 +96,9 @@ export function labelReviewAction(value?: string | null): string {
 
 /** Trạng thái hồ sơ đăng ký */
 export function labelApplicationStatus(status: string): string {
-  return APPLICATION_STATUS[status]?.label ?? status
+  if (!status) return '—'
+  const key = status.trim()
+  return APPLICATION_STATUS[key]?.label ?? APPLICATION_STATUS[key.toUpperCase()]?.label ?? status
 }
 
 /** Trạng thái xác minh tài liệu */
