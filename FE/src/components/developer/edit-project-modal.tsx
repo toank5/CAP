@@ -28,6 +28,10 @@ import {
   type ApartmentFormRow,
 } from './create-project-modal'
 
+interface EditApartmentFormRow extends ApartmentFormRow {
+  id?: string
+}
+
 interface EditProjectModalProps {
   projectId: string
   open: boolean
@@ -35,7 +39,7 @@ interface EditProjectModalProps {
   onUpdated?: () => void | Promise<void>
 }
 
-const createDefaultApartment = (index: number): ApartmentFormRow => ({
+const createDefaultApartment = (index: number): EditApartmentFormRow => ({
   unitName: `A-${100 + index + 1}`,
   buildingBlock: 'Block A',
   floorNumber: 1,
@@ -88,7 +92,8 @@ export function EditProjectModal({
     { phaseOrder: 3, phaseName: 'Đợt 3 (Sổ hồng)', percentage: 5, triggerEvent: 'RED_BOOK_ISSUED', dueDays: 7 },
   ])
 
-  const [apartments, setApartments] = useState<ApartmentFormRow[]>([])
+  const [apartments, setApartments] = useState<EditApartmentFormRow[]>([])
+  const [originalApartmentIds, setOriginalApartmentIds] = useState<string[]>([])
 
   const [existingThumbnailUrl, setExistingThumbnailUrl] = useState<string | null>(null)
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null)
@@ -111,60 +116,73 @@ export function EditProjectModal({
 
     housingProjectsApi
       .getById(projectId)
-      .then((res) => {
+      .then(async (res) => {
         const p = extractSingleProject(res)
-        if (!p) return
+        const raw = ((res as any)?.data ?? (res as any)?.Data ?? res) as Record<string, any>
+        if (!p && !raw) return
 
-        setProjectName(p.projectName || p.name || '')
-        setDescription(p.description || '')
-        setWard(p.ward || p.district || '')
-        setStreet(p.street || '')
-        setDecisionNumber(p.decisionNumber || '')
-        setExistingThumbnailUrl(p.thumbnailUrl || null)
-        const imgUrls: string[] = (p.images || []).map((img) =>
-          typeof img === 'string' ? img : (img as any).imageUrl || (img as any).url || ''
-        ).filter(Boolean)
+        setProjectName(p?.projectName || p?.name || raw?.projectName || raw?.name || '')
+        setDescription(p?.description || raw?.description || '')
+        setWard(p?.ward || p?.district || raw?.ward || raw?.district || '')
+        setStreet(p?.street || raw?.street || raw?.Street || '')
+        setDecisionNumber(p?.decisionNumber || raw?.decisionNumber || raw?.DecisionNumber || '')
+        setExistingThumbnailUrl(p?.thumbnailUrl || raw?.thumbnailUrl || null)
+
+        const rawImages = p?.images || raw?.images || raw?.Images || []
+        const imgUrls: string[] = Array.isArray(rawImages)
+          ? rawImages.map((img: any) => (typeof img === 'string' ? img : img?.imageUrl || img?.url || '')).filter(Boolean)
+          : []
         setExistingImages(imgUrls)
 
-        if (p.milestones && p.milestones.length >= 3) {
+        const rawMilestones = p?.milestones || raw?.milestones || raw?.Milestones
+        if (Array.isArray(rawMilestones) && rawMilestones.length >= 3) {
           setMilestones(
-            p.milestones.map((m: any, idx: number) => ({
+            rawMilestones.map((m: any, idx: number) => ({
               phaseOrder: idx + 1,
-              phaseName: m.phaseName || `Đợt ${idx + 1}`,
-              percentage: Number(m.percentage) || 0,
-              triggerEvent: m.triggerEvent || 'ON_LOTTERY_WON',
-              dueDays: Number(m.dueDays) || 7,
+              phaseName: m.phaseName || m.PhaseName || `Đợt ${idx + 1}`,
+              percentage: Number(m.percentage ?? m.Percentage) || 0,
+              triggerEvent: m.triggerEvent || m.TriggerEvent || 'ON_LOTTERY_WON',
+              dueDays: Number(m.dueDays ?? m.DueDays) || 7,
             }))
           )
         }
 
-        const aptList = parseApartments(res)
+        let aptList = parseApartments(res)
+        if (aptList.length === 0) {
+          try {
+            const aptRes = await housingProjectsApi.getApartments(projectId)
+            aptList = parseApartments(aptRes)
+          } catch (e) { }
+        }
+
         if (aptList.length > 0) {
-          setApartments(
-            aptList.map((a, idx) => ({
-              unitName: a.unitName || `A-${100 + idx + 1}`,
-              buildingBlock: (a as any).buildingBlock || 'Block A',
-              floorNumber: (a as any).floorNumber ?? 1,
-              numberOfBedrooms: (a as any).numberOfBedrooms ?? 2,
-              numberOfBathrooms: (a as any).numberOfBathrooms ?? 1,
-              area: String(a.area || '50'),
-              grossArea: String((a as any).grossArea || ''),
-              mainDoorDirection: (a as any).mainDoorDirection || 'SOUTH_EAST',
-              balconyDirection: (a as any).balconyDirection || 'EAST',
-              viewDescription: (a as any).viewDescription || '',
-              maxOccupants: (a as any).maxOccupants ?? 4,
-              minSuitableIncome: '',
-              maxSuitableIncome: '',
-              unitGroup: ((a as any).unitGroup?.toUpperCase() === 'PRIORITY' ? 'PRIORITY' : 'STANDARD') as any,
-              saleType: ((a as any).saleType?.toUpperCase() === 'CO_OWNERSHIP' ? 'CO_OWNERSHIP' : 'FULL_OWNERSHIP') as any,
-              coOwnershipRatio: (a as any).coOwnershipRatio ?? '',
-              price: String(a.price || '800000000'),
-              description: a.description || '',
-              isExpanded: false,
-            }))
-          )
+          const loadedRows: EditApartmentFormRow[] = aptList.map((a, idx) => ({
+            id: a.id || undefined,
+            unitName: a.unitName || `A-${100 + idx + 1}`,
+            buildingBlock: a.buildingBlock || 'Block A',
+            floorNumber: a.floorNumber ?? 1,
+            numberOfBedrooms: a.numberOfBedrooms ?? 2,
+            numberOfBathrooms: a.numberOfBathrooms ?? 1,
+            area: String(a.area || '50'),
+            grossArea: a.grossArea ? String(a.grossArea) : '',
+            mainDoorDirection: a.mainDoorDirection || 'SOUTH_EAST',
+            balconyDirection: a.balconyDirection || 'EAST',
+            viewDescription: a.viewDescription || '',
+            maxOccupants: a.maxOccupants ?? 4,
+            minSuitableIncome: '',
+            maxSuitableIncome: '',
+            unitGroup: (a.unitGroup?.toUpperCase() === 'PRIORITY' ? 'PRIORITY' : 'STANDARD') as any,
+            saleType: (a.saleType?.toUpperCase() === 'CO_OWNERSHIP' ? 'CO_OWNERSHIP' : 'FULL_OWNERSHIP') as any,
+            coOwnershipRatio: a.coOwnershipRatio != null ? Number(a.coOwnershipRatio) : '',
+            price: String(a.price || '800000000'),
+            description: a.description || '',
+            isExpanded: false,
+          }))
+          setApartments(loadedRows)
+          setOriginalApartmentIds(aptList.map((a) => a.id).filter(Boolean))
         } else {
           setApartments([createDefaultApartment(0)])
+          setOriginalApartmentIds([])
         }
       })
       .catch((err) => {
@@ -191,7 +209,7 @@ export function EditProjectModal({
     if (milestones.length < 3 || milestones.length > 6) return 'Tiến độ thanh toán phải từ 3 đến 6 đợt.'
     const totalPercentage = milestones.reduce((sum, m) => sum + (Number(m.percentage) || 0), 0)
     if (Math.abs(totalPercentage - 100) > 0.01) return `Tổng tỷ lệ thanh toán phải là 100% (hiện tại: ${totalPercentage}%).`
-    
+
     if (milestones[0] && Number(milestones[0].percentage) > 30) {
       return 'Theo quy định Luật Nhà ở Xã hội, tỷ lệ thanh toán Đợt 1 tối đa là 30%.'
     }
@@ -256,34 +274,31 @@ export function EditProjectModal({
 
   const isStep2Valid = useMemo(() => validateStep2() === null, [apartments])
 
-  const buildApartmentsPayload = (): CreateApartmentDto[] =>
-    apartments
-      .filter((r) => r.unitName.trim())
-      .map((r) => ({
-        unitName: r.unitName.trim(),
-        floorNumber: r.floorNumber !== '' ? Number(r.floorNumber) : undefined,
-        buildingBlock: r.buildingBlock.trim() || undefined,
-        numberOfBedrooms: r.numberOfBedrooms !== '' ? Number(r.numberOfBedrooms) : undefined,
-        numberOfBathrooms: r.numberOfBathrooms !== '' ? Number(r.numberOfBathrooms) : undefined,
-        area: parseFloat(r.area) || 0,
-        grossArea: r.grossArea ? parseFloat(r.grossArea) : undefined,
-        mainDoorDirection: r.mainDoorDirection.trim() || undefined,
-        balconyDirection: r.balconyDirection.trim() || undefined,
-        viewDescription: r.viewDescription.trim() || undefined,
-        maxOccupants: r.maxOccupants !== '' ? Number(r.maxOccupants) : undefined,
-        minSuitableIncome: r.minSuitableIncome ? parseFloat(r.minSuitableIncome) : undefined,
-        maxSuitableIncome: r.maxSuitableIncome ? parseFloat(r.maxSuitableIncome) : undefined,
-        unitGroup: r.unitGroup || 'STANDARD',
-        saleType: r.saleType || 'FULL_OWNERSHIP',
-        coOwnershipRatio: r.saleType === 'CO_OWNERSHIP' && r.coOwnershipRatio !== '' ? Number(r.coOwnershipRatio) : undefined,
-        price: parseFloat(r.price) || 0,
-        description: r.description.trim() || undefined,
-      }))
+  const buildApartmentDto = (r: EditApartmentFormRow): CreateApartmentDto => ({
+    unitName: r.unitName.trim(),
+    floorNumber: r.floorNumber !== '' ? Number(r.floorNumber) : undefined,
+    buildingBlock: r.buildingBlock.trim() || undefined,
+    numberOfBedrooms: r.numberOfBedrooms !== '' ? Number(r.numberOfBedrooms) : undefined,
+    numberOfBathrooms: r.numberOfBathrooms !== '' ? Number(r.numberOfBathrooms) : undefined,
+    area: parseFloat(r.area) || 0,
+    grossArea: r.grossArea ? parseFloat(r.grossArea) : undefined,
+    mainDoorDirection: r.mainDoorDirection.trim() || undefined,
+    balconyDirection: r.balconyDirection.trim() || undefined,
+    viewDescription: r.viewDescription.trim() || undefined,
+    maxOccupants: r.maxOccupants !== '' ? Number(r.maxOccupants) : undefined,
+    minSuitableIncome: r.minSuitableIncome ? parseFloat(r.minSuitableIncome) : undefined,
+    maxSuitableIncome: r.maxSuitableIncome ? parseFloat(r.maxSuitableIncome) : undefined,
+    unitGroup: r.unitGroup || 'STANDARD',
+    saleType: r.saleType || 'FULL_OWNERSHIP',
+    coOwnershipRatio: r.saleType === 'CO_OWNERSHIP' && r.coOwnershipRatio !== '' ? Number(r.coOwnershipRatio) : undefined,
+    price: parseFloat(r.price) || 0,
+    description: r.description.trim() || undefined,
+  })
 
-  const updateAptRow = <K extends keyof ApartmentFormRow>(
+  const updateAptRow = <K extends keyof EditApartmentFormRow>(
     index: number,
     field: K,
-    value: ApartmentFormRow[K],
+    value: EditApartmentFormRow[K],
   ) => {
     setApartments((prev) =>
       prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)),
@@ -328,7 +343,7 @@ export function EditProjectModal({
           return
         }
 
-        const parsedRows: ApartmentFormRow[] = []
+        const parsedRows: EditApartmentFormRow[] = []
         for (let i = 1; i < lines.length; i++) {
           const cols = lines[i].split(',').map((c) => c.trim().replace(/^"|"$/g, ''))
           if (!cols[0]) continue
@@ -384,22 +399,26 @@ export function EditProjectModal({
     setError('')
     setSubmitting(true)
     try {
-      const aptPayload = buildApartmentsPayload()
-      const areas = aptPayload.map((a) => a.area)
-      const prices = aptPayload.map((a) => a.price)
+      const validApartmentRows = apartments.filter((r) => r.unitName.trim())
+      const areas = validApartmentRows.map((a) => parseFloat(a.area) || 0)
+      const prices = validApartmentRows.map((a) => parseFloat(a.price) || 0)
 
       let thumbnailUrl = existingThumbnailUrl || undefined
       if (thumbnailFile) {
         const thumbRes = (await housingProjectsApi.uploadImage(thumbnailFile)) as any
-        thumbnailUrl = thumbRes.data
+        thumbnailUrl = thumbRes?.url || thumbRes?.data?.url || thumbRes?.imageUrl || thumbRes?.data || (typeof thumbRes === 'string' ? thumbRes : undefined)
       }
 
-      const images = [...existingImages]
+      const newUploadedImages: string[] = []
       for (const file of imagesFiles) {
         const res = (await housingProjectsApi.uploadImage(file)) as any
-        if (res.data) images.push(res.data)
+        const uploadedUrl = res?.url || res?.data?.url || res?.imageUrl || res?.data || (typeof res === 'string' ? res : undefined)
+        if (uploadedUrl && typeof uploadedUrl === 'string') {
+          newUploadedImages.push(uploadedUrl)
+        }
       }
 
+      // 1. Cập nhật thông tin cơ bản dự án
       const body: CreateHousingProjectRequestDto = {
         projectName: projectName.trim(),
         description: description.trim(),
@@ -412,22 +431,50 @@ export function EditProjectModal({
         maxPrice: prices.length ? Math.max(...prices) : 0,
         minArea: areas.length ? Math.min(...areas) : 0,
         maxArea: areas.length ? Math.max(...areas) : 0,
-        availableUnits: aptPayload.length,
+        availableUnits: validApartmentRows.length,
         decisionNumber: decisionNumber.trim(),
         thumbnailUrl,
-        images: images.length > 0 ? images : undefined,
-        milestones: milestones.map((m, i) => ({
-          ...m,
-          phaseOrder: i + 1,
-          percentage: Number(m.percentage),
-          dueDays: Number(m.dueDays) || undefined,
-        })),
+        images: newUploadedImages.length > 0 ? newUploadedImages : undefined,
       }
 
-      await housingProjectsApi.update(projectId, body)
+      try {
+        await housingProjectsApi.update(projectId, body)
+      } catch (err: any) {
+        console.warn('[EditProjectModal] Warning updating project main info:', err)
+      }
 
-      if (aptPayload.length > 0) {
-        await housingProjectsApi.createApartmentsBatch(projectId, aptPayload)
+      // 2. Cập nhật tiến độ thanh toán qua endpoint riêng
+      const milestonesPayload = milestones.map((m, i) => ({
+        phaseOrder: i + 1,
+        phaseName: m.phaseName.trim(),
+        percentage: Number(m.percentage),
+        triggerEvent: m.triggerEvent,
+        dueDays: Number(m.dueDays) || 7,
+      }))
+      await housingProjectsApi.updateMilestones(projectId, milestonesPayload)
+
+      // 3. Xử lý Quỹ căn hộ: Cập nhật căn cũ, tạo mới căn thêm, xoá căn đã bỏ
+      const currentRowIds = new Set(validApartmentRows.map((r) => r.id).filter(Boolean))
+
+      // Xoá các căn đã bị remove trên UI
+      for (const oldId of originalApartmentIds) {
+        if (!currentRowIds.has(oldId)) {
+          try {
+            await housingProjectsApi.deleteApartment(projectId, oldId)
+          } catch (e) {
+            console.warn('[EditProjectModal] Warning deleting apartment:', oldId, e)
+          }
+        }
+      }
+
+      // Cập nhật từng căn cũ hoặc tạo căn mới
+      for (const row of validApartmentRows) {
+        const aptDto = buildApartmentDto(row)
+        if (row.id) {
+          await housingProjectsApi.updateApartment(projectId, row.id, aptDto)
+        } else {
+          await housingProjectsApi.createApartment(projectId, aptDto)
+        }
       }
 
       if (onUpdated) await onUpdated()
@@ -501,11 +548,10 @@ export function EditProjectModal({
           <button
             type="button"
             onClick={() => step === 2 && goPrev()}
-            className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition ${
-              step === 1
-                ? 'bg-teal-600 text-white shadow-sm'
-                : 'cursor-pointer border border-teal-200 bg-teal-50 text-teal-600 hover:bg-teal-100'
-            }`}
+            className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition ${step === 1
+              ? 'bg-teal-600 text-white shadow-sm'
+              : 'cursor-pointer border border-teal-200 bg-teal-50 text-teal-600 hover:bg-teal-100'
+              }`}
           >
             <span className="flex h-4 w-4 items-center justify-center rounded-full border border-current text-[9px] font-bold">
               1
@@ -514,11 +560,10 @@ export function EditProjectModal({
           </button>
           <ArrowRight className="h-3.5 w-3.5 shrink-0 text-slate-400" />
           <div
-            className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold ${
-              step === 2
-                ? 'bg-teal-600 text-white shadow-sm'
-                : 'border border-dashed border-teal-300 bg-teal-50/60 text-teal-500'
-            }`}
+            className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold ${step === 2
+              ? 'bg-teal-600 text-white shadow-sm'
+              : 'border border-dashed border-teal-300 bg-teal-50/60 text-teal-500'
+              }`}
           >
             <span className="flex h-4 w-4 items-center justify-center rounded-full border border-current text-[9px] font-bold">
               2
@@ -969,11 +1014,10 @@ export function EditProjectModal({
                   {apartments.map((row, idx) => (
                     <div
                       key={idx}
-                      className={`rounded-xl border transition-all ${
-                        row.isExpanded
-                          ? 'border-teal-400 bg-teal-50/20 shadow-md dark:border-teal-600 dark:bg-teal-950/20'
-                          : 'border-slate-200 bg-white shadow-sm hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900/40'
-                      }`}
+                      className={`rounded-xl border transition-all ${row.isExpanded
+                        ? 'border-teal-400 bg-teal-50/20 shadow-md dark:border-teal-600 dark:bg-teal-950/20'
+                        : 'border-slate-200 bg-white shadow-sm hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900/40'
+                        }`}
                     >
                       {/* Hàng chính */}
                       <div className="flex flex-wrap items-center gap-2 p-2.5">
@@ -1111,11 +1155,10 @@ export function EditProjectModal({
                           <button
                             type="button"
                             onClick={() => toggleExpand(idx)}
-                            className={`flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold transition ${
-                              row.isExpanded
-                                ? 'bg-teal-600 text-white'
-                                : 'border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
-                            }`}
+                            className={`flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold transition ${row.isExpanded
+                              ? 'bg-teal-600 text-white'
+                              : 'border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                              }`}
                             title="Thêm hướng cửa, view, sức chứa..."
                           >
                             <SlidersHorizontal className="h-3 w-3" />

@@ -56,6 +56,8 @@ function readProjectRow(p: Record<string, unknown>): HousingProjectDto {
     province: province || undefined,
     district: district || undefined,
     ward: ward || undefined,
+    street: p.street ? String(p.street ?? p.Street) : undefined,
+    decisionNumber: p.decisionNumber ? String(p.decisionNumber ?? p.DecisionNumber) : undefined,
     address: p.address ? String(p.address ?? p.Address) : undefined,
     location: [ward || district, province].filter(Boolean).join(', ') || undefined,
     minPrice: Number(p.minPrice ?? p.MinPrice ?? 0),
@@ -77,12 +79,42 @@ function readProjectRow(p: Record<string, unknown>): HousingProjectDto {
         const x = (it ?? {}) as Record<string, unknown>
         return {
           id: String(x.id ?? x.Id ?? ''),
+          projectId: String(x.projectId ?? x.ProjectId ?? ''),
           unitName: String(x.unitName ?? x.UnitName ?? ''),
+          floorNumber: x.floorNumber != null ? Number(x.floorNumber ?? x.FloorNumber) : undefined,
+          buildingBlock: (x.buildingBlock ?? x.BuildingBlock) as string | undefined,
+          numberOfBedrooms: x.numberOfBedrooms != null ? Number(x.numberOfBedrooms ?? x.NumberOfBedrooms) : undefined,
+          numberOfBathrooms: x.numberOfBathrooms != null ? Number(x.numberOfBathrooms ?? x.NumberOfBathrooms) : undefined,
           area: Number(x.area ?? x.Area ?? 0),
+          grossArea: x.grossArea != null ? Number(x.grossArea ?? x.GrossArea) : undefined,
+          mainDoorDirection: (x.mainDoorDirection ?? x.MainDoorDirection) as string | undefined,
+          balconyDirection: (x.balconyDirection ?? x.BalconyDirection) as string | undefined,
+          viewDescription: (x.viewDescription ?? x.ViewDescription) as string | undefined,
+          maxOccupants: x.maxOccupants != null ? Number(x.maxOccupants ?? x.MaxOccupants) : undefined,
+          unitGroup: (x.unitGroup ?? x.UnitGroup) as string | undefined,
+          saleType: (x.saleType ?? x.SaleType) as string | undefined,
+          coOwnershipRatio: x.coOwnershipRatio != null ? Number(x.coOwnershipRatio ?? x.CoOwnershipRatio) : undefined,
           price: Number(x.price ?? x.Price ?? 0),
           status: String(x.status ?? x.Status ?? 'AVAILABLE'),
           description: (x.description ?? x.Description) as string | null | undefined,
         } satisfies ApartmentDto
+      })
+    })(),
+    milestones: (() => {
+      const raw = p.milestones ?? p.Milestones
+      if (!Array.isArray(raw)) return undefined
+      return raw.map((it) => {
+        const x = (it ?? {}) as Record<string, unknown>
+        return {
+          id: String(x.id ?? x.Id ?? ''),
+          projectId: String(x.projectId ?? x.ProjectId ?? ''),
+          phaseOrder: Number(x.phaseOrder ?? x.PhaseOrder ?? 0),
+          phaseName: String(x.phaseName ?? x.PhaseName ?? ''),
+          percentage: Number(x.percentage ?? x.Percentage ?? 0),
+          triggerEvent: String(x.triggerEvent ?? x.TriggerEvent ?? ''),
+          dueDays: Number(x.dueDays ?? x.DueDays ?? 7),
+          triggerEventLabel: (x.triggerEventLabel ?? x.TriggerEventLabel) as string | undefined,
+        }
       })
     })(),
     status: (() => {

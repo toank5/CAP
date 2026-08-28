@@ -500,22 +500,24 @@ export function ProfilePage() {
             : 'Thông tin tài khoản cán bộ. Bạn có thể cập nhật số điện thoại và ảnh đại diện.'}
         </p>
       </div>
-      <div className="mb-6 flex border-b border-slate-200 px-6 pt-4 dark:border-slate-800">
-        <button
-          type="button"
-          onClick={() => setActiveTab('account')}
-          className={`px-4 py-2 text-sm font-semibold transition ${activeTab === 'account' ? 'border-b-2 border-primary text-primary' : 'text-slate-500 dark:text-slate-400'}`}
-        >
-          Thông tin tài khoản
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('policy')}
-          className={`px-4 py-2 text-sm font-semibold transition ${activeTab === 'policy' ? 'border-b-2 border-primary text-primary' : 'text-slate-500 dark:text-slate-400'}`}
-        >
-          Kê khai chính sách
-        </button>
-      </div>
+      {showEkyc && (
+        <div className="mb-6 flex border-b border-slate-200 px-6 pt-4 dark:border-slate-800">
+          <button
+            type="button"
+            onClick={() => setActiveTab('account')}
+            className={`px-4 py-2 text-sm font-semibold transition ${activeTab === 'account' ? 'border-b-2 border-primary text-primary' : 'text-slate-500 dark:text-slate-400'}`}
+          >
+            Thông tin tài khoản
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('policy')}
+            className={`px-4 py-2 text-sm font-semibold transition ${activeTab === 'policy' ? 'border-b-2 border-primary text-primary' : 'text-slate-500 dark:text-slate-400'}`}
+          >
+            Kê khai chính sách
+          </button>
+        </div>
+      )}
       <div className="grid gap-8 p-6 lg:grid-cols-[220px_1fr]">
         <aside className="text-center">
           <div className="mx-auto flex h-28 w-28 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-2xl font-bold text-primary">

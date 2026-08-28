@@ -1,5 +1,5 @@
 import { request } from './http'
-import type { ApiResult, ApartmentDto, CreateApartmentDto, CreateHousingProjectRequestDto } from '../types'
+import type { ApiResult, ApartmentDto, CreateApartmentDto, CreateHousingProjectRequestDto, MilestoneSetupItemDto } from '../types'
 
 export interface HousingProjectFilter {
   pageIndex?: number
@@ -75,18 +75,31 @@ function buildQuery(params?: HousingProjectFilter): string {
 
 export function parseApartments(data: unknown): ApartmentDto[] {
   const o = asRecord(data)
-  const raw = (o?.apartments ?? o?.Apartments ?? data) as unknown
+  const raw = (o?.apartments ?? o?.Apartments ?? o?.items ?? o?.Items ?? data) as unknown
   if (!Array.isArray(raw)) return []
   return raw.map((it) => {
     const x = (it ?? {}) as Record<string, unknown>
     return {
       id: String(x.id ?? x.Id ?? ''),
+      projectId: String(x.projectId ?? x.ProjectId ?? ''),
       unitName: String(x.unitName ?? x.UnitName ?? ''),
+      floorNumber: x.floorNumber != null ? Number(x.floorNumber ?? x.FloorNumber) : undefined,
+      buildingBlock: (x.buildingBlock ?? x.BuildingBlock) as string | undefined,
+      numberOfBedrooms: x.numberOfBedrooms != null ? Number(x.numberOfBedrooms ?? x.NumberOfBedrooms) : undefined,
+      numberOfBathrooms: x.numberOfBathrooms != null ? Number(x.numberOfBathrooms ?? x.NumberOfBathrooms) : undefined,
       area: Number(x.area ?? x.Area ?? 0),
+      grossArea: x.grossArea != null ? Number(x.grossArea ?? x.GrossArea) : undefined,
+      mainDoorDirection: (x.mainDoorDirection ?? x.MainDoorDirection) as string | undefined,
+      balconyDirection: (x.balconyDirection ?? x.BalconyDirection) as string | undefined,
+      viewDescription: (x.viewDescription ?? x.ViewDescription) as string | undefined,
+      maxOccupants: x.maxOccupants != null ? Number(x.maxOccupants ?? x.MaxOccupants) : undefined,
+      unitGroup: (x.unitGroup ?? x.UnitGroup) as string | undefined,
+      saleType: (x.saleType ?? x.SaleType) as string | undefined,
+      coOwnershipRatio: x.coOwnershipRatio != null ? Number(x.coOwnershipRatio ?? x.CoOwnershipRatio) : undefined,
       price: Number(x.price ?? x.Price ?? 0),
       status: String(x.status ?? x.Status ?? 'AVAILABLE'),
       description: (x.description ?? x.Description) as string | null | undefined,
-    }
+    } satisfies ApartmentDto
   })
 }
 
@@ -174,6 +187,33 @@ export const housingProjectsApi = {
       body: JSON.stringify({ apartments }),
       auth: true,
       timeoutMs: 90_000,
+    }),
+
+  createApartment: (projectId: string, body: CreateApartmentDto) =>
+    request<ApiResult>(`/api/housing-projects/${projectId}/apartments`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+      auth: true,
+    }),
+
+  updateApartment: (projectId: string, apartmentId: string, body: Partial<CreateApartmentDto>) =>
+    request<ApiResult>(`/api/housing-projects/${projectId}/apartments/${apartmentId}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+      auth: true,
+    }),
+
+  deleteApartment: (projectId: string, apartmentId: string) =>
+    request<ApiResult>(`/api/housing-projects/${projectId}/apartments/${apartmentId}`, {
+      method: 'DELETE',
+      auth: true,
+    }),
+
+  updateMilestones: (projectId: string, milestones: MilestoneSetupItemDto[]) =>
+    request<ApiResult>(`/api/housing-projects/${projectId}/milestones`, {
+      method: 'PUT',
+      body: JSON.stringify({ milestones }),
+      auth: true,
     }),
 
   importApartmentsExcel: (projectId: string, file: File) => {

@@ -10,7 +10,6 @@ import {
   CheckCheck,
   ChevronRight,
   Clock,
-  CreditCard,
   Home,
   Inbox,
   Plus,
@@ -18,7 +17,6 @@ import {
   Sparkles,
   TrendingUp,
   Users,
-  Wallet,
 } from 'lucide-react'
 import {
   housingApplicationsApi,
@@ -40,12 +38,6 @@ import { extractProjects, countFromPaged } from '@/lib/parsers'
 import { useNotifications } from '@/providers/notifications-provider'
 import type { NotificationDto } from '@/api/notification'
 import type { ApplicationSummaryDto, HousingProjectDto } from '@/types'
-import {
-  contractApi,
-  parseInstallments,
-  summarizeInstallments,
-  type PaymentInstallment,
-} from '@/api/contracts'
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Status helpers — trạng thái hồ sơ & kịch bản khuyến nghị
@@ -341,11 +333,11 @@ export function DeveloperHomePage() {
         return { project: p, evaluation: ev, scenario, daysToClose: days }
       })
       .filter(Boolean) as Array<{
-      project: HousingProjectDto
-      evaluation: ProjectApplicationEvaluationDto
-      scenario: { text: string; tone: 'good' | 'warn' | 'danger' }
-      daysToClose: number | null
-    }>
+        project: HousingProjectDto
+        evaluation: ProjectApplicationEvaluationDto
+        scenario: { text: string; tone: 'good' | 'warn' | 'danger' }
+        daysToClose: number | null
+      }>
   }, [data.projects, data.evaluations])
 
   return (
@@ -439,9 +431,6 @@ export function DeveloperHomePage() {
           tone="amber"
         />
       </div>
-
-      {/* ── PAYMENT OVERVIEW (CĐT) ── */}
-      <PaymentOverviewCard />
 
       {/* ── URGENT PROJECTS ── */}
       {!loading && urgentProjects.length > 0 && (
@@ -710,24 +699,21 @@ export function DeveloperHomePage() {
                     onClick={() => {
                       if (!n.isRead) void markAsRead(n.notificationId)
                     }}
-                    className={`flex w-full items-start gap-3 py-2 text-left transition-colors hover:bg-slate-50/60 dark:hover:bg-slate-800/40 ${
-                      !n.isRead ? 'bg-primary/[0.03]' : ''
-                    }`}
+                    className={`flex w-full items-start gap-3 py-2 text-left transition-colors hover:bg-slate-50/60 dark:hover:bg-slate-800/40 ${!n.isRead ? 'bg-primary/[0.03]' : ''
+                      }`}
                   >
                     <div
-                      className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-                        toneClasses[tone]
-                      }`}
+                      className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${toneClasses[tone]
+                        }`}
                     >
                       <Bell className="h-4 w-4" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p
-                        className={`truncate text-sm ${
-                          !n.isRead
+                        className={`truncate text-sm ${!n.isRead
                             ? 'font-bold text-slate-900 dark:text-white'
                             : 'font-medium text-slate-700 dark:text-slate-200'
-                        }`}
+                          }`}
                       >
                         {n.title}
                       </p>
@@ -806,190 +792,6 @@ function KpiCard({
         </div>
       </div>
     </motion.div>
-  )
-}
-
-/**
- * Tổng quan thanh toán cho CĐT (dashboard card).
- * - Loop qua các application đã vào phase HĐ (CONTRACT_*|DEPOSIT_PAID|FULLY_PAID...)
- * - Gọi contractApi.getInstallments cho mỗi cái (parallel)
- * - Tổng hợp: tổng tiền, đã thu, còn lại, số đợt PAID/OVERDUE/UNPAID, số hồ sơ FULLY_PAID
- */
-function PaymentOverviewCard() {
-  const [apps, setApps] = useState<ApplicationSummaryDto[]>([])
-  const [installmentsByApp, setInstallmentsByApp] = useState<
-    Record<string, PaymentInstallment[]>
-  >({})
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError('')
-    try {
-      const res = await housingApplicationsApi.getDeveloperDashboard({
-        pageIndex: 1,
-        pageSize: 200,
-      })
-      const items = (
-        (res as { items?: ApplicationSummaryDto[] }).items ?? []
-      ).filter((a) =>
-        [
-          'CONTRACT_PENDING',
-          'CONTRACT_SIGNED',
-          'DEPOSIT_PAID',
-          'INSTALLMENT_IN_PROGRESS',
-          'FULLY_PAID',
-        ].includes(a.applicationStatus),
-      )
-      setApps(items)
-      // parallel load installments (best-effort)
-      const settled = await Promise.allSettled(
-        items.map((a) =>
-          contractApi.getInstallments(a.applicationId).then((r) => ({
-            id: a.applicationId,
-            items: parseInstallments(r),
-          })),
-        ),
-      )
-      const map: Record<string, PaymentInstallment[]> = {}
-      settled.forEach((s) => {
-        if (s.status === 'fulfilled') map[s.value.id] = s.value.items
-      })
-      setInstallmentsByApp(map)
-    } catch (err) {
-      setError(formatError(err))
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    void load()
-  }, [load])
-
-  const allInst = useMemo(() => Object.values(installmentsByApp).flat(), [installmentsByApp])
-  const stats = useMemo(() => summarizeInstallments(allInst), [allInst])
-  const paid1 = allInst.filter((i) => i.ordinal === 1 && i.status === 'PAID').length
-  const overdue = allInst.filter(
-    (i) => i.status === 'OVERDUE' || (i.status === 'UNPAID' && new Date(i.dueDate) < new Date()),
-  ).length
-  const fullyPaidApps = apps.filter((a) => a.applicationStatus === 'FULLY_PAID').length
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.2 }}
-      className="glass-card p-5 sm:p-6"
-    >
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h3 className="text-base font-semibold text-slate-900 dark:text-white">
-            Tổng quan thanh toán
-          </h3>
-          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-            Theo dõi tiến độ thu tiền theo đợt của tất cả hồ sơ
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => navigate('contracts')}
-          className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline dark:text-blue-400"
-        >
-          Xem chi tiết <ChevronRight className="h-3.5 w-3.5" />
-        </button>
-      </div>
-
-      {loading ? (
-        <p className="text-sm text-slate-500 dark:text-slate-400">Đang tải...</p>
-      ) : error ? (
-        <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>
-      ) : apps.length === 0 ? (
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          Chưa có hồ sơ nào vào giai đoạn hợp đồng / thanh toán.
-        </p>
-      ) : (
-        <>
-          <div className="mb-4 grid gap-3 sm:grid-cols-4">
-            <StatMini
-              icon={<Wallet className="h-4 w-4" />}
-              label="Đã thu"
-              value={`${(stats.paid / 1e6).toFixed(1)} tr`}
-              tone="emerald"
-            />
-            <StatMini
-              icon={<CreditCard className="h-4 w-4" />}
-              label="Còn lại"
-              value={`${(stats.remaining / 1e6).toFixed(1)} tr`}
-              tone="amber"
-            />
-            <StatMini
-              icon={<CheckCircle2 className="h-4 w-4" />}
-              label="Đợt đã TT"
-              value={`${stats.paidCount}/${stats.totalCount}`}
-              tone="blue"
-            />
-            <StatMini
-              icon={<AlertTriangle className="h-4 w-4" />}
-              label="Quá hạn"
-              value={overdue}
-              tone="rose"
-            />
-          </div>
-
-          <div className="mb-3 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-teal-500 transition-all"
-              style={{ width: `${stats.progress}%` }}
-            />
-          </div>
-          <p className="mb-4 text-xs text-slate-500 dark:text-slate-400">
-            {stats.progress}% tổng tiền — {paid1} đã đặt cọc · {fullyPaidApps} đã hoàn tất
-          </p>
-
-          {overdue > 0 && (
-            <div className="rounded-lg border border-rose-200 bg-rose-50/60 p-3 dark:border-rose-800 dark:bg-rose-950/30">
-              <p className="text-xs font-medium text-rose-700 dark:text-rose-300">
-                ⚠ {overdue} đợt đang quá hạn — cần nhắc nhở người dân
-              </p>
-            </div>
-          )}
-        </>
-      )}
-    </motion.div>
-  )
-}
-
-function StatMini({
-  icon,
-  label,
-  value,
-  tone,
-}: {
-  icon: React.ReactNode
-  label: string
-  value: string | number
-  tone: 'emerald' | 'amber' | 'blue' | 'rose'
-}) {
-  const toneMap = {
-    emerald: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-    amber: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-    blue: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
-    rose: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
-  } as const
-  return (
-    <div className="rounded-lg border border-slate-200/60 p-3 dark:border-slate-700/60">
-      <div className="mb-1 flex items-center gap-1.5">
-        <span
-          className={`inline-flex h-6 w-6 items-center justify-center rounded-md ${toneMap[tone]}`}
-        >
-          {icon}
-        </span>
-        <span className="text-[11px] uppercase tracking-wide text-slate-500">{label}</span>
-      </div>
-      <p className="text-lg font-bold text-slate-900 dark:text-white">{value}</p>
-    </div>
   )
 }
 
