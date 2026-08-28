@@ -149,8 +149,10 @@ export interface HousingProjectDto {
   province?: string
   district?: string
   ward?: string
+  street?: string
   address?: string
   location?: string
+  decisionNumber?: string
   minPrice?: number
   maxPrice?: number
   minArea?: number
@@ -171,8 +173,9 @@ export interface HousingProjectDto {
   applicationCloseDate?: string
   createdAt?: string
   updatedAt?: string
-  images?: { id: string; imageUrl: string; displayOrder: number }[]
+  images?: { id: string; imageUrl: string; displayOrder?: number }[]
   apartments?: ApartmentDto[]
+  milestones?: MilestoneSetupItemDto[]
 }
 
 export interface CreateApartmentDto {

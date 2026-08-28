@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, Heart, MapPin, Plus, Trash2, X, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import { CheckCircle2, Heart, MapPin, Plus, Trash2, X, ChevronLeft, ChevronRight, Loader2, Edit3 } from 'lucide-react'
 import { housingProjectsApi, parseApartments } from '@/api/housing-projects'
 import { housingProjectStatusesApi, parseStatuses } from '@/api/housing-project-statuses'
 import { CreateProjectModal } from '@/components/developer/create-project-modal'
+import { EditProjectModal } from '@/components/developer/edit-project-modal'
 import { DeveloperDecisionPanel } from '@/components/developer-decision-panel'
 import { ProjectStatusControl } from '@/components/developer/project-status-control'
 import { LocationFields } from '@/components/forms/location-fields'
@@ -630,6 +631,7 @@ export function CreateProjectPage() {
 export function ProjectDetailPage() {
   const [projectId] = useState(() => sessionStorage.getItem('projectId') ?? '')
   const [project, setProject] = useState<HousingProjectDto | null>(null)
+  const [showEditModal, setShowEditModal] = useState(false)
   const role = getRole()
   const logged = isLoggedIn()
   const isApplicant = role === 'Applicant'
@@ -685,18 +687,71 @@ export function ProjectDetailPage() {
               }
             />
             {canEditProject && (
-              <details className="mt-6 rounded-xl border border-slate-200 dark:border-slate-700">
-                <summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-slate-800 dark:text-slate-100">
-                  Sửa thông tin dự án (tên, căn, tỉ lệ trả trước…)
-                </summary>
-                <div className="border-t border-slate-200 p-4 dark:border-slate-700">
-                  <ProjectForm projectId={projectId} />
+              <div className="mt-6 rounded-2xl border border-teal-200 bg-gradient-to-r from-teal-50/80 to-emerald-50/60 p-5 shadow-sm dark:border-teal-800/40 dark:bg-slate-900/60">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex items-start gap-3.5">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal-600 text-white shadow-md">
+                      <Edit3 className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                          Quản lý dự án dành cho Chủ đầu tư
+                        </h3>
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                          Chờ Sở Xây Dựng duyệt (Pending)
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                        Dự án đang ở trạng thái chờ duyệt. Bạn có thể chỉnh sửa thông tin dự án, tiến độ thanh toán 3–6 đợt và cơ cấu quỹ căn hộ theo chuẩn mới.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="accent"
+                      className="inline-flex items-center gap-1.5 bg-teal-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-teal-700 hover:shadow-md"
+                      onClick={() => setShowEditModal(true)}
+                    >
+                      <Edit3 className="h-4 w-4" />
+                      Chỉnh sửa dự án & Quỹ căn
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="inline-flex items-center gap-1.5 border-rose-200 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:border-rose-900/60 dark:hover:bg-rose-950/40"
+                      onClick={async () => {
+                        if (!confirm('Bạn có chắc chắn muốn xóa dự án này? Hành động này sẽ xóa toàn bộ quỹ căn và không thể hoàn tác.')) return
+                        try {
+                          await housingProjectsApi.delete(projectId)
+                          sessionStorage.setItem(FLASH_DELETE_PROJECT_KEY, FLASH_DELETE_PROJECT_KEY)
+                          navigate('projects')
+                        } catch (err) {
+                          alert(formatError(err))
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Xóa dự án
+                    </Button>
+                  </div>
                 </div>
-              </details>
+              </div>
             )}
           </>
         )}
       </PageCard>
+      <EditProjectModal
+        projectId={projectId}
+        open={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        onUpdated={() => {
+          window.dispatchEvent(new CustomEvent('fecaps:project-status-changed'))
+        }}
+      />
     </div>
   )
 }
