@@ -77,6 +77,9 @@ export const DOC_TYPE_LABELS: Record<string, string> = {
   PUBLIC_HOUSING_RETURN_CERTIFICATE: 'Văn bản trả lại nhà ở công vụ',
   LAND_RECOVERY_DECISION: 'Quyết định thu hồi đất/giải tỏa nhà ở',
   INCOME_CERTIFICATE: 'Giấy xác nhận thu nhập',
+  RESIDENCE_CONFIRMATION: 'Giấy xác nhận nơi cư trú',
+  SINGLE_STATUS_CERTIFICATE: 'Giấy xác nhận tình trạng hôn nhân/độc thân',
+  MARRIAGE_CERTIFICATE: 'Giấy chứng nhận kết hôn',
 }
 
 export const HOUSING_STATUS_LABELS: Record<string, string> = {

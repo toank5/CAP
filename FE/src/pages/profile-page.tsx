@@ -338,9 +338,6 @@ export function ProfilePage() {
     if (missingDocuments.length > 0) nextErrors.documents = `Vui lòng tải đủ giấy tờ: ${missingDocuments.map(getDocumentLabel).join(', ')}.`
 
     if (citizenInfo.maritalStatus === 'MARRIED') {
-      if (!citizenInfo.spouseFullName.trim()) nextErrors.spouseFullName = 'Vui lòng nhập họ tên vợ / chồng.'
-      if (citizenInfo.spouseMonthlyIncome === '') nextErrors.spouseMonthlyIncome = 'Vui lòng nhập thu nhập vợ / chồng (nhập 0 nếu không có thu nhập).'
-      else if (Number(citizenInfo.spouseMonthlyIncome) < 0) nextErrors.spouseMonthlyIncome = 'Thu nhập không được âm.'
       const spouseMember = householdMembers.find((member) => member.relationship === 'SPOUSE')
       if (!spouseMember) nextErrors.householdMembers = 'Tình trạng đã kết hôn yêu cầu khai báo vợ/chồng trong danh sách hộ gia đình.'
     }
@@ -377,13 +374,12 @@ export function ProfilePage() {
     try {
       setSavingCitizenInfo(true)
       const isMarried = citizenInfo.maritalStatus === 'MARRIED'
+      const spouseMember = isMarried ? householdMembers.find(m => m.relationship === 'SPOUSE') : null
       const payload = {
         phoneNumber: phoneDraft || null,
         maritalStatus: citizenInfo.maritalStatus || null,
-        spouseFullName: isMarried ? (citizenInfo.spouseFullName.trim() || null) : null,
-        spouseMonthlyIncome: isMarried && citizenInfo.spouseMonthlyIncome !== ''
-          ? Number(citizenInfo.spouseMonthlyIncome)
-          : null,
+        spouseFullName: spouseMember ? spouseMember.fullName.trim() : null,
+        spouseMonthlyIncome: spouseMember && spouseMember.monthlyIncome !== '' ? Number(spouseMember.monthlyIncome) : null,
         occupation: citizenInfo.occupation || null,
         workPlace: citizenInfo.workPlace || null,
         currentResidence: citizenInfo.currentResidence || null,
@@ -846,32 +842,7 @@ export function ProfilePage() {
                         {validationErrors.maritalStatus && <span className="mt-1 block text-xs text-red-600">{validationErrors.maritalStatus}</span>}
                       </FormField>
 
-                      {citizenInfo.maritalStatus === 'MARRIED' && (
-                        <>
-                          <FormField label="Họ tên vợ / chồng" htmlFor="spouseFullName">
-                            <Input
-                              id="spouseFullName"
-                              placeholder="Nhập họ tên vợ / chồng"
-                              value={citizenInfo.spouseFullName}
-                              onChange={(e) => setCitizenInfo((prev) => ({ ...prev, spouseFullName: e.target.value }))}
-                            />
-                            {validationErrors.spouseFullName && <span className="mt-1 block text-xs text-red-600">{validationErrors.spouseFullName}</span>}
-                          </FormField>
 
-                          <FormField label="Thu nhập vợ / chồng (VNĐ)" htmlFor="spouseMonthlyIncome">
-                            <Input
-                              id="spouseMonthlyIncome"
-                              type="number"
-                              min={0}
-                              placeholder="0"
-                              value={citizenInfo.spouseMonthlyIncome}
-                              onChange={(e) => setCitizenInfo((prev) => ({ ...prev, spouseMonthlyIncome: e.target.value }))}
-                            />
-                            <span className="mt-1 block text-xs text-slate-500">Nhập 0 nếu vợ/chồng không có thu nhập.</span>
-                            {validationErrors.spouseMonthlyIncome && <span className="mt-1 block text-xs text-red-600">{validationErrors.spouseMonthlyIncome}</span>}
-                          </FormField>
-                        </>
-                      )}
 
                       <FormField label="Nghề nghiệp" htmlFor="occupation">
                         <Input id="occupation" value={citizenInfo.occupation} onChange={(e) => setCitizenInfo((prev) => ({ ...prev, occupation: e.target.value }))} />

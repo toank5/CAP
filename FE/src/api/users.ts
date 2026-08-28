@@ -44,6 +44,8 @@ export const usersApi = {
 
   getFullProfile: () => request<ApiResult>('/api/Users/profile/full', { auth: true }),
 
+  getApplicationPrefill: () => request<ApiResult>('/api/Users/profile/prefill', { auth: true }),
+
   updateProfile: (body: UpdateProfileDto) =>
     request<ApiResult>('/api/Users/profile', {
       method: 'PUT',

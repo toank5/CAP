@@ -350,7 +350,7 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
   }, [projectId])
 
   const readBody = (fd: FormData): CreateHousingProjectRequestDto => {
-    const thumb = fd.get('thumbnailFile')
+    // const thumb
     const wardName = String(fd.get('district') || fd.get('ward') || '').trim()
     const provinceName = String(fd.get('province') || '').trim() || 'Thành phố Hồ Chí Minh'
     const aptPayload: CreateApartmentDto[] = apartments
@@ -375,24 +375,19 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
       minArea: areas.length ? Math.min(...areas) : 0,
       maxArea: areas.length ? Math.max(...areas) : 0,
       availableUnits: aptPayload.length || parseInt(String(fd.get('availableUnits')), 10) || 0,
-      decisionNumber: String(fd.get('decisionNumber')) || undefined,
+      decisionNumber: String(fd.get('decisionNumber')),
       approvalDate: String(fd.get('approvalDate')) || undefined,
       isConfirmed: fd.get('isConfirmed') === 'on',
-      phase1Percentage: (() => {
-        const v = parseFloat(String(fd.get('phase1Percentage')))
-        if (!Number.isFinite(v) || v <= 0 || v > 30) {
-          throw new Error('Vui lòng nhập tỉ lệ trả trước Đợt 1 (lớn hơn 0 và ≤ 30%).')
-        }
-        return v
-      })(),
+      
       lotteryDate: String(fd.get('lotteryDate')) || undefined,
       lotteryLocation: String(fd.get('lotteryLocation')) || undefined,
       applicationOpenDate: String(fd.get('applicationOpenDate')) || undefined,
       applicationCloseDate: String(fd.get('applicationCloseDate')) || undefined,
       housingProjectStatusId: String(fd.get('housingProjectStatusId')),
-      thumbnailFile: thumb instanceof File && thumb.size > 0 ? thumb : undefined,
-      imagesFiles: imagesFiles.length > 0 ? imagesFiles : undefined,
-      apartments: aptPayload.length > 0 ? aptPayload : undefined,
+      milestones: [],
+      
+      
+      
     }
   }
 

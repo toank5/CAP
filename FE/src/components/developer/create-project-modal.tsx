@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Loader2,
   Sparkles,
-  Home,
   Image as ImageIcon,
   Plus,
   Trash2,
@@ -11,8 +10,10 @@ import {
   Building2,
   ArrowRight,
   ArrowLeft,
-  Check,
   ListChecks,
+  Download,
+  FileSpreadsheet,
+  SlidersHorizontal,
 } from 'lucide-react'
 import { housingProjectsApi } from '@/api/housing-projects'
 import { Modal } from '@/components/ui/modal'
@@ -21,7 +22,7 @@ import { ensureHcmLocationsLoaded, HCM_PROVINCE } from '@/lib/vietnam-locations'
 import { formatError } from '@/lib/format-error'
 import { FLASH_CREATE_PROJECT_KEY } from '@/lib/constants'
 import { navigate } from '@/hooks/useHashRoute'
-import type { CreateApartmentDto, CreateHousingProjectRequestDto } from '@/types'
+import type { CreateApartmentDto, CreateHousingProjectRequestDto, MilestoneSetupItemDto } from '@/types'
 
 interface CreateProjectModalProps {
   open: boolean
@@ -29,22 +30,85 @@ interface CreateProjectModalProps {
   onCreated?: () => void | Promise<void>
 }
 
+export interface ApartmentFormRow {
+  unitName: string
+  buildingBlock: string
+  floorNumber: number | ''
+  numberOfBedrooms: number | ''
+  numberOfBathrooms: number | ''
+  area: string
+  grossArea: string
+  mainDoorDirection: string
+  balconyDirection: string
+  viewDescription: string
+  maxOccupants: number | ''
+  minSuitableIncome: string
+  maxSuitableIncome: string
+  unitGroup: 'STANDARD' | 'PRIORITY'
+  saleType: 'FULL_OWNERSHIP' | 'CO_OWNERSHIP'
+  coOwnershipRatio: number | ''
+  price: string
+  description: string
+  isExpanded?: boolean
+}
+
+export const VALID_TRIGGER_EVENTS = [
+  { code: 'ON_LOTTERY_WON', label: 'Cọc / Trúng bốc thăm / Cấp nhà' },
+  { code: 'ON_CONTRACT_SIGNED', label: 'Ký Hợp đồng mua bán' },
+  { code: 'CONSTRUCTION_ROUGH_FLOOR', label: 'Hoàn thành xây thô' },
+  { code: 'ROOFING_COMPLETED', label: 'Cất nóc công trình' },
+  { code: 'HANDOVER', label: 'Bàn giao nhà & Chìa khóa' },
+  { code: 'RED_BOOK_ISSUED', label: 'Nhận Giấy chứng nhận (Sổ hồng)' },
+]
+
+export const DIRECTION_OPTIONS = [
+  { code: 'EAST', label: 'Đông' },
+  { code: 'WEST', label: 'Tây' },
+  { code: 'SOUTH', label: 'Nam' },
+  { code: 'NORTH', label: 'Bắc' },
+  { code: 'SOUTH_EAST', label: 'Đông Nam' },
+  { code: 'NORTH_EAST', label: 'Đông Bắc' },
+  { code: 'SOUTH_WEST', label: 'Tây Nam' },
+  { code: 'NORTH_WEST', label: 'Tây Bắc' },
+]
+
+const createDefaultApartment = (index: number): ApartmentFormRow => ({
+  unitName: `A-${100 + index + 1}`,
+  buildingBlock: 'Block A',
+  floorNumber: 1,
+  numberOfBedrooms: 2,
+  numberOfBathrooms: 1,
+  area: '55',
+  grossArea: '60',
+  mainDoorDirection: 'SOUTH_EAST',
+  balconyDirection: 'EAST',
+  viewDescription: 'View công viên nội khu',
+  maxOccupants: 4,
+  minSuitableIncome: '',
+  maxSuitableIncome: '',
+  unitGroup: 'STANDARD',
+  saleType: 'FULL_OWNERSHIP',
+  coOwnershipRatio: '',
+  price: '850000000',
+  description: '',
+  isExpanded: false,
+})
+
 const inputClass =
-  'block w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition hover:border-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 dark:border-slate-600 dark:bg-slate-800/80 dark:text-slate-50 dark:placeholder:text-slate-500 dark:hover:border-slate-500 dark:focus:border-indigo-400 dark:focus:ring-indigo-400/30 dark:disabled:bg-slate-900/40'
+  'block w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition hover:border-teal-300 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 dark:border-slate-600 dark:bg-slate-800/80 dark:text-slate-50 dark:placeholder:text-slate-500 dark:hover:border-teal-500 dark:focus:border-teal-400 dark:focus:ring-teal-400/20 dark:disabled:bg-slate-900/40'
 const labelClass =
-  'mb-0.5 flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300'
+  'mb-1 flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-teal-700 dark:text-teal-300'
 const requiredDot = <span className="text-rose-500" aria-hidden>*</span>
 
-export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectModalProps) {
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState('')
-  // Lưu ý nghiệp vụ (commit này): Khi CĐT tạo dự án xong, status LUÔN = PENDING.
-  // Trạng thái chỉ chuyển khi SXD duyệt (PENDING → UPCOMING), sau đó tự mở sau 30 ngày
-  // hoặc SXD bấm "Chuyển sang Đang mở đăng ký" (UPCOMING → OPEN). Vì vậy form tạo
-  // không có ô chọn trạng thái, không load status từ BE.
+export function CreateProjectModal({
+  open,
+  onClose,
+  onCreated,
+}: CreateProjectModalProps) {
   const [step, setStep] = useState<1 | 2>(1)
   const bodyRef = useRef<HTMLDivElement>(null)
   const errorRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [projectName, setProjectName] = useState('')
   const [description, setDescription] = useState('')
@@ -52,27 +116,45 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
   const [street, setStreet] = useState('')
   const [wards, setWards] = useState<string[]>([])
   const [decisionNumber, setDecisionNumber] = useState('')
-  // approvalDate & isConfirmed: BỎ — CĐT không được tự nhập "ngày SXD duyệt" /
-  // tự tick "đã được SXD phê duyệt". BE sẽ tự set `publicAnnounceAt` khi SXD
-  // gọi PATCH status?action=approve (xem ProjectStatusControl).
-  const [apartments, setApartments] = useState<
-    { unitName: string; area: string; price: string }[]
-  >([{ unitName: '', area: '', price: '' }])
+
+  const [milestones, setMilestones] = useState<MilestoneSetupItemDto[]>([
+    { phaseOrder: 1, phaseName: 'Đợt 1 (Cọc / Cấp nhà)', percentage: 30, triggerEvent: 'ON_LOTTERY_WON', dueDays: 7 },
+    { phaseOrder: 2, phaseName: 'Đợt 2 (Bàn giao nhà)', percentage: 65, triggerEvent: 'HANDOVER', dueDays: 14 },
+    { phaseOrder: 3, phaseName: 'Đợt 3 (Sổ hồng)', percentage: 5, triggerEvent: 'RED_BOOK_ISSUED', dueDays: 7 },
+  ])
+
+  const [apartments, setApartments] = useState<ApartmentFormRow[]>([
+    createDefaultApartment(0),
+  ])
+
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null)
   const [imagesFiles, setImagesFiles] = useState<File[]>([])
 
+  const [submitting, setSubmitting] = useState(false)
+  const [transitioning, setTransitioning] = useState(false)
+  const [error, setError] = useState('')
+
+  const resetForm = () => {
+    setProjectName('')
+    setDescription('')
+    setWard('')
+    setStreet('')
+    setDecisionNumber('')
+    setThumbnailFile(null)
+    setImagesFiles([])
+    setMilestones([
+      { phaseOrder: 1, phaseName: 'Đợt 1 (Cọc / Cấp nhà)', percentage: 30, triggerEvent: 'ON_LOTTERY_WON', dueDays: 7 },
+      { phaseOrder: 2, phaseName: 'Đợt 2 (Bàn giao nhà)', percentage: 65, triggerEvent: 'HANDOVER', dueDays: 14 },
+      { phaseOrder: 3, phaseName: 'Đợt 3 (Sổ hồng)', percentage: 5, triggerEvent: 'RED_BOOK_ISSUED', dueDays: 7 },
+    ])
+    setApartments([createDefaultApartment(0)])
+    setError('')
+    setStep(1)
+  }
+
   useEffect(() => {
     if (!open) {
-      setProjectName('')
-      setDescription('')
-      setWard('')
-      setStreet('')
-      setDecisionNumber('')
-      setThumbnailFile(null)
-      setImagesFiles([])
-      setApartments([{ unitName: '', area: '', price: '' }])
       setError('')
-      setStep(1)
       return
     }
     void ensureHcmLocationsLoaded()
@@ -80,8 +162,6 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
       .catch(() => setWards([]))
   }, [open])
 
-  // Khi có lỗi validate, đảm bảo user nhìn thấy alert ngay — scroll tới vị trí alert
-  // trong body container (đặc biệt step 2 có nhiều trường, alert nằm xa nút submit).
   useEffect(() => {
     if (!error || !errorRef.current || !bodyRef.current) return
     const alertTop = errorRef.current.offsetTop
@@ -92,8 +172,22 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
     if (!projectName.trim()) return 'Vui lòng nhập tên dự án.'
     if (projectName.trim().length < 5) return 'Tên dự án phải có ít nhất 5 ký tự.'
     if (!ward) return 'Vui lòng chọn phường/xã.'
+    if (!street.trim()) return 'Vui lòng nhập địa chỉ đường / số nhà (Bắt buộc).'
     if (!decisionNumber.trim()) return 'Vui lòng nhập số quyết định phê duyệt.'
-    // approvalDate & isConfirmed: BỎ — SXD sẽ tự set khi duyệt dự án.
+
+    if (milestones.length < 3 || milestones.length > 6) return 'Tiến độ thanh toán phải từ 3 đến 6 đợt.'
+    const totalPercentage = milestones.reduce((sum, m) => sum + (Number(m.percentage) || 0), 0)
+    if (Math.abs(totalPercentage - 100) > 0.01) return `Tổng tỷ lệ thanh toán phải là 100% (hiện tại: ${totalPercentage}%).`
+    
+    if (milestones[0] && Number(milestones[0].percentage) > 30) {
+      return 'Theo quy định Luật Nhà ở Xã hội, tỷ lệ thanh toán Đợt 1 tối đa là 30%.'
+    }
+
+    for (let i = 0; i < milestones.length; i++) {
+      if (!milestones[i].phaseName.trim()) return `Đợt ${i + 1}: Vui lòng nhập tên đợt thanh toán.`
+      if (!milestones[i].triggerEvent.trim()) return `Đợt ${i + 1}: Vui lòng chọn sự kiện kích hoạt.`
+      if (!milestones[i].percentage || milestones[i].percentage <= 0) return `Đợt ${i + 1}: Tỷ lệ % phải lớn hơn 0.`
+    }
     return null
   }
 
@@ -106,23 +200,36 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
     }
     for (let i = 0; i < filled.length; i++) {
       const r = filled[i]
-      if (!r.unitName.trim()) return `Căn #${i + 1}: thiếu tên căn.`
-      if (!r.area.trim() || isNaN(parseFloat(r.area)) || parseFloat(r.area) <= 0)
-        return `Căn #${i + 1}: diện tích không hợp lệ.`
-      if (!r.price.trim() || isNaN(parseFloat(r.price)) || parseFloat(r.price) <= 0)
-        return `Căn #${i + 1}: giá không hợp lệ.`
+      if (!r.unitName.trim()) return `Căn #${i + 1}: Vui lòng nhập tên/mã căn.`
+      const areaNum = parseFloat(r.area)
+      if (isNaN(areaNum) || areaNum < 15 || areaNum > 300)
+        return `Căn #${i + 1} (${r.unitName}): Diện tích thông thủy phải từ 15 đến 300 m².`
+      const priceNum = parseFloat(r.price)
+      if (isNaN(priceNum) || priceNum < 1000000 || priceNum > 100000000000)
+        return `Căn #${i + 1} (${r.unitName}): Giá bán không hợp lệ (tối thiểu 1.000.000 VNĐ).`
+      if (r.saleType === 'CO_OWNERSHIP') {
+        const ratio = Number(r.coOwnershipRatio)
+        if (isNaN(ratio) || ratio < 1 || ratio > 99) {
+          return `Căn #${i + 1} (${r.unitName}): Tỷ lệ đồng sở hữu phải từ 1% đến 99%.`
+        }
+      }
     }
     return null
   }
 
   const goNext = () => {
+    if (transitioning) return
     const err = validateStep1()
     if (err) {
       setError(err)
       return
     }
     setError('')
+    setTransitioning(true)
     setStep(2)
+    setTimeout(() => {
+      setTransitioning(false)
+    }, 350)
   }
 
   const goPrev = () => {
@@ -130,50 +237,128 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
     setStep(1)
   }
 
-  // Xoá lỗi khi user sửa bất kỳ field nào (step 1 hoặc step 2).
-  // effect phụ thuộc vào giá trị từng field → chạy đúng lúc user thay đổi.
   useEffect(() => {
     setError('')
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    projectName,
-    ward,
-    decisionNumber,
-    apartments,
-  ])
+  }, [projectName, ward, street, decisionNumber, apartments])
 
-  // Realtime validity cho step 2 — dùng để disable nút submit khi form invalid.
-  // Trùng logic với validateStep2() nhưng trả boolean để dùng trong JSX.
-  const isStep2Valid = useMemo(() => validateStep2() === null, [
-    apartments,
-  ])
+  const isStep2Valid = useMemo(() => validateStep2() === null, [apartments])
 
   const buildApartmentsPayload = (): CreateApartmentDto[] =>
     apartments
       .filter((r) => r.unitName.trim())
       .map((r) => ({
         unitName: r.unitName.trim(),
+        floorNumber: r.floorNumber !== '' ? Number(r.floorNumber) : undefined,
+        buildingBlock: r.buildingBlock.trim() || undefined,
+        numberOfBedrooms: r.numberOfBedrooms !== '' ? Number(r.numberOfBedrooms) : undefined,
+        numberOfBathrooms: r.numberOfBathrooms !== '' ? Number(r.numberOfBathrooms) : undefined,
         area: parseFloat(r.area) || 0,
+        grossArea: r.grossArea ? parseFloat(r.grossArea) : undefined,
+        mainDoorDirection: r.mainDoorDirection.trim() || undefined,
+        balconyDirection: r.balconyDirection.trim() || undefined,
+        viewDescription: r.viewDescription.trim() || undefined,
+        maxOccupants: r.maxOccupants !== '' ? Number(r.maxOccupants) : undefined,
+        minSuitableIncome: r.minSuitableIncome ? parseFloat(r.minSuitableIncome) : undefined,
+        maxSuitableIncome: r.maxSuitableIncome ? parseFloat(r.maxSuitableIncome) : undefined,
+        unitGroup: r.unitGroup || 'STANDARD',
+        saleType: r.saleType || 'FULL_OWNERSHIP',
+        coOwnershipRatio: r.saleType === 'CO_OWNERSHIP' && r.coOwnershipRatio !== '' ? Number(r.coOwnershipRatio) : undefined,
         price: parseFloat(r.price) || 0,
+        description: r.description.trim() || undefined,
       }))
 
-  const updateAptRow = (
+  const updateAptRow = <K extends keyof ApartmentFormRow>(
     index: number,
-    field: 'unitName' | 'area' | 'price',
-    value: string,
+    field: K,
+    value: ApartmentFormRow[K],
   ) => {
     setApartments((prev) =>
       prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)),
     )
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (submitting) return
-    // FIX: Khi ở step 1, Enter trong input sẽ trigger implicit form submission
-    // (HTML mặc định khi không có button submit trong form). Trước đây code chạy
-    // validateStep2() ngay → báo "chưa thêm căn" dù user chưa sang step 2.
-    // → Redirect sang goNext để đồng nhất UX với click nút "Tiếp tục".
+  const toggleExpand = (index: number) => {
+    setApartments((prev) =>
+      prev.map((row, i) => (i === index ? { ...row, isExpanded: !row.isExpanded } : row)),
+    )
+  }
+
+  const handleDownloadTemplate = () => {
+    const csvHeader = 'Mã căn,Tòa/Block,Tầng,Số PN,Số WC,Diện tích thông thủy (m2),Diện tích tim tường (m2),Giá bán (VNĐ),Nhóm căn (STANDARD/PRIORITY),Hình thức bán (FULL_OWNERSHIP/CO_OWNERSHIP),Tỷ lệ sở hữu (%),Hướng cửa chính (EAST/WEST/SOUTH/NORTH/SOUTH_EAST/NORTH_EAST/SOUTH_WEST/NORTH_WEST),Hướng ban công,Mô tả view,Sức chứa tối đa (người),Ghi chú\n'
+    const sampleRows = [
+      'A-101,Block A,1,2,1,55,60,850000000,STANDARD,FULL_OWNERSHIP,100,SOUTH_EAST,EAST,View công viên nội khu,4,Căn mẫu tiêu chuẩn\n',
+      'A-102,Block A,1,1,1,40,45,620000000,PRIORITY,CO_OWNERSHIP,50,EAST,SOUTH,View hồ bơi,2,Căn ưu tiên đồng sở hữu\n',
+      'B-201,Block B,2,3,2,75,82,1200000000,STANDARD,FULL_OWNERSHIP,100,SOUTH,SOUTH_EAST,View thoáng nhìn ra sông,6,Căn góc 3 phòng ngủ\n',
+    ].join('')
+
+    const blob = new Blob(['\uFEFF' + csvHeader + sampleRows], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'mau_danh_sach_can_ho_fecaps.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleImportCsv = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (evt) => {
+      try {
+        const text = evt.target?.result as string
+        if (!text) return
+        const lines = text.split(/\r?\n/).filter((l) => l.trim())
+        if (lines.length <= 1) {
+          setError('File CSV không có dữ liệu căn hộ.')
+          return
+        }
+
+        const parsedRows: ApartmentFormRow[] = []
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(',').map((c) => c.trim().replace(/^"|"$/g, ''))
+          if (!cols[0]) continue
+
+          parsedRows.push({
+            unitName: cols[0] || `Căn ${i}`,
+            buildingBlock: cols[1] || 'Block A',
+            floorNumber: cols[2] ? parseInt(cols[2], 10) || 1 : 1,
+            numberOfBedrooms: cols[3] ? parseInt(cols[3], 10) || 1 : 2,
+            numberOfBathrooms: cols[4] ? parseInt(cols[4], 10) || 1 : 1,
+            area: cols[5] || '50',
+            grossArea: cols[6] || '',
+            price: cols[7] || '800000000',
+            unitGroup: cols[8]?.toUpperCase().includes('PRIORITY') ? 'PRIORITY' : 'STANDARD',
+            saleType: cols[9]?.toUpperCase().includes('CO') ? 'CO_OWNERSHIP' : 'FULL_OWNERSHIP',
+            coOwnershipRatio: cols[10] ? parseInt(cols[10], 10) || 50 : '',
+            mainDoorDirection: cols[11] || 'SOUTH_EAST',
+            balconyDirection: cols[12] || 'EAST',
+            viewDescription: cols[13] || '',
+            maxOccupants: cols[14] ? parseInt(cols[14], 10) || 4 : 4,
+            minSuitableIncome: '',
+            maxSuitableIncome: '',
+            description: cols[15] || '',
+            isExpanded: false,
+          })
+        }
+
+        if (parsedRows.length > 0) {
+          setApartments(parsedRows)
+          setError('')
+        }
+      } catch (err: any) {
+        setError('Lỗi khi đọc file CSV: ' + err.message)
+      } finally {
+        if (fileInputRef.current) fileInputRef.current.value = ''
+      }
+    }
+    reader.readAsText(file, 'utf-8')
+  }
+
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    if (submitting || transitioning) return
     if (step === 1) {
       goNext()
       return
@@ -189,50 +374,70 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
       const aptPayload = buildApartmentsPayload()
       const areas = aptPayload.map((a) => a.area)
       const prices = aptPayload.map((a) => a.price)
+
+      let thumbnailUrl = undefined
+      if (thumbnailFile) {
+        const thumbRes = (await housingProjectsApi.uploadImage(thumbnailFile)) as any
+        thumbnailUrl = thumbRes.data
+      }
+
+      const images = []
+      for (const file of imagesFiles) {
+        const res = (await housingProjectsApi.uploadImage(file)) as any
+        if (res.data) images.push(res.data)
+      }
+
       const body: CreateHousingProjectRequestDto = {
         projectName: projectName.trim(),
         description: description.trim(),
         province: HCM_PROVINCE,
-        district: ward.trim(),
-        street: street.trim() || undefined,
-        ward: ward.trim() || undefined,
+        district: ward.trim() || 'Quận 1',
+        street: street.trim(),
+        ward: ward.trim(),
         address: [street.trim(), ward.trim(), HCM_PROVINCE].filter(Boolean).join(', '),
         minPrice: prices.length ? Math.min(...prices) : 0,
         maxPrice: prices.length ? Math.max(...prices) : 0,
         minArea: areas.length ? Math.min(...areas) : 0,
         maxArea: areas.length ? Math.max(...areas) : 0,
         availableUnits: aptPayload.length,
-        decisionNumber: decisionNumber.trim() || undefined,
-        thumbnailFile: thumbnailFile ?? undefined,
-        imagesFiles: imagesFiles.length > 0 ? imagesFiles : undefined,
-        apartments: aptPayload,
+        decisionNumber: decisionNumber.trim(),
+        thumbnailUrl,
+        images: images.length > 0 ? images : undefined,
+        milestones: milestones.map((m, i) => ({
+          ...m,
+          phaseOrder: i + 1,
+          percentage: Number(m.percentage),
+          dueDays: Number(m.dueDays) || undefined,
+        })),
       }
-      await housingProjectsApi.create(body)
+      const createRes = (await housingProjectsApi.create(body)) as any
+      const projectId = (createRes.data as any)?.id || (createRes as any)?.id
+
+      if (projectId && aptPayload.length > 0) {
+        await housingProjectsApi.createApartmentsBatch(projectId, aptPayload)
+      }
+
       try {
-        await onCreated?.()
+        if (onCreated) await onCreated()
       } catch (cbErr) {
-        // onCreated có thể reload list, throw thì vẫn đóng modal — không để kẹt loading
         console.warn('[CreateProjectModal] onCreated callback error:', cbErr)
       }
-      // Lưu tên dự án để trang projects hiện banner "Tạo dự án thành công"
       try {
         sessionStorage.setItem(FLASH_CREATE_PROJECT_KEY, body.projectName)
-      } catch {
-        // sessionStorage có thể không khả dụng (cookie tắt, private mode) — bỏ qua
-      }
+      } catch (e) {}
+      resetForm()
       onClose()
       setTimeout(() => navigate('projects'), 100)
-    } catch (err) {
+    } catch (err: any) {
       console.error('[CreateProjectModal] create error:', err)
       setError(formatError(err))
-      // KHÔNG setSubmitting(false) ở đây — để finally lo
     } finally {
-      // Luôn reset submitting, dù success/error/abort đều đảm bảo button không bị kẹt
       setSubmitting(false)
     }
   }
 
   const filledCount = apartments.filter((r) => r.unitName.trim()).length
+
   const aptSummary = useMemo(() => {
     const filled = apartments.filter(
       (r) => r.unitName.trim() && parseFloat(r.area) > 0 && parseFloat(r.price) > 0,
@@ -240,8 +445,17 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
     if (filled.length === 0) return null
     const areas = filled.map((r) => parseFloat(r.area))
     const prices = filled.map((r) => parseFloat(r.price))
+    const priorityCount = filled.filter((r) => r.unitGroup === 'PRIORITY').length
+    const standardCount = filled.filter((r) => r.unitGroup === 'STANDARD').length
+    const fullCount = filled.filter((r) => r.saleType === 'FULL_OWNERSHIP').length
+    const coCount = filled.filter((r) => r.saleType === 'CO_OWNERSHIP').length
+
     return {
       count: filled.length,
+      priorityCount,
+      standardCount,
+      fullCount,
+      coCount,
       minArea: Math.min(...areas).toFixed(1),
       maxArea: Math.max(...areas).toFixed(1),
       minPrice: Math.min(...prices),
@@ -249,90 +463,103 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
       avgPrice: prices.reduce((a, b) => a + b, 0) / filled.length,
     }
   }, [apartments])
-// Auto-clear error khi user sửa bất kỳ field nào (UX mượt hơn, đỡ bị dính alert cũ)
-useEffect(() => {
-  if (!error) return
-  const t = setTimeout(() => setError(''), 0)
-  return () => clearTimeout(t)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [
-  projectName,
-  description,
-  ward,
-  street,
-  decisionNumber,
-  apartments,
-])
 
   return (
-    <Modal open={open} onClose={submitting ? () => undefined : onClose} size="xl" fullHeight>
-      <form onSubmit={handleSubmit} noValidate className="flex h-full flex-col">
-        {/* === Header === */}
-        <header className="mb-1 flex items-center justify-between gap-4 border-b border-slate-200/70 pb-1 dark:border-slate-700/60">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2.5">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-md">
-                <Building2 className="h-4.5 w-4.5" />
-              </span>
-              <div>
-                <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                  Tạo dự án nhà ở mới
-                </h2>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Nhập đầy đủ thông tin theo quy định của Sở Xây dựng.
+    <Modal open={open} onClose={submitting ? () => undefined : onClose} size="full" fullHeight>
+      <form onSubmit={(e) => { e.preventDefault(); if (step === 1) goNext(); else handleSubmit(); }} noValidate className="flex h-full flex-col">
+        {/* === Header — teal gradient === */}
+        <header className="-mx-1 -mt-1 mb-0 rounded-t-xl bg-gradient-to-r from-teal-700 to-teal-500 px-5 py-3.5">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/20 text-white">
+              <Building2 className="h-5 w-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-base font-bold text-white">Tạo dự án nhà ở mới</h2>
+              <p className="text-[11px] text-teal-100">
+                Thiết lập thông tin dự án, tiến độ thanh toán và quỹ căn hộ theo chuẩn Sở Xây dựng
+              </p>
+            </div>
+            {aptSummary && (
+              <div className="hidden shrink-0 rounded-lg bg-white/15 px-3 py-1.5 text-right text-[10px] lg:block">
+                <p className="font-semibold text-white">
+                  {aptSummary.count} căn ({aptSummary.priorityCount} Ưu tiên · {aptSummary.standardCount} Tiêu chuẩn)
+                </p>
+                <p className="text-teal-100">
+                  {fmtVnd(aptSummary.minPrice)} – {fmtVnd(aptSummary.maxPrice)} · {aptSummary.minArea}–{aptSummary.maxArea} m²
                 </p>
               </div>
-            </div>
+            )}
           </div>
-          {aptSummary && (
-            <div className="hidden shrink-0 rounded-lg border border-emerald-200/80 bg-emerald-50/80 px-2.5 py-1.5 text-right text-[10px] dark:border-emerald-500/30 dark:bg-emerald-950/30 lg:block">
-              <p className="font-semibold text-emerald-700 dark:text-emerald-300">
-                {aptSummary.count} căn · {aptSummary.minArea}–{aptSummary.maxArea} m²
-              </p>
-              <p className="text-emerald-600/80 dark:text-emerald-300/80">
-                {fmtVnd(aptSummary.minPrice)} – {fmtVnd(aptSummary.maxPrice)}
-              </p>
-            </div>
-          )}
         </header>
 
-        {/* === Stepper === */}
-        <div className="mb-1">
-          <Stepper current={step} />
+        {/* === Step indicator teal === */}
+        <div className="mb-2 mt-3 flex items-center gap-2 px-1">
+          <button
+            type="button"
+            onClick={() => step === 2 && goPrev()}
+            className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition ${
+              step === 1
+                ? 'bg-teal-600 text-white shadow-sm'
+                : 'cursor-pointer border border-teal-200 bg-teal-50 text-teal-600 hover:bg-teal-100'
+            }`}
+          >
+            <span className="flex h-4 w-4 items-center justify-center rounded-full border border-current text-[9px] font-bold">
+              1
+            </span>
+            Thông tin dự án & Tiến độ
+          </button>
+          <ArrowRight className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+          <div
+            className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold ${
+              step === 2
+                ? 'bg-teal-600 text-white shadow-sm'
+                : 'border border-dashed border-teal-300 bg-teal-50/60 text-teal-500'
+            }`}
+          >
+            <span className="flex h-4 w-4 items-center justify-center rounded-full border border-current text-[9px] font-bold">
+              2
+            </span>
+            Thiết lập chi tiết quỹ căn ({filledCount} căn)
+          </div>
         </div>
 
         {error && (
-          <div ref={errorRef} className="mb-1">
+          <div ref={errorRef} className="mb-2">
             <Alert variant="error">{error}</Alert>
           </div>
         )}
 
-        {/* === Body: Step 1 — Thông tin dự án (1 viewport, flat grid, không scroll) === */}
+        {/* === Body === */}
         <div ref={bodyRef} className="flex-1 overflow-y-auto overflow-x-hidden pr-1">
+          {/* STEP 1: Thông tin dự án */}
           {step === 1 && (
             <div className="grid gap-x-3 gap-y-2 md:grid-cols-12">
-              <div className="md:col-span-12 rounded-md border border-sky-200/70 bg-sky-50/60 px-3 py-2 text-[11px] text-slate-700 dark:border-sky-500/30 dark:bg-sky-950/30 dark:text-slate-200">
-                <strong className="font-semibold">Lưu ý:</strong> Dự án sau khi tạo sẽ ở trạng thái{' '}
+              <div className="md:col-span-12 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800 dark:border-amber-700/40 dark:bg-amber-950/30 dark:text-amber-200">
+                <strong className="font-semibold">Lưu ý nghiệp vụ:</strong> Dự án sau khi tạo sẽ ở trạng thái{' '}
                 <span className="font-semibold text-amber-700 dark:text-amber-300">Chờ phê duyệt</span>{' '}
                 (Sở Xây dựng xem xét). Khi được duyệt, dự án chuyển sang{' '}
                 <span className="font-semibold">Sắp mở bán</span> và{' '}
-                <span className="font-semibold">tự mở đăng ký sau 30 ngày</span> (hoặc Sở có thể chuyển
-                sớm hơn).
+                <span className="font-semibold">tự mở đăng ký sau 30 ngày</span> (hoặc Sở có thể mở sớm hơn).
               </div>
-              {/* === Row 1: Tên dự án (full) — không còn dropdown trạng thái vì CĐT
-                chỉ được tạo ở trạng thái PENDING, SXD sẽ duyệt về sau === */}
+
+              {/* Section: Thông tin cơ bản */}
+              <div className="md:col-span-12 mb-1 mt-2 flex items-center gap-2 border-l-[3px] border-teal-500 pl-2.5">
+                <span className="text-sm font-semibold text-teal-700 dark:text-teal-300">
+                  Thông tin cơ bản
+                </span>
+              </div>
+
               <Field label="Tên dự án" required className="md:col-span-12">
                 <input
                   className={inputClass}
                   value={projectName}
                   onChange={(e) => setProjectName(e.target.value)}
-                  placeholder="VD: Khu NOXH Bình Dương — Block A"
+                  placeholder="VD: Khu Nhà ở Xã hội Tân Bình — Block A & B"
                   maxLength={150}
                   disabled={submitting}
                 />
               </Field>
 
-              {/* === Row 2: Tỉnh (col-4) | Phường/Xã (col-4) | Đường (col-4) === */}
               <Field label="Tỉnh/Thành phố" required className="md:col-span-4">
                 <select
                   className={`${inputClass} cursor-not-allowed bg-slate-100 dark:bg-slate-900/80`}
@@ -342,6 +569,7 @@ useEffect(() => {
                   <option value={HCM_PROVINCE}>{HCM_PROVINCE}</option>
                 </select>
               </Field>
+
               <Field label="Phường/Xã" required className="md:col-span-4">
                 <select
                   className={inputClass}
@@ -359,32 +587,30 @@ useEffect(() => {
                   ))}
                 </select>
               </Field>
-              <Field label="Đường / Số nhà" className="md:col-span-4">
+
+              <Field label="Đường / Số nhà" required className="md:col-span-4">
                 <input
                   className={inputClass}
                   value={street}
                   onChange={(e) => setStreet(e.target.value)}
-                  placeholder="VD: 123 Nguyễn Trãi"
+                  placeholder="VD: 123 Hoàng Văn Thụ"
                   disabled={submitting}
                 />
               </Field>
 
-              {/* === Row 3: Số QĐ (full) — Ngày phê duyệt + checkbox SXD BỎ.
-                BE sẽ tự set publicAnnounceAt khi SXD gọi PATCH status?action=approve. === */}
-              <Field label="Số quyết định" required className="md:col-span-12">
+              <Field label="Số quyết định phê duyệt" required className="md:col-span-12">
                 <input
                   className={inputClass}
                   value={decisionNumber}
                   onChange={(e) => setDecisionNumber(e.target.value)}
-                  placeholder="VD: 1234/QĐ-UBND"
+                  placeholder="VD: 1234/QĐ-UBND hoặc 567/SXD-PTN"
                   disabled={submitting}
                 />
               </Field>
 
-              {/* === Row 4: Mô tả (full) === */}
               <Field
-                label="Mô tả"
-                hint="Tối đa 500 ký tự — hiển thị trên trang chủ."
+                label="Mô tả dự án"
+                hint="Tối đa 500 ký tự — hiển thị thông tin giới thiệu, vị trí và tiện ích tới người dân."
                 className="md:col-span-12"
               >
                 <textarea
@@ -392,14 +618,158 @@ useEffect(() => {
                   rows={2}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Mô tả ngắn về vị trí, tiện ích nổi bật..."
+                  placeholder="Mô tả ngắn về vị trí địa lý, tiện ích xung quanh, hạ tầng kỹ thuật..."
                   maxLength={500}
                   disabled={submitting}
                 />
               </Field>
 
-              {/* === Row 5: Hình ảnh dự án (compact 2 cột) === */}
-              <Field label="Ảnh đại diện dự án" className="md:col-span-6">
+              {/* Section: Tiến độ thanh toán (Milestones) */}
+              <div className="md:col-span-12 mt-3">
+                <div className="mb-2 flex items-center justify-between border-l-[3px] border-teal-500 pl-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-teal-700 dark:text-teal-300">
+                      Chính sách thanh toán theo tiến độ
+                    </span>
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                      3–6 đợt
+                    </span>
+                    {requiredDot}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (milestones.length < 6)
+                        setMilestones([
+                          ...milestones,
+                          {
+                            phaseOrder: milestones.length + 1,
+                            phaseName: `Đợt ${milestones.length + 1}`,
+                            percentage: 0,
+                            triggerEvent: 'CONSTRUCTION_ROUGH_FLOOR',
+                            dueDays: 14,
+                          },
+                        ])
+                    }}
+                    disabled={milestones.length >= 6 || submitting}
+                    className="flex items-center gap-1 rounded-md border border-dashed border-teal-300 bg-teal-50 px-2.5 py-1 text-[11px] font-semibold text-teal-600 transition hover:bg-teal-100 disabled:opacity-40"
+                  >
+                    <Plus className="h-3 w-3" /> Thêm đợt
+                  </button>
+                </div>
+
+                <div className="space-y-1.5">
+                  {milestones.map((m, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center gap-2 rounded-xl border border-teal-100 bg-teal-50/40 p-2 dark:border-teal-800/40 dark:bg-teal-950/20"
+                    >
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-teal-600 text-xs font-bold text-white shadow-sm">
+                        {idx + 1}
+                      </span>
+                      <input
+                        className="w-48 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400/30 dark:border-slate-700 dark:bg-slate-800"
+                        value={m.phaseName}
+                        placeholder="Tên đợt (VD: Đợt 1)"
+                        disabled={submitting}
+                        onChange={(e) => {
+                          const n = [...milestones]
+                          n[idx] = { ...n[idx], phaseName: e.target.value }
+                          setMilestones(n)
+                        }}
+                      />
+                      <div className="flex shrink-0 items-center gap-0.5 rounded-lg border border-slate-200 bg-white pr-1 dark:border-slate-700 dark:bg-slate-800">
+                        <input
+                          type="number"
+                          className="w-14 rounded-l-lg border-0 bg-transparent px-1 py-1 text-center text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:outline-none"
+                          value={m.percentage}
+                          min={1}
+                          max={99}
+                          disabled={submitting}
+                          onChange={(e) => {
+                            const n = [...milestones]
+                            n[idx] = { ...n[idx], percentage: Number(e.target.value) }
+                            setMilestones(n)
+                          }}
+                        />
+                        <span className="rounded-md bg-teal-100 px-1.5 py-0.5 text-[10px] font-bold text-teal-700">
+                          %
+                        </span>
+                      </div>
+                      
+                      <select
+                        className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400/30 dark:border-slate-700 dark:bg-slate-800"
+                        value={m.triggerEvent}
+                        disabled={submitting}
+                        onChange={(e) => {
+                          const n = [...milestones]
+                          n[idx] = { ...n[idx], triggerEvent: e.target.value }
+                          setMilestones(n)
+                        }}
+                      >
+                        {VALID_TRIGGER_EVENTS.map((t) => (
+                          <option key={t.code} value={t.code}>
+                            {t.label}
+                          </option>
+                        ))}
+                      </select>
+
+                      <div className="flex shrink-0 items-center gap-0.5 rounded-lg border border-slate-200 bg-white pr-1 dark:border-slate-700 dark:bg-slate-800">
+                        <input
+                          type="number"
+                          className="w-14 rounded-l-lg border-0 bg-transparent px-1 py-1 text-center text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:outline-none"
+                          value={m.dueDays ?? 7}
+                          min={1}
+                          max={180}
+                          disabled={submitting}
+                          onChange={(e) => {
+                            const n = [...milestones]
+                            n[idx] = { ...n[idx], dueDays: Number(e.target.value) }
+                            setMilestones(n)
+                          }}
+                        />
+                        <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">
+                          ngày
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={milestones.length <= 3 || submitting}
+                        className="shrink-0 text-slate-300 transition hover:text-rose-500 disabled:opacity-30"
+                        onClick={() => {
+                          if (milestones.length > 3) {
+                            const n = [...milestones]
+                            n.splice(idx, 1)
+                            setMilestones(n)
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-1.5 text-right text-xs font-semibold">
+                  {(() => {
+                    const total = milestones.reduce((s, m) => s + Number(m.percentage), 0)
+                    return Math.abs(total - 100) < 0.01 ? (
+                      <span className="text-emerald-600">Tổng: {total}% ✓ Hợp lệ</span>
+                    ) : (
+                      <span className="text-rose-500">Tổng: {total}% — phải bằng 100%</span>
+                    )
+                  })()}
+                </div>
+              </div>
+
+              {/* Section: Hình ảnh dự án */}
+              <div className="md:col-span-12 mb-1 mt-3 flex items-center gap-2 border-l-[3px] border-teal-500 pl-2.5">
+                <span className="text-sm font-semibold text-teal-700 dark:text-teal-300">
+                  Hình ảnh dự án
+                </span>
+              </div>
+
+              <Field label="Ảnh đại diện dự án (Thumbnail)" className="md:col-span-6">
                 <FilePicker
                   mode="single"
                   onPickSingle={(f) => setThumbnailFile(f)}
@@ -408,7 +778,7 @@ useEffect(() => {
                 />
               </Field>
               <Field
-                label="Ảnh chi tiết công trình"
+                label="Thư viện ảnh công trình / tiện ích"
                 hint={imagesFiles.length > 0 ? `${imagesFiles.length} ảnh đã chọn` : undefined}
                 className="md:col-span-6"
               >
@@ -422,105 +792,427 @@ useEffect(() => {
             </div>
           )}
 
-          {/* === Step 2 — Chi tiết dự án (1 cột: tóm tắt + danh sách căn) === */}
+          {/* STEP 2: Thiết lập chi tiết quỹ căn */}
           {step === 2 && (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-3">
               {/* Tóm tắt nhanh */}
               {aptSummary ? (
-                <div className="grid grid-cols-4 gap-2 rounded-xl border border-slate-200/80 bg-white p-2.5 shadow-sm dark:border-slate-700/60 dark:bg-slate-900/40">
-                  <div className="rounded-lg border border-emerald-200/60 bg-emerald-50/60 p-2 text-center dark:border-emerald-500/30 dark:bg-emerald-950/20">
-                    <p className="text-[9px] uppercase tracking-wide text-emerald-600/70 dark:text-emerald-300/70">Số căn</p>
-                    <p className="mt-0.5 text-lg font-bold text-emerald-700 dark:text-emerald-200">{aptSummary.count}</p>
+                <div className="grid grid-cols-2 gap-2 rounded-xl border border-teal-100 bg-teal-50/30 p-2.5 shadow-sm dark:border-teal-800/40 dark:bg-slate-900/40 sm:grid-cols-5">
+                  <div className="rounded-lg border border-teal-200/80 bg-white p-2 text-center dark:border-teal-700/60 dark:bg-slate-800">
+                    <p className="text-[9px] uppercase tracking-wide text-teal-600 dark:text-teal-300">
+                      Tổng số căn
+                    </p>
+                    <p className="mt-0.5 text-lg font-bold text-teal-700 dark:text-teal-200">
+                      {aptSummary.count}
+                    </p>
                   </div>
-                  <div className="rounded-lg border border-sky-200/60 bg-sky-50/60 p-2 text-center dark:border-sky-500/30 dark:bg-sky-950/20">
-                    <p className="text-[9px] uppercase tracking-wide text-sky-600/70 dark:text-sky-300/70">Diện tích (m²)</p>
-                    <p className="mt-0.5 text-sm font-bold text-sky-700 dark:text-sky-200">{aptSummary.minArea}–{aptSummary.maxArea}</p>
+                  <div className="rounded-lg border border-amber-200/80 bg-white p-2 text-center dark:border-amber-700/60 dark:bg-slate-800">
+                    <p className="text-[9px] uppercase tracking-wide text-amber-600 dark:text-amber-300">
+                      Cơ cấu căn
+                    </p>
+                    <p className="mt-0.5 text-xs font-bold text-amber-700 dark:text-amber-200">
+                      {aptSummary.priorityCount} Ưu tiên · {aptSummary.standardCount} Thường
+                    </p>
                   </div>
-                  <div className="rounded-lg border border-violet-200/60 bg-violet-50/60 p-2 text-center dark:border-violet-500/30 dark:bg-violet-950/20">
-                    <p className="text-[9px] uppercase tracking-wide text-violet-600/70 dark:text-violet-300/70">Giá thấp nhất</p>
-                    <p className="mt-0.5 text-sm font-bold text-violet-700 dark:text-violet-200">{fmtVnd(aptSummary.minPrice)}</p>
+                  <div className="rounded-lg border border-blue-200/80 bg-white p-2 text-center dark:border-blue-700/60 dark:bg-slate-800">
+                    <p className="text-[9px] uppercase tracking-wide text-blue-600 dark:text-blue-300">
+                      Hình thức bán
+                    </p>
+                    <p className="mt-0.5 text-xs font-bold text-blue-700 dark:text-blue-200">
+                      {aptSummary.fullCount} 100% · {aptSummary.coCount} Đồng sở hữu
+                    </p>
                   </div>
-                  <div className="rounded-lg border border-fuchsia-200/60 bg-fuchsia-50/60 p-2 text-center dark:border-fuchsia-500/30 dark:bg-fuchsia-950/20">
-                    <p className="text-[9px] uppercase tracking-wide text-fuchsia-600/70 dark:text-fuchsia-300/70">Giá cao nhất</p>
-                    <p className="mt-0.5 text-sm font-bold text-fuchsia-700 dark:text-fuchsia-200">{fmtVnd(aptSummary.maxPrice)}</p>
+                  <div className="rounded-lg border border-emerald-200/80 bg-white p-2 text-center dark:border-emerald-700/60 dark:bg-slate-800">
+                    <p className="text-[9px] uppercase tracking-wide text-emerald-600 dark:text-emerald-300">
+                      Diện tích (m²)
+                    </p>
+                    <p className="mt-0.5 text-xs font-bold text-emerald-700 dark:text-emerald-200">
+                      {aptSummary.minArea} – {aptSummary.maxArea}
+                    </p>
+                  </div>
+                  <div className="col-span-2 rounded-lg border border-violet-200/80 bg-white p-2 text-center dark:border-violet-700/60 dark:bg-slate-800 sm:col-span-1">
+                    <p className="text-[9px] uppercase tracking-wide text-violet-600 dark:text-violet-300">
+                      Khoảng giá
+                    </p>
+                    <p className="mt-0.5 text-xs font-bold text-violet-700 dark:text-violet-200">
+                      {fmtVnd(aptSummary.minPrice)} – {fmtVnd(aptSummary.maxPrice)}
+                    </p>
                   </div>
                 </div>
               ) : (
                 <p className="rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-3 text-center text-xs text-slate-500 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-400">
-                  Thêm căn ở bảng bên dưới để xem tóm tắt tự động.
+                  Chưa có căn hộ nào. Hãy thêm căn thủ công hoặc nhập từ file Excel/CSV mẫu.
                 </p>
               )}
 
-              {/* Danh sách căn hộ */}
-              <div className="rounded-xl border border-slate-200/80 bg-white shadow-sm dark:border-slate-700/60 dark:bg-slate-900/40 p-3.5">
-                <div className="flex items-center justify-between gap-3 mb-2.5">
-                  <div>
-                    <h3 className="font-bold text-xs text-slate-900 dark:text-slate-50">Danh sách căn hộ</h3>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400">{filledCount} căn đã nhập · Thêm ít nhất một căn</p>
-                  </div>
+              {/* Toolbar chức năng */}
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm dark:border-slate-700 dark:bg-slate-900/50">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xs font-bold text-slate-900 dark:text-slate-50">
+                    Danh sách căn hộ ({apartments.length})
+                  </h3>
+                  <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-semibold text-teal-700">
+                    {filledCount} căn hợp lệ
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv,text/csv"
+                    className="hidden"
+                    onChange={handleImportCsv}
+                  />
+
                   <button
                     type="button"
-                    onClick={() => setApartments((prev) => [...prev, { unitName: '', area: '', price: '' }])}
+                    onClick={() => fileInputRef.current?.click()}
                     disabled={submitting}
-                    className="inline-flex items-center gap-1 rounded-md border border-dashed border-indigo-300 bg-indigo-50/50 px-2.5 py-1 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100 dark:border-indigo-500/40 dark:bg-indigo-950/30 dark:text-indigo-300 dark:hover:bg-indigo-950/60"
+                    className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                    title="Nhập danh sách căn từ file CSV/Excel"
                   >
-                    <Plus className="h-3 w-3" />
+                    <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
+                    Nhập từ CSV
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleDownloadTemplate}
+                    disabled={submitting}
+                    className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                    title="Tải file mẫu để điền danh sách căn hộ"
+                  >
+                    <Download className="h-3.5 w-3.5 text-blue-600" />
+                    Tải file mẫu
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setApartments((prev) => [...prev, createDefaultApartment(prev.length)])}
+                    disabled={submitting}
+                    className="inline-flex items-center gap-1 rounded-md border border-dashed border-teal-400 bg-teal-50 px-3 py-1 text-xs font-bold text-teal-700 transition hover:bg-teal-100 dark:border-teal-500/40 dark:bg-teal-950/30 dark:text-teal-300"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
                     Thêm căn
                   </button>
+
+                  {apartments.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setApartments([createDefaultApartment(0)])}
+                      disabled={submitting}
+                      className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-rose-500 transition hover:bg-rose-50"
+                      title="Đặt lại danh sách"
+                    >
+                      Làm mới
+                    </button>
+                  )}
                 </div>
-                <div className="rounded-lg border border-slate-200 dark:border-slate-700">
-                  <table className="w-full text-sm">
-                    <thead className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur dark:bg-slate-800/95">
-                      <tr className="text-left text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                        <th className="w-8 px-2 py-1.5 font-semibold">#</th>
-                        <th className="px-2 py-1.5 font-semibold">Tên căn</th>
-                        <th className="px-2 py-1.5 font-semibold">Diện tích (m²)</th>
-                        <th className="px-2 py-1.5 font-semibold">Giá (VNĐ)</th>
-                        <th className="w-10 px-2 py-1.5" />
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
-                      {apartments.map((row, idx) => (
-                        <tr key={idx} className="group transition-colors hover:bg-slate-50/60 dark:hover:bg-slate-800/30">
-                          <td className="px-2 py-1 text-xs font-bold text-slate-400">{idx + 1}</td>
-                          <td className="px-2 py-1">
-                            <input className={`${inputClass} py-1.5`} value={row.unitName} onChange={(e) => updateAptRow(idx, 'unitName', e.target.value)} placeholder="A-101" disabled={submitting} />
-                          </td>
-                          <td className="px-2 py-1">
-                            <input className={`${inputClass} py-1.5`} type="number" min="0" step="0.1" value={row.area} onChange={(e) => updateAptRow(idx, 'area', e.target.value)} placeholder="38.5" disabled={submitting} />
-                          </td>
-                          <td className="px-2 py-1">
-                            <input className={`${inputClass} py-1.5`} type="number" min="0" value={row.price} onChange={(e) => updateAptRow(idx, 'price', e.target.value)} placeholder="720000000" disabled={submitting} />
-                          </td>
-                          <td className="px-2 py-1 text-center">
-                            <button type="button" onClick={() => setApartments((prev) => prev.filter((_, i) => i !== idx))} disabled={submitting || apartments.length <= 1} className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 text-slate-400 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-30 dark:border-slate-700 dark:hover:border-rose-700/60 dark:hover:bg-rose-950/40" title="Xoá căn này">
-                              <Trash2 className="h-3 w-3" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+              </div>
+
+              {/* Danh sách căn hộ (Bảng chi tiết) */}
+              <div className="space-y-2">
+                {apartments.map((row, idx) => (
+                  <div
+                    key={idx}
+                    className={`rounded-xl border transition-all ${
+                      row.isExpanded
+                        ? 'border-teal-400 bg-teal-50/20 shadow-md dark:border-teal-600 dark:bg-teal-950/20'
+                        : 'border-slate-200 bg-white shadow-sm hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900/40'
+                    }`}
+                  >
+                    {/* Hàng chính: Các thông tin cơ bản */}
+                    <div className="flex flex-wrap items-center gap-2 p-2.5">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                        {idx + 1}
+                      </span>
+
+                      {/* Mã căn */}
+                      <div className="w-24">
+                        <label className="text-[10px] font-semibold text-slate-500">Mã căn *</label>
+                        <input
+                          className={`${inputClass} py-1 text-xs font-semibold`}
+                          value={row.unitName}
+                          onChange={(e) => updateAptRow(idx, 'unitName', e.target.value)}
+                          placeholder="A-101"
+                          disabled={submitting}
+                        />
+                      </div>
+
+                      {/* Tòa / Block */}
+                      <div className="w-24">
+                        <label className="text-[10px] font-semibold text-slate-500">Tòa / Block</label>
+                        <input
+                          className={`${inputClass} py-1 text-xs`}
+                          value={row.buildingBlock}
+                          onChange={(e) => updateAptRow(idx, 'buildingBlock', e.target.value)}
+                          placeholder="Block A"
+                          disabled={submitting}
+                        />
+                      </div>
+
+                      {/* Tầng */}
+                      <div className="w-16">
+                        <label className="text-[10px] font-semibold text-slate-500">Tầng</label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={200}
+                          className={`${inputClass} py-1 text-center text-xs`}
+                          value={row.floorNumber}
+                          onChange={(e) => updateAptRow(idx, 'floorNumber', e.target.value ? Number(e.target.value) : '')}
+                          disabled={submitting}
+                        />
+                      </div>
+
+                      {/* Số PN / WC */}
+                      <div className="flex w-24 items-center gap-1">
+                        <div className="flex-1">
+                          <label className="text-[10px] font-semibold text-slate-500">PN</label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={10}
+                            className={`${inputClass} py-1 text-center text-xs`}
+                            value={row.numberOfBedrooms}
+                            onChange={(e) => updateAptRow(idx, 'numberOfBedrooms', e.target.value ? Number(e.target.value) : '')}
+                            disabled={submitting}
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <label className="text-[10px] font-semibold text-slate-500">WC</label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={10}
+                            className={`${inputClass} py-1 text-center text-xs`}
+                            value={row.numberOfBathrooms}
+                            onChange={(e) => updateAptRow(idx, 'numberOfBathrooms', e.target.value ? Number(e.target.value) : '')}
+                            disabled={submitting}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Diện tích thông thủy */}
+                      <div className="w-24">
+                        <label className="text-[10px] font-semibold text-slate-500">DT sử dụng (m²) *</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min={15}
+                          max={300}
+                          className={`${inputClass} py-1 text-xs`}
+                          value={row.area}
+                          onChange={(e) => updateAptRow(idx, 'area', e.target.value)}
+                          placeholder="55.0"
+                          disabled={submitting}
+                        />
+                      </div>
+
+                      {/* Giá bán VNĐ */}
+                      <div className="w-32">
+                        <label className="text-[10px] font-semibold text-slate-500">Giá bán (VNĐ) *</label>
+                        <input
+                          type="number"
+                          step="1000000"
+                          min={1000000}
+                          className={`${inputClass} py-1 text-xs`}
+                          value={row.price}
+                          onChange={(e) => updateAptRow(idx, 'price', e.target.value)}
+                          placeholder="850000000"
+                          disabled={submitting}
+                        />
+                      </div>
+
+                      {/* Nhóm căn */}
+                      <div className="w-28">
+                        <label className="text-[10px] font-semibold text-slate-500">Nhóm căn</label>
+                        <select
+                          className={`${inputClass} py-1 text-xs`}
+                          value={row.unitGroup}
+                          onChange={(e) => updateAptRow(idx, 'unitGroup', e.target.value as any)}
+                          disabled={submitting}
+                        >
+                          <option value="STANDARD">Tiêu chuẩn</option>
+                          <option value="PRIORITY">Ưu tiên</option>
+                        </select>
+                      </div>
+
+                      {/* Hình thức bán */}
+                      <div className="w-32">
+                        <label className="text-[10px] font-semibold text-slate-500">Hình thức bán</label>
+                        <select
+                          className={`${inputClass} py-1 text-xs`}
+                          value={row.saleType}
+                          onChange={(e) => updateAptRow(idx, 'saleType', e.target.value as any)}
+                          disabled={submitting}
+                        >
+                          <option value="FULL_OWNERSHIP">Bán 100%</option>
+                          <option value="CO_OWNERSHIP">Đồng sở hữu</option>
+                        </select>
+                      </div>
+
+                      {/* Nút mở rộng chi tiết */}
+                      <div className="ml-auto flex items-center gap-1 pt-3.5">
+                        <button
+                          type="button"
+                          onClick={() => toggleExpand(idx)}
+                          className={`flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold transition ${
+                            row.isExpanded
+                              ? 'bg-teal-600 text-white'
+                              : 'border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                          }`}
+                          title="Thêm hướng cửa, view, sức chứa..."
+                        >
+                          <SlidersHorizontal className="h-3 w-3" />
+                          {row.isExpanded ? 'Thu gọn' : 'Chi tiết'}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setApartments((prev) => prev.filter((_, i) => i !== idx))}
+                          disabled={submitting || apartments.length <= 1}
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 text-slate-400 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-30 dark:border-slate-700 dark:hover:border-rose-700/60 dark:hover:bg-rose-950/40"
+                          title="Xoá căn này"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Hàng mở rộng: Hướng cửa, view, diện tích tim tường, thu nhập, sức chứa */}
+                    {row.isExpanded && (
+                      <div className="grid gap-3 border-t border-teal-100 bg-teal-50/30 p-3 dark:border-teal-800/40 dark:bg-teal-950/10 sm:grid-cols-2 md:grid-cols-4">
+                        <div>
+                          <label className="text-[10px] font-semibold text-slate-600 dark:text-slate-300">
+                            Diện tích tim tường / Sàn (m²)
+                          </label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            className={`${inputClass} py-1 text-xs`}
+                            value={row.grossArea}
+                            onChange={(e) => updateAptRow(idx, 'grossArea', e.target.value)}
+                            placeholder="60.0"
+                            disabled={submitting}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-semibold text-slate-600 dark:text-slate-300">
+                            Hướng cửa chính
+                          </label>
+                          <select
+                            className={`${inputClass} py-1 text-xs`}
+                            value={row.mainDoorDirection}
+                            onChange={(e) => updateAptRow(idx, 'mainDoorDirection', e.target.value)}
+                            disabled={submitting}
+                          >
+                            <option value="">-- Chọn hướng --</option>
+                            {DIRECTION_OPTIONS.map((d) => (
+                              <option key={d.code} value={d.code}>
+                                {d.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-semibold text-slate-600 dark:text-slate-300">
+                            Hướng ban công / Cửa sổ
+                          </label>
+                          <select
+                            className={`${inputClass} py-1 text-xs`}
+                            value={row.balconyDirection}
+                            onChange={(e) => updateAptRow(idx, 'balconyDirection', e.target.value)}
+                            disabled={submitting}
+                          >
+                            <option value="">-- Chọn hướng --</option>
+                            {DIRECTION_OPTIONS.map((d) => (
+                              <option key={d.code} value={d.code}>
+                                {d.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-semibold text-slate-600 dark:text-slate-300">
+                            Sức chứa tối đa (người)
+                          </label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={20}
+                            className={`${inputClass} py-1 text-xs`}
+                            value={row.maxOccupants}
+                            onChange={(e) => updateAptRow(idx, 'maxOccupants', e.target.value ? Number(e.target.value) : '')}
+                            placeholder="4"
+                            disabled={submitting}
+                          />
+                        </div>
+
+                        {row.saleType === 'CO_OWNERSHIP' && (
+                          <div>
+                            <label className="text-[10px] font-semibold text-amber-700 dark:text-amber-300">
+                              Tỷ lệ đồng sở hữu (%) *
+                            </label>
+                            <input
+                              type="number"
+                              min={1}
+                              max={99}
+                              className={`${inputClass} border-amber-300 py-1 text-xs`}
+                              value={row.coOwnershipRatio}
+                              onChange={(e) => updateAptRow(idx, 'coOwnershipRatio', e.target.value ? Number(e.target.value) : '')}
+                              placeholder="50"
+                              disabled={submitting}
+                            />
+                          </div>
+                        )}
+
+                        <div className={row.saleType === 'CO_OWNERSHIP' ? 'md:col-span-3' : 'md:col-span-2'}>
+                          <label className="text-[10px] font-semibold text-slate-600 dark:text-slate-300">
+                            Mô tả tầm nhìn (View)
+                          </label>
+                          <input
+                            className={`${inputClass} py-1 text-xs`}
+                            value={row.viewDescription}
+                            onChange={(e) => updateAptRow(idx, 'viewDescription', e.target.value)}
+                            placeholder="VD: Nhìn ra công viên trung tâm, thoáng mát"
+                            disabled={submitting}
+                          />
+                        </div>
+
+                        <div className="md:col-span-2">
+                          <label className="text-[10px] font-semibold text-slate-600 dark:text-slate-300">
+                            Ghi chú / Tiện nghi đặc biệt
+                          </label>
+                          <input
+                            className={`${inputClass} py-1 text-xs`}
+                            value={row.description}
+                            onChange={(e) => updateAptRow(idx, 'description', e.target.value)}
+                            placeholder="VD: Căn góc 2 mặt thoáng, bàn giao hoàn thiện cơ bản"
+                            disabled={submitting}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           )}
         </div>
 
         {/* === Footer === */}
-        <div
-          className={`sticky bottom-0 mt-1 flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3.5 py-1 shadow-md transition-colors ${
-            step === 2 && !isStep2Valid && !submitting
-              ? 'border-amber-300/80 bg-gradient-to-r from-amber-50/80 via-white to-rose-50/70 dark:border-amber-700/60 dark:from-amber-950/30 dark:via-slate-900/60 dark:to-rose-950/20'
-              : 'border-slate-200/80 bg-gradient-to-r from-indigo-50/80 via-white to-violet-50/80 dark:border-slate-700/60 dark:from-indigo-950/40 dark:via-slate-900/60 dark:to-violet-950/30'
-          }`}
-        >
+        <div className="sticky bottom-0 mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-white px-3.5 py-2.5 dark:border-slate-700 dark:bg-slate-900">
           <p className="text-[11px] font-semibold text-slate-700 dark:text-slate-200">
-            <ListChecks className="mr-1 inline h-3 w-3 text-indigo-500" />
-            Bước {step}/2 · {filledCount} căn
+            <ListChecks className="mr-1 inline h-3 w-3 text-teal-500" />
+            Bước {step}/2 · {filledCount} căn hộ đã sẵn sàng
             {step === 2 && !isStep2Valid && !submitting && (
               <span className="ml-2 text-amber-700 dark:text-amber-400">
-                · chưa sẵn sàng để tạo
+                · cần nhập đủ tên, diện tích (15-300m²), giá
               </span>
             )}
           </p>
@@ -530,7 +1222,7 @@ useEffect(() => {
                 type="button"
                 onClick={goPrev}
                 disabled={submitting}
-                className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-400 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-slate-400 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
                 Quay lại
@@ -540,7 +1232,7 @@ useEffect(() => {
               type="button"
               onClick={onClose}
               disabled={submitting}
-              className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-400 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+              className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-slate-400 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
             >
               Huỷ
             </button>
@@ -548,32 +1240,33 @@ useEffect(() => {
               <button
                 type="button"
                 onClick={goNext}
-                disabled={submitting}
-                className="inline-flex items-center gap-1.5 rounded-md bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-1.5 text-xs font-bold text-white shadow-md transition hover:shadow-lg hover:brightness-110 disabled:opacity-50"
+                disabled={submitting || transitioning}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-4 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-teal-700 hover:shadow-md disabled:opacity-50"
               >
-                Tiếp tục: Chi tiết dự án
+                Tiếp tục: Thiết lập căn hộ
                 <ArrowRight className="h-3.5 w-3.5" />
               </button>
             ) : (
               <button
-                type="submit"
-                disabled={submitting || !isStep2Valid}
+                type="button"
+                onClick={() => handleSubmit()}
+                disabled={submitting || !isStep2Valid || transitioning}
                 title={
                   !isStep2Valid
-                    ? 'Vui lòng nhập đầy đủ: ít nhất 1 căn hợp lệ (tên + diện tích + giá).'
+                    ? 'Vui lòng nhập đầy đủ: ít nhất 1 căn hợp lệ (tên + diện tích 15-300m² + giá).'
                     : undefined
                 }
-                className="inline-flex items-center gap-1.5 rounded-md bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-1.5 text-xs font-bold text-white shadow-md transition hover:shadow-lg hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-4 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-teal-700 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {submitting ? (
                   <>
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Đang tạo dự án...
+                    Đang khởi tạo dự án & căn hộ...
                   </>
                 ) : (
                   <>
                     <Sparkles className="h-3.5 w-3.5" />
-                    Tạo dự án (Bước cuối)
+                    Tạo dự án ({apartments.length} căn)
                   </>
                 )}
               </button>
@@ -582,82 +1275,6 @@ useEffect(() => {
         </div>
       </form>
     </Modal>
-  )
-}
-
-/* ===== Helpers ===== */
-
-function Stepper({ current }: { current: 1 | 2 }) {
-  const steps = [
-    { num: 1, label: 'Thông tin dự án', icon: Home, desc: 'Tên, vị trí, hồ sơ' },
-    { num: 2, label: 'Chi tiết dự án', icon: Building2, desc: 'Danh sách căn hộ' },
-  ]
-  return (
-    <div className="flex items-stretch gap-1.5 rounded-lg border border-slate-200/70 bg-slate-100/60 p-1 shadow-sm dark:border-slate-700/60 dark:bg-slate-800/40">
-      {steps.map((s) => {
-        const active = current === s.num
-        const done = current > s.num
-        const Icon = s.icon
-        return (
-          <div
-            key={s.num}
-            className={[
-              'flex flex-1 items-center gap-2 rounded-md px-2.5 py-1.5 transition-all duration-300',
-              active
-                ? 'bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 text-white shadow-md ring-1 ring-indigo-500/30'
-                : done
-                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300'
-                  : 'bg-transparent text-slate-400 dark:text-slate-500',
-            ].join(' ')}
-          >
-            <span
-              className={[
-                'flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold transition-all',
-                active
-                  ? 'bg-white/25 text-white'
-                  : done
-                    ? 'bg-emerald-500 text-white'
-                    : 'bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400',
-              ].join(' ')}
-            >
-              {done ? <Check className="h-3.5 w-3.5" /> : s.num}
-            </span>
-            <div className="hidden min-w-0 flex-1 sm:block">
-              <p
-                className={[
-                  'text-[11px] font-bold leading-tight',
-                  active
-                    ? 'text-white'
-                    : done
-                      ? 'text-emerald-700 dark:text-emerald-300'
-                      : 'text-slate-500 dark:text-slate-400',
-                ].join(' ')}
-              >
-                {s.label}
-              </p>
-              <p
-                className={[
-                  'text-[9px] leading-tight',
-                  active
-                    ? 'text-white/80'
-                    : done
-                      ? 'text-emerald-600/80 dark:text-emerald-300/80'
-                      : 'text-slate-400 dark:text-slate-500',
-                ].join(' ')}
-              >
-                {s.desc}
-              </p>
-            </div>
-            <Icon
-              className={[
-                'h-3.5 w-3.5 shrink-0 sm:hidden',
-                active ? 'text-white' : 'opacity-60',
-              ].join(' ')}
-            />
-          </div>
-        )
-      })}
-    </div>
   )
 }
 
@@ -720,7 +1337,6 @@ type FilePickerProps = {
   disabled?: boolean
 } & (SinglePickerProps | MultiPickerProps)
 
-/** Hiển thị preview ảnh từ File bằng URL.createObjectURL (auto-revoke khi unmount) */
 function Thumb({ file, className }: { file: File; className?: string }) {
   const [src, setSrc] = useState<string>('')
   useEffect(() => {
@@ -761,10 +1377,8 @@ function FilePicker(props: FilePickerProps) {
         disabled={disabled}
       />
 
-      {/* === Chế độ 1 ảnh (thumbnail) === */}
       {!multiple && (
         <div className="flex items-start gap-2.5">
-          {/* Preview hoặc placeholder */}
           <div
             className={[
               'flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 border-dashed',
@@ -780,13 +1394,12 @@ function FilePicker(props: FilePickerProps) {
             )}
           </div>
 
-          {/* Info + actions */}
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
               <label
                 htmlFor={inputId}
                 className={[
-                  'inline-flex cursor-pointer items-center gap-1 rounded-md bg-gradient-to-r from-indigo-600 to-violet-600 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm transition hover:opacity-90',
+                  'inline-flex cursor-pointer items-center gap-1 rounded-md bg-teal-600 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm transition hover:bg-teal-700',
                   disabled ? 'pointer-events-none opacity-50' : '',
                 ].join(' ')}
               >
@@ -814,14 +1427,13 @@ function FilePicker(props: FilePickerProps) {
         </div>
       )}
 
-      {/* === Chế độ nhiều ảnh (gallery) === */}
       {multiple && (
         <div>
           <div
             className={[
               'grid grid-cols-4 gap-1.5 rounded-lg border-2 border-dashed p-1.5',
               props.files.length > 0
-                ? 'border-indigo-200 bg-indigo-50/30 dark:border-indigo-500/30 dark:bg-indigo-950/10'
+                ? 'border-teal-200 bg-teal-50/30 dark:border-teal-500/30 dark:bg-teal-950/10'
                 : 'border-slate-300 bg-slate-50/50 dark:border-slate-600 dark:bg-slate-800/30',
             ].join(' ')}
           >
@@ -843,11 +1455,10 @@ function FilePicker(props: FilePickerProps) {
               </div>
             ))}
 
-            {/* Nút thêm ảnh */}
             <label
               htmlFor={inputId}
               className={[
-                'flex aspect-square cursor-pointer items-center justify-center rounded-md border-2 border-dashed border-slate-300 bg-white text-slate-400 transition hover:border-indigo-400 hover:bg-indigo-50/60 hover:text-indigo-500 dark:border-slate-600 dark:bg-slate-900 dark:hover:border-indigo-500 dark:hover:bg-indigo-950/30 dark:hover:text-indigo-400',
+                'flex aspect-square cursor-pointer items-center justify-center rounded-md border-2 border-dashed border-slate-300 bg-white text-slate-400 transition hover:border-teal-400 hover:bg-teal-50/60 hover:text-teal-600 dark:border-slate-600 dark:bg-slate-900 dark:hover:border-teal-500 dark:hover:bg-teal-950/30 dark:hover:text-teal-400',
                 disabled ? 'pointer-events-none opacity-50' : '',
               ].join(' ')}
             >

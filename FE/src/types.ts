@@ -177,19 +177,94 @@ export interface HousingProjectDto {
 
 export interface CreateApartmentDto {
   unitName: string
+  floorNumber?: number
+  buildingBlock?: string
+  numberOfBedrooms?: number
+  numberOfBathrooms?: number
   area: number
+  grossArea?: number
+  mainDoorDirection?: string
+  balconyDirection?: string
+  viewDescription?: string
+  maxOccupants?: number
+  minSuitableIncome?: number
+  maxSuitableIncome?: number
+  unitGroup?: 'Priority' | 'Standard' | string
+  saleType?: 'FullOwnership' | 'CoOwnership' | string
+  coOwnershipRatio?: number
   price: number
+  apartmentTypeId?: string
+  apartmentType?: string
   description?: string
+  model3DUrl?: string
+  virtualTourUrl?: string
+}
+
+export interface BatchCreateApartmentsRequestDto {
+  apartments: CreateApartmentDto[]
 }
 
 export interface ApartmentDto {
   id: string
+  projectId?: string
   unitName: string
+  floorNumber?: number
+  buildingBlock?: string
+  numberOfBedrooms?: number
+  numberOfBathrooms?: number
   area: number
+  grossArea?: number
+  mainDoorDirection?: string
+  mainDoorDirectionLabel?: string
+  balconyDirection?: string
+  balconyDirectionLabel?: string
+  viewDescription?: string
+  maxOccupants?: number
+  minSuitableIncome?: number
+  maxSuitableIncome?: number
+  unitGroup?: string
+  unitGroupLabel?: string
+  saleType?: string
+  saleTypeLabel?: string
+  coOwnershipRatio?: number
   price: number
   /** AVAILABLE | ASSIGNED */
   status: string
   description?: string | null
+  model3DUrl?: string
+  virtualTourUrl?: string
+  apartmentTypeId?: string
+  apartmentType?: string
+  apartmentTypeLabel?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface ApartmentStatisticsResponseDto {
+  projectId: string
+  projectName?: string
+  totalUnits: number
+  availableUnits: number
+  assignedUnits: number
+  priorityUnits: number
+  standardUnits: number
+  fullOwnershipUnits: number
+  coOwnershipUnits: number
+  minPrice: number
+  maxPrice: number
+  minArea: number
+  maxArea: number
+}
+
+export interface MilestoneSetupItemDto {
+  phaseOrder: number
+  phaseName: string
+  percentage: number
+  calculationType?: string
+  fixedAmount?: number
+  triggerEvent: string
+  dueDays?: number
+  description?: string
 }
 
 export interface CreateHousingProjectRequestDto {
@@ -206,13 +281,10 @@ export interface CreateHousingProjectRequestDto {
   maxArea: number
   availableUnits: number
   thumbnailUrl?: string
-  thumbnailFile?: File
-  imagesFiles?: File[]
-  decisionNumber?: string
+  images?: string[]
+  decisionNumber: string
   approvalDate?: string
   isConfirmed?: boolean
-  /** Tỉ lệ Đợt 1 (% giá căn), mặc định 20, tối đa 30. Đợt 2 = phần còn lại. */
-  phase1Percentage?: number
   lotteryDate?: string
   lotteryLocation?: string
   applicationOpenDate?: string
@@ -222,8 +294,7 @@ export interface CreateHousingProjectRequestDto {
    * SXD sẽ duyệt về sau). Truyền lên chỉ khi cập nhật trạng thái qua form sửa.
    */
   housingProjectStatusId?: string
-  /** Danh sách căn cụ thể (tên / diện tích / giá) */
-  apartments?: CreateApartmentDto[]
+  milestones?: MilestoneSetupItemDto[]
 }
 
 export interface ProjectFilterDto {

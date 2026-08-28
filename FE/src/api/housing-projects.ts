@@ -1,5 +1,5 @@
 import { request } from './http'
-import type { ApiResult, ApartmentDto, CreateHousingProjectRequestDto } from '../types'
+import type { ApiResult, ApartmentDto, CreateApartmentDto, CreateHousingProjectRequestDto } from '../types'
 
 export interface HousingProjectFilter {
   pageIndex?: number
@@ -71,47 +71,7 @@ function buildQuery(params?: HousingProjectFilter): string {
   return qs.toString()
 }
 
-function toFormData(body: CreateHousingProjectRequestDto): FormData {
-  const fd = new FormData()
-  fd.append('ProjectName', body.projectName)
-  fd.append('Description', body.description)
-  fd.append('Province', body.province)
-  fd.append('District', body.district)
-  if (body.street) fd.append('Street', body.street)
-  if (body.ward) fd.append('Ward', body.ward)
-  fd.append('Address', body.address ?? '')
-  fd.append('MinPrice', String(body.minPrice))
-  fd.append('MaxPrice', String(body.maxPrice))
-  fd.append('MinArea', String(body.minArea))
-  fd.append('MaxArea', String(body.maxArea))
-  fd.append('AvailableUnits', String(body.availableUnits))
-  if (body.decisionNumber) fd.append('DecisionNumber', body.decisionNumber)
-  if (body.approvalDate) fd.append('ApprovalDate', body.approvalDate)
-  if (body.isConfirmed !== undefined) fd.append('IsConfirmed', String(body.isConfirmed))
-  fd.append('Phase1Percentage', String(body.phase1Percentage ?? ''))
-  if (body.lotteryDate) fd.append('LotteryDate', body.lotteryDate)
-  if (body.lotteryLocation) fd.append('LotteryLocation', body.lotteryLocation)
-  if (body.applicationOpenDate) fd.append('ApplicationOpenDate', body.applicationOpenDate)
-  if (body.applicationCloseDate) fd.append('ApplicationCloseDate', body.applicationCloseDate)
-  // housingProjectStatusId: optional — CĐT tạo không truyền (BE mặc định = PENDING),
-  // chỉ truyền khi SXD / CĐT cập nhật trạng thái qua form sửa.
-  if (body.housingProjectStatusId) fd.append('HousingProjectStatusId', body.housingProjectStatusId)
-  if (body.thumbnailUrl) fd.append('ThumbnailUrl', body.thumbnailUrl)
-  if (body.thumbnailFile) fd.append('ThumbnailFile', body.thumbnailFile)
-  if (body.imagesFiles) {
-    for (const file of body.imagesFiles) fd.append('ImageFiles', file)
-  }
-  // ASP.NET [FromForm] list binding: Apartments[i].UnitName / Area / Price
-  if (body.apartments?.length) {
-    body.apartments.forEach((apt, i) => {
-      fd.append(`Apartments[${i}].UnitName`, apt.unitName)
-      fd.append(`Apartments[${i}].Area`, String(apt.area))
-      fd.append(`Apartments[${i}].Price`, String(apt.price))
-      if (apt.description) fd.append(`Apartments[${i}].Description`, apt.description)
-    })
-  }
-  return fd
-}
+
 
 export function parseApartments(data: unknown): ApartmentDto[] {
   const o = asRecord(data)
@@ -181,7 +141,7 @@ export const housingProjectsApi = {
   create: (body: CreateHousingProjectRequestDto) =>
     request<ApiResult>('/api/HousingProjects', {
       method: 'POST',
-      body: toFormData(body),
+      body: JSON.stringify(body),
       auth: true,
       timeoutMs: 90_000,
     }),
@@ -192,10 +152,56 @@ export const housingProjectsApi = {
   update: (id: string, body: CreateHousingProjectRequestDto) =>
     request<ApiResult>(`/api/HousingProjects/${id}`, {
       method: 'PUT',
-      body: toFormData(body),
+      body: JSON.stringify(body),
       auth: true,
       timeoutMs: 90_000,
     }),
+
+  uploadImage: (file: File) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return request<ApiResult>('/api/HousingProjects/upload-image', {
+      method: 'POST',
+      body: fd,
+      auth: true,
+      timeoutMs: 90_000,
+    })
+  },
+
+  createApartmentsBatch: (projectId: string, apartments: CreateApartmentDto[]) =>
+    request<ApiResult>(`/api/housing-projects/${projectId}/apartments/batch`, {
+      method: 'POST',
+      body: JSON.stringify({ apartments }),
+      auth: true,
+      timeoutMs: 90_000,
+    }),
+
+  importApartmentsExcel: (projectId: string, file: File) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return request<ApiResult>(`/api/housing-projects/${projectId}/apartments/import-excel`, {
+      method: 'POST',
+      body: fd,
+      auth: true,
+      timeoutMs: 120_000,
+    })
+  },
+
+  getApartmentStatistics: (projectId: string) =>
+    request<ApiResult>(`/api/housing-projects/${projectId}/apartment-statistics`, { auth: true }),
+
+  getApartments: (projectId: string, params?: Record<string, string | number | undefined>) => {
+    const qs = new URLSearchParams()
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== '') qs.set(k, String(v))
+      })
+    }
+    const qStr = qs.toString()
+    return request<ApiResult>(`/api/housing-projects/${projectId}/apartments${qStr ? `?${qStr}` : ''}`, {
+      auth: true,
+    })
+  },
 
   delete: (id: string) =>
     request<ApiResult>(`/api/HousingProjects/${id}`, {

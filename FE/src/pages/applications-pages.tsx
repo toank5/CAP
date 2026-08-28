@@ -31,7 +31,7 @@ import { Pagination } from '@/components/ui/pagination'
 import { navigate } from '@/hooks/useHashRoute'
 import { useExistingApplicationBlocker } from '@/hooks/useExistingApplicationBlocker'
 import { labelApplicationStatus } from '@/lib/labels'
-import { APPLICATION_STATUS, DOC_TYPE_LABELS, HOUSING_STATUS_LABELS } from '@/lib/constants'
+import { APPLICATION_STATUS, DOC_TYPE_LABELS, HOUSING_STATUS_LABELS, getRequiredDocsForPriorityGroup } from '@/lib/constants'
 import { formatError } from '@/lib/format-error'
 import { ensureVerifiedForApplication } from '@/lib/ekyc-gate'
 import { formatDepositCountdown } from '@/lib/deposit-deadline'
@@ -1064,38 +1064,56 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
             </div>
           </div>
         ))}
-        {canEditDocs && (
-          <div className="mt-4 space-y-3 border-t pt-4">
-            <FormField label="Loại giấy tờ" htmlFor="documentType">
-              <Select id="documentType" value={docType} onChange={(e) => setDocType(e.target.value)}>
-                {Object.entries(DOC_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-              </Select>
-            </FormField>
-            <FileDropzone onFile={setPendingFile} disabled={uploading} />
-            {pendingFile && <p className="text-xs text-slate-500">Đã chọn: {pendingFile.name}</p>}
-            <Button
-              type="button"
-              variant="outline"
-              disabled={uploading || !pendingFile}
-              onClick={async () => {
-                if (!pendingFile || uploading) return
-                setUploading(true)
-                try {
-                  await housingApplicationsApi.uploadDocument(app.applicationId, docType, pendingFile)
-                  await refresh()
-                  setPendingFile(null)
-                  setMsg({ type: 'success', text: 'Tải lên tài liệu thành công.' })
-                } catch (err) {
-                  setMsg({ type: 'error', text: formatError(err) })
-                } finally {
-                  setUploading(false)
-                }
-              }}
-            >
-              {uploading ? 'Đang tải lên…' : 'Tải lên tài liệu'}
-            </Button>
-          </div>
-        )}
+        {(() => {
+          const requiredDocs = getRequiredDocsForPriorityGroup(app.priorityGroup ?? '')
+          const availableDocTypes = requiredDocs.filter(
+            (v) => !(app.documents ?? []).some((d) => d.documentType === v)
+          )
+          
+          if (!canEditDocs || availableDocTypes.length === 0) return null
+
+          const currentDocType = availableDocTypes.includes(docType)
+            ? docType
+            : (availableDocTypes[0] ?? '')
+
+          return (
+            <div className="mt-4 space-y-3 border-t pt-4">
+              <FormField label="Loại giấy tờ còn thiếu" htmlFor="documentType">
+                <Select id="documentType" value={currentDocType} onChange={(e) => setDocType(e.target.value)}>
+                  {availableDocTypes.map((v) => (
+                    <option key={v} value={v}>
+                      {DOC_TYPE_LABELS[v] ?? v}
+                    </option>
+                  ))}
+                </Select>
+              </FormField>
+              <FileDropzone onFile={setPendingFile} disabled={uploading} />
+              {pendingFile && <p className="text-xs text-slate-500">Đã chọn: {pendingFile.name}</p>}
+              <Button
+                type="button"
+                variant="outline"
+                disabled={uploading || !pendingFile || !currentDocType}
+                onClick={async () => {
+                  if (!pendingFile || uploading || !currentDocType) return
+                  setUploading(true)
+                  try {
+                    await housingApplicationsApi.uploadDocument(app.applicationId, currentDocType, pendingFile)
+                    await refresh()
+                    setPendingFile(null)
+                    setDocType('')
+                    setMsg({ type: 'success', text: 'Tải lên tài liệu thành công.' })
+                  } catch (err) {
+                    setMsg({ type: 'error', text: formatError(err) })
+                  } finally {
+                    setUploading(false)
+                  }
+                }}
+              >
+                {uploading ? 'Đang tải lên…' : 'Tải lên tài liệu'}
+              </Button>
+            </div>
+          )
+        })()}
       </div>
     </div>
   )
