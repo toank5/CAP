@@ -259,6 +259,27 @@ export interface ApartmentStatisticsResponseDto {
   maxArea: number
 }
 
+export interface FloorPlanFloorDto {
+  floorNumber: number
+  totalApartmentsOnFloor: number
+  apartments?: ApartmentDto[]
+}
+
+export interface FloorPlanBlockDto {
+  blockName?: string
+  totalApartmentsInBlock: number
+  floors?: FloorPlanFloorDto[]
+}
+
+export interface FloorPlanResponseDto {
+  projectId: string
+  projectName?: string
+  totalApartments: number
+  availableApartments: number
+  assignedApartments: number
+  blocks?: FloorPlanBlockDto[]
+}
+
 export interface MilestoneSetupItemDto {
   phaseOrder: number
   phaseName: string

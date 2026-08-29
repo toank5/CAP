@@ -125,3 +125,15 @@ export const REQUIRED_DOCS_BY_PRIORITY_GROUP: Record<string, string[]> = {
 export function getRequiredDocsForPriorityGroup(priorityGroup: string): string[] {
   return REQUIRED_DOCS_BY_PRIORITY_GROUP[priorityGroup] ?? ['HOUSING_CONDITION_PROOF']
 }
+
+export const DIRECTION_LABELS: Record<string, string> = {
+  EAST: 'Đông',
+  WEST: 'Tây',
+  SOUTH: 'Nam',
+  NORTH: 'Bắc',
+  SOUTH_EAST: 'Đông Nam',
+  NORTH_EAST: 'Đông Bắc',
+  SOUTH_WEST: 'Tây Nam',
+  NORTH_WEST: 'Tây Bắc',
+}
+

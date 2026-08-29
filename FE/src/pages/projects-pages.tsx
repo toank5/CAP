@@ -21,11 +21,14 @@ import {
   ShieldCheck,
   Bed,
   Maximize2,
+  Box,
 } from 'lucide-react'
 import { housingProjectsApi, parseApartments } from '@/api/housing-projects'
 import { housingProjectStatusesApi, parseStatuses } from '@/api/housing-project-statuses'
 import { CreateProjectModal } from '@/components/developer/create-project-modal'
 import { EditProjectModal } from '@/components/developer/edit-project-modal'
+import { Building3DViewer } from '@/components/housing-projects/building-3d-viewer'
+import { Apartment3DViewer } from '@/components/housing-projects/apartment-3d-viewer'
 import { DeveloperDecisionPanel } from '@/components/developer-decision-panel'
 import { ProjectStatusControl } from '@/components/developer/project-status-control'
 import { LocationFields } from '@/components/forms/location-fields'
@@ -817,12 +820,15 @@ function ProjectDetailView({
   const [wishlistBusy, setWishlistBusy] = useState(false)
   const [openingSale, setOpeningSale] = useState(false)
 
-  // Apartment filters state
+  // Apartment filters & 3D state
   const [selectedBlock, setSelectedBlock] = useState<string>('ALL')
   const [selectedBedrooms, setSelectedBedrooms] = useState<string>('ALL')
   const [selectedUnitGroup, setSelectedUnitGroup] = useState<string>('ALL')
   const [selectedSaleType, setSelectedSaleType] = useState<string>('ALL')
   const [searchUnitName, setSearchUnitName] = useState<string>('')
+  const [isBuilding3DFullscreen, setIsBuilding3DFullscreen] = useState(false)
+  const [active3DApartment, setActive3DApartment] = useState<ApartmentDto | null>(null)
+  const [is3DModalOpen, setIs3DModalOpen] = useState(false)
 
   const logged = isLoggedIn()
   const role = getRole()
@@ -1012,7 +1018,7 @@ function ProjectDetailView({
         <div className="grid gap-8 p-6 lg:grid-cols-12 lg:p-8">
           {/* Gallery Cột Trái (5 cols) */}
           <div className="lg:col-span-5 flex flex-col justify-between space-y-4">
-            <div className="relative overflow-hidden rounded-2xl bg-slate-950 aspect-[4/3] shadow-md">
+            <div className="relative overflow-hidden rounded-2xl bg-slate-950 aspect-[4/3] shadow-md group">
               {totalSlides > 0 ? (
                 <div
                   className="flex h-full transition-transform duration-500 ease-in-out"
@@ -1035,6 +1041,16 @@ function ProjectDetailView({
                   <span className="text-xs">Chưa có hình ảnh dự án</span>
                 </div>
               )}
+
+              {/* Nút bấm nhanh mở 3D toàn màn hình từ ảnh */}
+              <button
+                type="button"
+                onClick={() => setIsBuilding3DFullscreen(true)}
+                className="absolute bottom-3 left-3 z-10 flex items-center gap-1.5 rounded-xl bg-teal-600/90 hover:bg-teal-600 px-3 py-1.5 text-xs font-bold text-white shadow-lg backdrop-blur-md transition hover:scale-105 active:scale-95 border border-teal-400/40"
+              >
+                <Box className="h-3.5 w-3.5" />
+                Khám phá Sơ đồ 3D
+              </button>
 
               {/* Nút điều hướng Carousel */}
               {totalSlides > 1 && (
@@ -1062,24 +1078,38 @@ function ProjectDetailView({
               )}
             </div>
 
-            {/* Dải ảnh Thumbnail nhỏ */}
-            {totalSlides > 1 && (
-              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
-                {galleryImages.map((imgUrl, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => scrollGallery(idx)}
-                    className={`relative h-16 w-20 flex-shrink-0 overflow-hidden rounded-xl border-2 transition ${idx === currentGalleryIdx
-                      ? 'border-teal-500 ring-2 ring-teal-500/30'
-                      : 'border-transparent opacity-60 hover:opacity-100'
-                      }`}
-                  >
-                    <img src={imgUrl} alt={`Ảnh thu nhỏ ${idx + 1}`} className="h-full w-full object-cover" />
-                  </button>
-                ))}
-              </div>
-            )}
+            {/* Dải ảnh Thumbnail nhỏ & Nút Sơ đồ 3D phóng to toàn màn hình */}
+            <div className="flex items-center gap-2 overflow-x-auto pt-2.5 pb-2 px-1 scrollbar-thin">
+              {galleryImages.map((imgUrl, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => scrollGallery(idx)}
+                  className={`relative h-16 w-20 flex-shrink-0 overflow-hidden rounded-xl border-2 transition ${idx === currentGalleryIdx
+                    ? 'border-teal-500 ring-2 ring-teal-500/30'
+                    : 'border-transparent opacity-60 hover:opacity-100'
+                    }`}
+                >
+                  <img src={imgUrl} alt={`Ảnh thu nhỏ ${idx + 1}`} className="h-full w-full object-cover" />
+                </button>
+              ))}
+
+              {/* Nút Xem Sơ đồ 3D phóng to toàn màn hình */}
+              <button
+                type="button"
+                onClick={() => setIsBuilding3DFullscreen(true)}
+                className="relative flex h-16 min-w-[6.2rem] flex-shrink-0 flex-col items-center justify-center gap-1 rounded-xl border-2 border-teal-500/70 bg-gradient-to-br from-teal-50 to-emerald-50 text-teal-800 px-3 transition hover:border-teal-600 hover:shadow-md hover:scale-105 active:scale-95 dark:from-teal-950/80 dark:to-slate-900 dark:text-teal-300 dark:border-teal-600"
+                title="Bấm để mở Sơ đồ 3D toàn màn hình"
+              >
+                <div className="flex items-center justify-center">
+                  <Box className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+                </div>
+                <span className="text-[11px] font-bold tracking-tight">Sơ đồ 3D</span>
+                <span className="absolute -top-2 -right-1 flex h-4.5 items-center rounded-full bg-teal-600 px-1.5 py-0.5 text-[9px] font-black text-white shadow-md ring-2 ring-white dark:ring-slate-900">
+                  MỞ 3D
+                </span>
+              </button>
+            </div>
           </div>
 
           {/* Thông tin Cột Phải (7 cols) */}
@@ -1376,6 +1406,9 @@ function ProjectDetailView({
       {/* ═════════════════════════════════════════════════════════════════════ */}
       {/* 4. DANH SÁCH QUỸ CĂN HỘ CHI TIẾT                                      */}
       {/* ═════════════════════════════════════════════════════════════════════ */}
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {/* 4. DANH SÁCH QUỸ CĂN HỘ CHI TIẾT & SƠ ĐỒ 3D TÒA NHÀ                   */}
+      {/* ═════════════════════════════════════════════════════════════════════ */}
       {allApartments.length > 0 && (
         <div className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-8">
           <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
@@ -1385,216 +1418,299 @@ function ProjectDetailView({
                 Quỹ căn hộ chi tiết ({filteredApartments.length} / {allApartments.length} căn)
               </h2>
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                Thông số kỹ thuật, hướng cửa, ban công, diện tích thông thủy và cơ cấu sở hữu
+                Duyệt danh sách chi tiết các căn hộ, diện tích, mức giá và xem nội thất 3D từng căn
               </p>
             </div>
 
-            {/* Quick status indicators */}
-            <div className="flex items-center gap-3 text-xs">
-              <span className="flex items-center gap-1.5 font-medium text-emerald-700 dark:text-emerald-400">
-                <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                Khả dụng ({allApartments.filter(a => String(a.status).toUpperCase() !== 'ASSIGNED').length})
-              </span>
-              <span className="flex items-center gap-1.5 font-medium text-slate-500">
-                <span className="h-2.5 w-2.5 rounded-full bg-slate-400" />
-                Đã giao ({allApartments.filter(a => String(a.status).toUpperCase() === 'ASSIGNED').length})
-              </span>
+            {/* Status Indicators & Nút mở Sơ đồ 3D */}
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-3 text-xs">
+                <span className="flex items-center gap-1.5 font-medium text-emerald-700 dark:text-emerald-400">
+                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                  Khả dụng ({allApartments.filter(a => String(a.status).toUpperCase() !== 'ASSIGNED').length})
+                </span>
+                <span className="flex items-center gap-1.5 font-medium text-slate-500">
+                  <span className="h-2.5 w-2.5 rounded-full bg-slate-400" />
+                  Đã giao ({allApartments.filter(a => String(a.status).toUpperCase() === 'ASSIGNED').length})
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsBuilding3DFullscreen(true)}
+                className="flex items-center gap-1.5 rounded-xl bg-teal-50 px-3.5 py-1.5 text-xs font-bold text-teal-700 hover:bg-teal-100 dark:bg-teal-950/60 dark:text-teal-300 dark:hover:bg-teal-900/60 transition shadow-sm border border-teal-200/60 dark:border-teal-800"
+              >
+                <Box className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+                <span>Xem Sơ đồ 3D Toàn khu</span>
+              </button>
             </div>
           </div>
 
-          {/* Bộ lọc căn hộ */}
-          <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5 rounded-2xl bg-slate-50 p-4 border border-slate-100 dark:bg-slate-800/40 dark:border-slate-800">
-            <div>
-              <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">Mã căn</label>
-              <input
-                type="text"
-                placeholder="Tìm mã căn (vd: A-101)..."
-                value={searchUnitName}
-                onChange={(e) => setSearchUnitName(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 focus:border-teal-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-              />
-            </div>
-
-            {availableBlocks.length > 1 && (
+          <div>
+            {/* Bộ lọc căn hộ */}
+            <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5 rounded-2xl bg-slate-50 p-4 border border-slate-100 dark:bg-slate-800/40 dark:border-slate-800">
               <div>
-                <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">Tòa / Block</label>
+                <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">Mã căn</label>
+                <input
+                  type="text"
+                  placeholder="Tìm mã căn (vd: A-101)..."
+                  value={searchUnitName}
+                  onChange={(e) => setSearchUnitName(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 focus:border-teal-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                />
+              </div>
+
+              {availableBlocks.length > 1 && (
+                <div>
+                  <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">Tòa / Block</label>
+                  <select
+                    value={selectedBlock}
+                    onChange={(e) => setSelectedBlock(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 focus:border-teal-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                  >
+                    <option value="ALL">Tất cả các tòa</option>
+                    {availableBlocks.map((b) => (
+                      <option key={b} value={b}>{b}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">Số phòng ngủ</label>
                 <select
-                  value={selectedBlock}
-                  onChange={(e) => setSelectedBlock(e.target.value)}
+                  value={selectedBedrooms}
+                  onChange={(e) => setSelectedBedrooms(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 focus:border-teal-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
                 >
-                  <option value="ALL">Tất cả các tòa</option>
-                  {availableBlocks.map((b) => (
-                    <option key={b} value={b}>{b}</option>
-                  ))}
+                  <option value="ALL">Tất cả số phòng ngủ</option>
+                  <option value="1">1 Phòng ngủ</option>
+                  <option value="2">2 Phòng ngủ</option>
+                  <option value="3">3 Phòng ngủ</option>
                 </select>
               </div>
+
+              <div>
+                <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">Nhóm căn</label>
+                <select
+                  value={selectedUnitGroup}
+                  onChange={(e) => setSelectedUnitGroup(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 focus:border-teal-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                >
+                  <option value="ALL">Tất cả nhóm căn</option>
+                  <option value="STANDARD">Căn chuẩn</option>
+                  <option value="PRIORITY">Suất ưu tiên ⭐</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">Hình thức sở hữu</label>
+                <select
+                  value={selectedSaleType}
+                  onChange={(e) => setSelectedSaleType(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 focus:border-teal-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                >
+                  <option value="ALL">Tất cả hình thức</option>
+                  <option value="FULL_OWNERSHIP">Sở hữu toàn phần (100%)</option>
+                  <option value="CO_OWNERSHIP">Đồng sở hữu</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Grid Căn hộ */}
+            {filteredApartments.length === 0 ? (
+              <div className="p-8 text-center text-xs text-slate-500">
+                Không tìm thấy căn hộ phù hợp với bộ lọc.
+              </div>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {filteredApartments.map((apt) => {
+                  const isAssigned = String(apt.status).toUpperCase() === 'ASSIGNED'
+                  const isPriority = apt.unitGroup?.toUpperCase() === 'PRIORITY'
+                  const isCoOwnership = apt.saleType?.toUpperCase() === 'CO_OWNERSHIP'
+
+                  return (
+                    <div
+                      key={apt.id || apt.unitName}
+                      className={`flex flex-col justify-between rounded-2xl border p-4 transition-all hover:shadow-md ${isAssigned
+                        ? 'border-slate-200 bg-slate-50/80 dark:border-slate-800 dark:bg-slate-900/40 opacity-75'
+                        : 'border-slate-200/90 bg-white hover:border-teal-300 dark:border-slate-800 dark:bg-slate-900'
+                        }`}
+                    >
+                      <div>
+                        {/* Top Header: Unit Name + Badges */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-base font-black text-slate-900 dark:text-white">
+                              {apt.unitName}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {apt.buildingBlock || 'Block A'} · Tầng {apt.floorNumber ?? 1}
+                            </p>
+                          </div>
+                          <span
+                            className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${isAssigned
+                              ? 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                              : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                              }`}
+                          >
+                            {isAssigned ? 'Đã cấp' : 'Còn trống'}
+                          </span>
+                        </div>
+
+                        {/* Thông số kỹ thuật */}
+                        <div className="mt-3 space-y-1.5 border-t border-b border-slate-100 py-2.5 text-xs text-slate-600 dark:border-slate-800 dark:text-slate-300">
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-400 flex items-center gap-1">
+                              <Maximize2 className="h-3 w-3" /> Diện tích:
+                            </span>
+                            <span className="font-semibold">
+                              {apt.area} m² {apt.grossArea ? `(${apt.grossArea} m² tim tường)` : ''}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-400 flex items-center gap-1">
+                              <Bed className="h-3 w-3" /> Cơ cấu phòng:
+                            </span>
+                            <span className="font-semibold">
+                              {apt.numberOfBedrooms ?? 2} Phòng ngủ · {apt.numberOfBathrooms ?? 1} Phòng vệ sinh
+                            </span>
+                          </div>
+
+                          {(apt.mainDoorDirection || apt.balconyDirection) && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-slate-400 flex items-center gap-1">
+                                <Compass className="h-3 w-3" /> Hướng:
+                              </span>
+                              <span className="font-semibold">
+                                Cửa {apt.mainDoorDirection ? DIRECTION_LABELS[apt.mainDoorDirection] || apt.mainDoorDirection : 'Đông Nam'}
+                                {apt.balconyDirection ? ` · Ban công ${DIRECTION_LABELS[apt.balconyDirection] || apt.balconyDirection}` : ''}
+                              </span>
+                            </div>
+                          )}
+
+                          {apt.viewDescription && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-slate-400 flex items-center gap-1">
+                                <Eye className="h-3 w-3" /> Hướng nhìn:
+                              </span>
+                              <span className="font-medium truncate max-w-[130px] text-right" title={apt.viewDescription}>
+                                {apt.viewDescription}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Loại hình & Tỷ lệ */}
+                        <div className="mt-2.5 flex flex-wrap gap-1.5">
+                          {isPriority && (
+                            <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                              Suất ưu tiên ⭐
+                            </span>
+                          )}
+                          {isCoOwnership ? (
+                            <span className="rounded-md bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300">
+                              Đồng sở hữu ({apt.coOwnershipRatio || 50}%)
+                            </span>
+                          ) : (
+                            <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                              Toàn quyền sở hữu
+                            </span>
+                          )}
+                          {apt.maxOccupants && (
+                            <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                              Tối đa {apt.maxOccupants} người
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Price & 3D Action bottom */}
+                      <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+                        <div>
+                          <span className="text-[10px] text-slate-400 font-medium block">Giá niêm yết:</span>
+                          <p className="text-sm font-black text-teal-600 dark:text-teal-400">
+                            {Number(apt.price).toLocaleString('vi-VN')} VNĐ
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActive3DApartment(apt)
+                            setIs3DModalOpen(true)
+                          }}
+                          className="flex items-center gap-1.5 rounded-xl bg-teal-50 px-2.5 py-1.5 text-xs font-bold text-teal-700 hover:bg-teal-100 dark:bg-teal-950/60 dark:text-teal-300 dark:hover:bg-teal-900/60 transition shadow-sm"
+                          title="Xem mô hình 3D nội thất căn hộ"
+                        >
+                          <Box className="h-3.5 w-3.5" />
+                          <span>Xem 3D</span>
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             )}
+          </div>
+        </div>
+      )}
 
-            <div>
-              <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">Số phòng ngủ</label>
-              <select
-                value={selectedBedrooms}
-                onChange={(e) => setSelectedBedrooms(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 focus:border-teal-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-              >
-                <option value="ALL">Tất cả số phòng ngủ</option>
-                <option value="1">1 Phòng ngủ</option>
-                <option value="2">2 Phòng ngủ</option>
-                <option value="3">3 Phòng ngủ</option>
-              </select>
+      {/* Modal Fullscreen Sơ đồ 3D Không gian Quy hoạch & Tòa nhà */}
+      {isBuilding3DFullscreen && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-slate-950/98 backdrop-blur-2xl animate-in fade-in duration-200">
+          {/* Modal Header */}
+          <div className="flex h-16 flex-shrink-0 items-center justify-between border-b border-slate-800 bg-slate-900/95 px-6 shadow-md">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-500/20 text-teal-400 ring-1 ring-teal-500/30">
+                <Box className="h-6 w-6" />
+              </div>
+              <div>
+                <h2 className="text-base font-black text-white flex items-center gap-2">
+                  Sơ đồ 3D Không gian Quy hoạch & Tòa nhà
+                  <span className="rounded-full bg-teal-500/20 px-2.5 py-0.5 text-xs font-bold text-teal-300">
+                    {project.projectName || project.name}
+                  </span>
+                </h2>
+                <p className="text-[11px] text-slate-400">
+                  Khám phá toàn cảnh 3D đô thị, bóc tách tầng, hồ bơi, sân thể thao và chọn từng căn hộ để xem nội thất chi tiết
+                </p>
+              </div>
             </div>
 
-            <div>
-              <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">Nhóm căn</label>
-              <select
-                value={selectedUnitGroup}
-                onChange={(e) => setSelectedUnitGroup(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 focus:border-teal-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setIsBuilding3DFullscreen(false)}
+                className="flex items-center gap-2 rounded-xl bg-slate-800 px-4 py-2 text-xs font-bold text-slate-200 hover:bg-slate-700 hover:text-white transition active:scale-95 border border-slate-700 shadow-md"
               >
-                <option value="ALL">Tất cả nhóm căn</option>
-                <option value="STANDARD">Căn chuẩn</option>
-                <option value="PRIORITY">Suất ưu tiên ⭐</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">Hình thức sở hữu</label>
-              <select
-                value={selectedSaleType}
-                onChange={(e) => setSelectedSaleType(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 focus:border-teal-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-              >
-                <option value="ALL">Tất cả hình thức</option>
-                <option value="FULL_OWNERSHIP">Sở hữu toàn phần (100%)</option>
-                <option value="CO_OWNERSHIP">Đồng sở hữu</option>
-              </select>
+                <X className="h-4 w-4" />
+                Đóng sơ đồ 3D
+              </button>
             </div>
           </div>
 
-          {/* Grid Căn hộ */}
-          {filteredApartments.length === 0 ? (
-            <div className="p-8 text-center text-xs text-slate-500">
-              Không tìm thấy căn hộ phù hợp với bộ lọc.
-            </div>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {filteredApartments.map((apt) => {
-                const isAssigned = String(apt.status).toUpperCase() === 'ASSIGNED'
-                const isPriority = apt.unitGroup?.toUpperCase() === 'PRIORITY'
-                const isCoOwnership = apt.saleType?.toUpperCase() === 'CO_OWNERSHIP'
-
-                return (
-                  <div
-                    key={apt.id || apt.unitName}
-                    className={`flex flex-col justify-between rounded-2xl border p-4 transition-all hover:shadow-md ${isAssigned
-                      ? 'border-slate-200 bg-slate-50/80 dark:border-slate-800 dark:bg-slate-900/40 opacity-75'
-                      : 'border-slate-200/90 bg-white hover:border-teal-300 dark:border-slate-800 dark:bg-slate-900'
-                      }`}
-                  >
-                    <div>
-                      {/* Top Header: Unit Name + Badges */}
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="text-base font-black text-slate-900 dark:text-white">
-                            {apt.unitName}
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            {apt.buildingBlock || 'Block A'} · Tầng {apt.floorNumber ?? 1}
-                          </p>
-                        </div>
-                        <span
-                          className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${isAssigned
-                            ? 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-                            : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
-                            }`}
-                        >
-                          {isAssigned ? 'Đã cấp' : 'Còn trống'}
-                        </span>
-                      </div>
-
-                      {/* Thông số kỹ thuật */}
-                      <div className="mt-3 space-y-1.5 border-t border-b border-slate-100 py-2.5 text-xs text-slate-600 dark:border-slate-800 dark:text-slate-300">
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-400 flex items-center gap-1">
-                            <Maximize2 className="h-3 w-3" /> Diện tích:
-                          </span>
-                          <span className="font-semibold">
-                            {apt.area} m² {apt.grossArea ? `(${apt.grossArea} m² tim tường)` : ''}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-400 flex items-center gap-1">
-                            <Bed className="h-3 w-3" /> Cơ cấu phòng:
-                          </span>
-                          <span className="font-semibold">
-                            {apt.numberOfBedrooms ?? 2} Phòng ngủ · {apt.numberOfBathrooms ?? 1} Phòng vệ sinh
-                          </span>
-                        </div>
-
-                        {(apt.mainDoorDirection || apt.balconyDirection) && (
-                          <div className="flex items-center justify-between">
-                            <span className="text-slate-400 flex items-center gap-1">
-                              <Compass className="h-3 w-3" /> Hướng:
-                            </span>
-                            <span className="font-semibold">
-                              Cửa {apt.mainDoorDirection ? DIRECTION_LABELS[apt.mainDoorDirection] || apt.mainDoorDirection : 'Đông Nam'}
-                              {apt.balconyDirection ? ` · Ban công ${DIRECTION_LABELS[apt.balconyDirection] || apt.balconyDirection}` : ''}
-                            </span>
-                          </div>
-                        )}
-
-                        {apt.viewDescription && (
-                          <div className="flex items-center justify-between">
-                            <span className="text-slate-400 flex items-center gap-1">
-                              <Eye className="h-3 w-3" /> Hướng nhìn:
-                            </span>
-                            <span className="font-medium truncate max-w-[130px] text-right" title={apt.viewDescription}>
-                              {apt.viewDescription}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Loại hình & Tỷ lệ */}
-                      <div className="mt-2.5 flex flex-wrap gap-1.5">
-                        {isPriority && (
-                          <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
-                            Suất ưu tiên ⭐
-                          </span>
-                        )}
-                        {isCoOwnership ? (
-                          <span className="rounded-md bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300">
-                            Đồng sở hữu ({apt.coOwnershipRatio || 50}%)
-                          </span>
-                        ) : (
-                          <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
-                            Toàn quyền sở hữu
-                          </span>
-                        )}
-                        {apt.maxOccupants && (
-                          <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
-                            Tối đa {apt.maxOccupants} người
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Price bottom */}
-                    <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-baseline justify-between">
-                      <span className="text-[11px] text-slate-400 font-medium">Giá bán niêm yết:</span>
-                      <p className="text-base font-black text-teal-600 dark:text-teal-400">
-                        {Number(apt.price).toLocaleString('vi-VN')} VNĐ
-                      </p>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
+          {/* Modal Body - 100% full screen 3D canvas trọn vẹn */}
+          <div className="relative flex-1 w-full min-h-0 overflow-hidden p-2 sm:p-4">
+            <Building3DViewer
+              projectId={projectId}
+              apartments={allApartments}
+              onSelectApartment={(apt) => {
+                setActive3DApartment(apt)
+                setIs3DModalOpen(true)
+              }}
+            />
+          </div>
         </div>
       )}
+
+      {/* Modal xem 3D căn hộ */}
+      <Apartment3DViewer
+        apartment={active3DApartment}
+        isOpen={is3DModalOpen}
+        onClose={() => setIs3DModalOpen(false)}
+      />
     </div>
   )
 }

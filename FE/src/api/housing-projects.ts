@@ -99,6 +99,8 @@ export function parseApartments(data: unknown): ApartmentDto[] {
       price: Number(x.price ?? x.Price ?? 0),
       status: String(x.status ?? x.Status ?? 'AVAILABLE'),
       description: (x.description ?? x.Description) as string | null | undefined,
+      model3DUrl: (x.model3DUrl ?? x.Model3DUrl) as string | undefined,
+      virtualTourUrl: (x.virtualTourUrl ?? x.VirtualTourUrl) as string | undefined,
     } satisfies ApartmentDto
   })
 }
@@ -302,6 +304,21 @@ export const housingProjectsApi = {
   /** Lấy danh sách dự án chờ SXD duyệt (PENDING) */
   listSxdPendingProjects: () =>
     request<ApiResult>('/api/HousingProjects/sxd-pending', { auth: true }),
+
+  /** Lấy cấu trúc mặt bằng 3D toàn dự án (Block -> Tầng -> Căn hộ) */
+  getFloorPlan: (projectId: string) =>
+    request<ApiResult>(`/api/housing-projects/${projectId}/floor-plan`, { auth: false }),
+
+  /** Upload file mô hình 3D (.glb, .gltf, .obj...) lên Cloudinary */
+  upload3DModel: (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return request<ApiResult>('/api/HousingProjects/upload-3d-model', {
+      method: 'POST',
+      body: formData,
+      auth: true,
+    })
+  },
 }
 
 /** Action SXD dùng để chuyển trạng thái dự án. Match với BE controller. */

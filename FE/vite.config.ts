@@ -15,6 +15,35 @@ export default defineConfig({
   optimizeDeps: {
     include: ['recharts', 'react', 'react-dom', 'framer-motion', '@microsoft/signalr'],
   },
+  build: {
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks: (id) => {
+          if (id.includes('node_modules')) {
+            if (id.includes('three')) {
+              return 'vendor-three'
+            }
+            if (id.includes('@ckeditor')) {
+              return 'vendor-editor'
+            }
+            if (id.includes('recharts')) {
+              return 'vendor-charts'
+            }
+            if (id.includes('framer-motion')) {
+              return 'vendor-motion'
+            }
+            if (id.includes('@microsoft/signalr')) {
+              return 'vendor-signalr'
+            }
+            if (id.includes('react') || id.includes('react-dom') || id.includes('lucide-react')) {
+              return 'vendor-core'
+            }
+          }
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     strictPort: true,
@@ -34,3 +63,4 @@ export default defineConfig({
     },
   },
 })
+

@@ -1,63 +1,11 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, lazy, Suspense } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { AppShell } from '@/components/layout/app-shell'
 import { PaymentNotice } from '@/components/layout/payment-notice'
 import { EkycNotice } from '@/components/layout/ekyc-notice'
 import { useHashRoute } from '@/hooks/useHashRoute'
 import { getCachedVerified, refreshVerifiedCache, setCachedVerified } from '@/lib/verification'
-import {
-  ChangePasswordPage,
-  ForgotPasswordPage,
-  RegisterPage,
-  ResendOtpPage,
-  ResetPasswordPage,
-  VerifyOtpPage,
-} from '@/pages/auth-pages'
-import { VerifyIdentityPage } from '@/pages/verify-identity-page'
-import {
-  ApplicationDetailPage,
-  ApplicationsPage,
-  CreateApplicationPage,
-} from '@/pages/applications-pages'
-import { AdminStaffPage, CreateStaffPage, StaffDetailPage } from '@/pages/admin-pages'
-import { LandingPage } from '@/pages/landing-page'
-import { LoginPage } from '@/pages/login-page'
-import { HousingSearchPage } from '@/pages/housing-search-page'
-import { AnnouncementsPage, SxdAnnouncementsPage } from '@/pages/announcements-page'
-import { LookupPage } from '@/pages/lookup-page'
-import { NotificationsPage } from '@/pages/notifications-page'
-import { PaymentsPage } from '@/pages/payments-pages'
-import { ProfilePage } from '@/pages/profile-page'
-import { CreateProjectPage, ProjectDetailPage, ProjectsPage } from '@/pages/projects-pages'
-import { ReportIssuePage } from '@/pages/report-issue-page'
-import {
-  LotteryCreatePage,
-  LotteryDetailPage,
-  LotteryLivePage,
-  LotteryLobbyPage,
-  LotterySessionsPage,
-} from '@/pages/lottery-pages'
-import { MyLotteryPage } from '@/pages/my-lottery-page'
-import {
-  ContractCreatePage,
-  ContractDetailPage,
-  ContractsPage,
-} from '@/pages/contract-pages'
-import { MyApartmentPage } from '@/pages/my-apartment-page'
-import { AuditDetailPage, AuditListPage, AuditCreatePage } from '@/pages/audit-pages'
-import { SxdProjectDetailPage, SxdProjectsPage } from '@/pages/sxd-projects-pages'
-import { SxdPaymentsPage } from '@/pages/sxd-payments-page'
-import {
-  CategoriesPage,
-  SystemLogsPage,
-} from '@/pages/admin-extras-pages'
-import { AdminHomePage } from '@/pages/admin-home-page'
-import {
-  ApplicantHomePage,
-  InterestedPage,
-  StaffRoleHomePage,
-} from '@/pages/role-home-page'
-import { SessionDashboardPage } from '@/pages/session-dashboard-page'
+import { Loader2 } from 'lucide-react'
 import {
   AUTH_FORM_ROUTES,
   canAccess,
@@ -68,6 +16,75 @@ import {
   roleHome,
   type RouteId,
 } from '@/router'
+
+// Lazy-loaded pages for lightning fast initial load
+const LandingPage = lazy(() => import('@/pages/landing-page').then(m => ({ default: m.LandingPage })))
+const LookupPage = lazy(() => import('@/pages/lookup-page').then(m => ({ default: m.LookupPage })))
+const HousingSearchPage = lazy(() => import('@/pages/housing-search-page').then(m => ({ default: m.HousingSearchPage })))
+const AnnouncementsPage = lazy(() => import('@/pages/announcements-page').then(m => ({ default: m.AnnouncementsPage })))
+const SxdAnnouncementsPage = lazy(() => import('@/pages/announcements-page').then(m => ({ default: m.SxdAnnouncementsPage })))
+const LoginPage = lazy(() => import('@/pages/login-page').then(m => ({ default: m.LoginPage })))
+const RegisterPage = lazy(() => import('@/pages/auth-pages').then(m => ({ default: m.RegisterPage })))
+const VerifyOtpPage = lazy(() => import('@/pages/auth-pages').then(m => ({ default: m.VerifyOtpPage })))
+const VerifyIdentityPage = lazy(() => import('@/pages/verify-identity-page').then(m => ({ default: m.VerifyIdentityPage })))
+const ResendOtpPage = lazy(() => import('@/pages/auth-pages').then(m => ({ default: m.ResendOtpPage })))
+const ForgotPasswordPage = lazy(() => import('@/pages/auth-pages').then(m => ({ default: m.ForgotPasswordPage })))
+const ResetPasswordPage = lazy(() => import('@/pages/auth-pages').then(m => ({ default: m.ResetPasswordPage })))
+const ChangePasswordPage = lazy(() => import('@/pages/auth-pages').then(m => ({ default: m.ChangePasswordPage })))
+
+const ApplicantHomePage = lazy(() => import('@/pages/role-home-page').then(m => ({ default: m.ApplicantHomePage })))
+const AdminHomePage = lazy(() => import('@/pages/admin-home-page').then(m => ({ default: m.AdminHomePage })))
+const StaffRoleHomePage = lazy(() => import('@/pages/role-home-page').then(m => ({ default: m.StaffRoleHomePage })))
+const InterestedPage = lazy(() => import('@/pages/role-home-page').then(m => ({ default: m.InterestedPage })))
+const SessionDashboardPage = lazy(() => import('@/pages/session-dashboard-page').then(m => ({ default: m.SessionDashboardPage })))
+const ProfilePage = lazy(() => import('@/pages/profile-page').then(m => ({ default: m.ProfilePage })))
+
+const ApplicationsPage = lazy(() => import('@/pages/applications-pages').then(m => ({ default: m.ApplicationsPage })))
+const CreateApplicationPage = lazy(() => import('@/pages/applications-pages').then(m => ({ default: m.CreateApplicationPage })))
+const ApplicationDetailPage = lazy(() => import('@/pages/applications-pages').then(m => ({ default: m.ApplicationDetailPage })))
+
+const ProjectsPage = lazy(() => import('@/pages/projects-pages').then(m => ({ default: m.ProjectsPage })))
+const CreateProjectPage = lazy(() => import('@/pages/projects-pages').then(m => ({ default: m.CreateProjectPage })))
+const ProjectDetailPage = lazy(() => import('@/pages/projects-pages').then(m => ({ default: m.ProjectDetailPage })))
+
+const PaymentsPage = lazy(() => import('@/pages/payments-pages').then(m => ({ default: m.PaymentsPage })))
+const AdminStaffPage = lazy(() => import('@/pages/admin-pages').then(m => ({ default: m.AdminStaffPage })))
+const CreateStaffPage = lazy(() => import('@/pages/admin-pages').then(m => ({ default: m.CreateStaffPage })))
+const StaffDetailPage = lazy(() => import('@/pages/admin-pages').then(m => ({ default: m.StaffDetailPage })))
+const NotificationsPage = lazy(() => import('@/pages/notifications-page').then(m => ({ default: m.NotificationsPage })))
+const ReportIssuePage = lazy(() => import('@/pages/report-issue-page').then(m => ({ default: m.ReportIssuePage })))
+
+const LotterySessionsPage = lazy(() => import('@/pages/lottery-pages').then(m => ({ default: m.LotterySessionsPage })))
+const LotteryCreatePage = lazy(() => import('@/pages/lottery-pages').then(m => ({ default: m.LotteryCreatePage })))
+const LotteryDetailPage = lazy(() => import('@/pages/lottery-pages').then(m => ({ default: m.LotteryDetailPage })))
+const LotteryLobbyPage = lazy(() => import('@/pages/lottery-pages').then(m => ({ default: m.LotteryLobbyPage })))
+const LotteryLivePage = lazy(() => import('@/pages/lottery-pages').then(m => ({ default: m.LotteryLivePage })))
+const MyLotteryPage = lazy(() => import('@/pages/my-lottery-page').then(m => ({ default: m.MyLotteryPage })))
+
+const ContractsPage = lazy(() => import('@/pages/contract-pages').then(m => ({ default: m.ContractsPage })))
+const ContractCreatePage = lazy(() => import('@/pages/contract-pages').then(m => ({ default: m.ContractCreatePage })))
+const ContractDetailPage = lazy(() => import('@/pages/contract-pages').then(m => ({ default: m.ContractDetailPage })))
+const MyApartmentPage = lazy(() => import('@/pages/my-apartment-page').then(m => ({ default: m.MyApartmentPage })))
+
+const AuditListPage = lazy(() => import('@/pages/audit-pages').then(m => ({ default: m.AuditListPage })))
+const AuditCreatePage = lazy(() => import('@/pages/audit-pages').then(m => ({ default: m.AuditCreatePage })))
+const AuditDetailPage = lazy(() => import('@/pages/audit-pages').then(m => ({ default: m.AuditDetailPage })))
+
+const SxdProjectsPage = lazy(() => import('@/pages/sxd-projects-pages').then(m => ({ default: m.SxdProjectsPage })))
+const SxdProjectDetailPage = lazy(() => import('@/pages/sxd-projects-pages').then(m => ({ default: m.SxdProjectDetailPage })))
+const SxdPaymentsPage = lazy(() => import('@/pages/sxd-payments-page').then(m => ({ default: m.SxdPaymentsPage })))
+
+const SystemLogsPage = lazy(() => import('@/pages/admin-extras-pages').then(m => ({ default: m.SystemLogsPage })))
+const CategoriesPage = lazy(() => import('@/pages/admin-extras-pages').then(m => ({ default: m.CategoriesPage })))
+
+function PageLoadingFallback() {
+  return (
+    <div className="flex min-h-[50vh] w-full flex-col items-center justify-center gap-3 text-slate-500 dark:text-slate-400">
+      <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
+      <span className="text-xs font-semibold tracking-wide">Đang tải dữ liệu…</span>
+    </div>
+  )
+}
 
 function RouteView({ route }: { route: RouteId }) {
   switch (route) {
@@ -175,7 +192,9 @@ export function App() {
           transition={{ duration: 0.25 }}
           className={centered ? 'flex min-h-[60vh] items-center justify-center' : ''}
         >
-          <RouteView route={route} />
+          <Suspense fallback={<PageLoadingFallback />}>
+            <RouteView route={route} />
+          </Suspense>
         </motion.div>
       </AnimatePresence>
     </AppShell>
