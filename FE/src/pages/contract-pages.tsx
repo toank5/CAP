@@ -332,13 +332,12 @@ function DeveloperUnlockBar({
               type="button"
               disabled={disabled}
               onClick={() => void handleUnlock(trigger)}
-              className={`flex flex-col items-start gap-1 rounded-lg border p-3 text-left text-sm transition ${
-                paid
+              className={`flex flex-col items-start gap-1 rounded-lg border p-3 text-left text-sm transition ${paid
                   ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30'
                   : disabled
                     ? 'cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400 dark:border-slate-700 dark:bg-slate-800/40'
                     : 'border-indigo-200 bg-white hover:border-indigo-400 hover:bg-indigo-50 dark:border-indigo-800 dark:bg-slate-900 dark:hover:bg-indigo-950/40'
-              }`}
+                }`}
             >
               <span className="flex items-center gap-2 font-semibold">
                 <Icon className="h-4 w-4" />
@@ -483,20 +482,20 @@ function InstallmentRow({
   const borderClass = isPaid
     ? 'border-emerald-300 dark:border-emerald-700/60'
     : isOverdue
-    ? 'border-rose-300 dark:border-rose-700/60'
-    : isLocked
-    ? 'border-slate-200 dark:border-slate-700'
-    : isCancelled
-    ? 'border-slate-200 dark:border-slate-700 opacity-70'
-    : 'border-amber-300 dark:border-amber-700/60'
+      ? 'border-rose-300 dark:border-rose-700/60'
+      : isLocked
+        ? 'border-slate-200 dark:border-slate-700'
+        : isCancelled
+          ? 'border-slate-200 dark:border-slate-700 opacity-70'
+          : 'border-amber-300 dark:border-amber-700/60'
 
   const toneBadgeText = isPaid
     ? 'Đã đóng'
     : isOverdue
-    ? 'Quá hạn'
-    : isPending
-    ? 'Chưa thanh toán'
-    : INSTALLMENT_STATUS_LABEL[inst.status]
+      ? 'Quá hạn'
+      : isPending
+        ? 'Chưa thanh toán'
+        : INSTALLMENT_STATUS_LABEL[inst.status]
 
   const badgeTone = isOverdue ? 'danger' : tone
 
@@ -511,10 +510,10 @@ function InstallmentRow({
     isPaid
       ? null
       : isOverdue
-      ? `Quá hạn ${Math.abs(daysLeft)} ngày`
-      : daysLeft >= 0
-      ? `Còn ${daysLeft} ngày`
-      : null
+        ? `Quá hạn ${Math.abs(daysLeft)} ngày`
+        : daysLeft >= 0
+          ? `Còn ${daysLeft} ngày`
+          : null
 
   return (
     <div
@@ -524,15 +523,14 @@ function InstallmentRow({
         {/* Left: ordinal + info */}
         <div className="flex min-w-0 flex-1 items-start gap-3">
           <div
-            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-base font-bold ${
-              isPaid
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-base font-bold ${isPaid
                 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
                 : isOverdue
-                ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
-                : isLocked
-                ? 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
-                : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
-            }`}
+                  ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
+                  : isLocked
+                    ? 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                    : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+              }`}
             aria-hidden
           >
             {inst.ordinal}
@@ -551,9 +549,8 @@ function InstallmentRow({
               </span>
               {countdownLabel && (
                 <span
-                  className={`inline-flex items-center gap-1 font-medium ${
-                    isOverdue ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'
-                  }`}
+                  className={`inline-flex items-center gap-1 font-medium ${isOverdue ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'
+                    }`}
                 >
                   <Clock className="h-3.5 w-3.5" />
                   {countdownLabel}
@@ -602,15 +599,14 @@ function InstallmentRow({
         </div>
         <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
           <div
-            className={`h-full rounded-full ${
-              isPaid
+            className={`h-full rounded-full ${isPaid
                 ? 'bg-emerald-500'
                 : isOverdue
-                ? 'bg-rose-500'
-                : isLocked
-                ? 'bg-slate-300 dark:bg-slate-600'
-                : 'bg-amber-400'
-            }`}
+                  ? 'bg-rose-500'
+                  : isLocked
+                    ? 'bg-slate-300 dark:bg-slate-600'
+                    : 'bg-amber-400'
+              }`}
             style={{ width: `${phasePct}%` }}
           />
         </div>
@@ -658,17 +654,17 @@ function PaymentProgressCard({
     contractPrice != null
       ? contractPrice
       : officialPrice != null
-      ? officialPrice
-      : housePrice != null
-      ? housePrice
-      : sumPhases
+        ? officialPrice
+        : housePrice != null
+          ? housePrice
+          : sumPhases
   const hp = housePrice ?? contractPrice
   const pbt =
     hp != null && sumPhases > hp
       ? Math.max(0, sumPhases - hp)
       : hp != null
-      ? Math.round((hp * 0.02) / 1000) * 1000
-      : null
+        ? Math.round((hp * 0.02) / 1000) * 1000
+        : null
   const paidCount = installments.filter((i) => i.status === 'PAID').length
   const fmt = (n: number) => `${n.toLocaleString('vi-VN')} VNĐ`
 
@@ -870,8 +866,8 @@ function ApplicationSummaryCard({
     basePrice != null && sumPhases > basePrice
       ? Math.max(0, sumPhases - basePrice)
       : basePrice != null
-      ? Math.round((basePrice * 0.02) / 1000) * 1000
-      : null
+        ? Math.round((basePrice * 0.02) / 1000) * 1000
+        : null
   const apartmentArea = apt?.apartmentArea ?? null
   const apartmentCode = apt?.apartmentUnitName ?? apt?.apartmentCode ?? null
 
@@ -899,7 +895,7 @@ function ApplicationSummaryCard({
           value={basePrice != null ? `${basePrice.toLocaleString('vi-VN')} VNĐ` : null}
         />
         <InfoRow
-          label="Tổng 6 đợt phải trả"
+          label={`Tổng ${installments.length > 0 ? `${installments.length} đợt` : 'các đợt'} phải trả`}
           value={sumPhases > 0 ? `${sumPhases.toLocaleString('vi-VN')} VNĐ` : null}
         />
         {pbt != null && (
@@ -1160,8 +1156,8 @@ export function ContractDetailPage() {
                   contractPrice != null
                     ? contractPrice
                     : housePrice != null
-                    ? housePrice
-                    : null
+                      ? housePrice
+                      : null
                 if (ref == null) return null
                 const diff = Math.abs(sumPhases - ref)
                 const mismatch = diff > 1000
@@ -1173,7 +1169,7 @@ export function ContractDetailPage() {
                         Số tiền lịch thanh toán không khớp giá nhà chính thức.
                       </p>
                       <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
-                        Tổng 6 đợt: <b>{sumPhases.toLocaleString('vi-VN')}</b> VNĐ —
+                        Tổng {installments.length > 0 ? `${installments.length} đợt` : 'các đợt'}: <b>{sumPhases.toLocaleString('vi-VN')}</b> VNĐ —
                         Giá nhà: <b>{ref.toLocaleString('vi-VN')}</b> VNĐ
                         (chênh {(sumPhases - ref > 0 ? '+' : '') + (sumPhases - ref).toLocaleString('vi-VN')} VNĐ).
                         Vui lòng báo CĐT/ban quản lý đối soát.
@@ -1191,10 +1187,10 @@ export function ContractDetailPage() {
                   contractPrice != null
                     ? contractPrice
                     : officialPrice != null
-                    ? officialPrice
-                    : housePrice != null
-                    ? housePrice
-                    : installments.reduce((s, i) => s + (i.amount || 0), 0)
+                      ? officialPrice
+                      : housePrice != null
+                        ? housePrice
+                        : installments.reduce((s, i) => s + (i.amount || 0), 0)
                 }
                 applicationId={id}
                 applicationStatus={status?.applicationStatus ?? appDetail?.applicationStatus ?? ''}
@@ -1210,7 +1206,7 @@ export function ContractDetailPage() {
                 Hợp đồng đã ký nhưng hệ thống chưa sinh lịch thanh toán.
               </p>
               <p className="text-xs text-slate-600 dark:text-slate-400">
-                Vui lòng liên hệ CĐT / Ban quản lý dự án để được tạo lịch 6 đợt.
+                Vui lòng liên hệ CĐT / Ban quản lý dự án để được tạo lịch thanh toán (3–6 đợt theo dự án).
                 (Mã hồ sơ: <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">{id.slice(0, 8)}…</code>)
               </p>
               <Button size="sm" variant="outline" onClick={() => void reload()}>
@@ -1222,7 +1218,7 @@ export function ContractDetailPage() {
 
         {!installmentsError && installments.length === 0 && !hasApartment && (
           <Alert variant="info">
-            <strong>Chưa có lịch thanh toán.</strong> Hệ thống sẽ sinh lịch 6 đợt sau khi CĐT gán căn hộ cho bạn.
+            <strong>Chưa có lịch thanh toán.</strong> Hệ thống sẽ sinh lịch thanh toán (3–6 đợt theo cấu hình của CĐT) sau khi CĐT gán căn hộ cho bạn.
           </Alert>
         )}
       </PageCard>

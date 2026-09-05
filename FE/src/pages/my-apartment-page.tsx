@@ -55,10 +55,10 @@ function FlowStepIndicator({ step }: { step: FlowStep }) {
   ]
   const currentIdx =
     step === 'none' ? -1 :
-    step === 'deposit' ? 0 :
-    step === 'sign' ? 1 :
-    step === 'pay-installment' ? 2 :
-    3
+      step === 'deposit' ? 0 :
+        step === 'sign' ? 1 :
+          step === 'pay-installment' ? 2 :
+            3
 
   return (
     <div className="flex items-center justify-center gap-0">
@@ -69,29 +69,26 @@ function FlowStepIndicator({ step }: { step: FlowStep }) {
           <div key={s.key} className="flex items-center">
             <div className="flex flex-col items-center gap-1">
               <div
-                className={`flex h-10 w-10 items-center justify-center rounded-full border-2 text-sm font-bold transition-all ${
-                  done
+                className={`flex h-10 w-10 items-center justify-center rounded-full border-2 text-sm font-bold transition-all ${done
                     ? 'border-emerald-500 bg-emerald-500 text-white'
                     : active
                       ? 'border-indigo-500 bg-indigo-500 text-white shadow-lg shadow-indigo-500/30'
                       : 'border-slate-300 bg-slate-100 text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-500'
-                }`}
+                  }`}
               >
                 {done ? '✓' : i + 1}
               </div>
               <span
-                className={`text-[11px] font-medium ${
-                  done || active ? 'text-slate-900 dark:text-slate-100' : 'text-slate-400'
-                }`}
+                className={`text-[11px] font-medium ${done || active ? 'text-slate-900 dark:text-slate-100' : 'text-slate-400'
+                  }`}
               >
                 {s.label}
               </span>
             </div>
             {i < steps.length - 1 && (
               <div
-                className={`mb-5 h-0.5 w-8 transition-all ${
-                  i < currentIdx ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-slate-700'
-                }`}
+                className={`mb-5 h-0.5 w-8 transition-all ${i < currentIdx ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-slate-700'
+                  }`}
               />
             )}
           </div>
@@ -303,11 +300,10 @@ export function MyApartmentPage() {
                     key={a.applicationId}
                     type="button"
                     onClick={() => setSelectedId(a.applicationId)}
-                    className={`rounded-xl border-2 p-4 text-left transition-all ${
-                      isSelected
+                    className={`rounded-xl border-2 p-4 text-left transition-all ${isSelected
                         ? 'border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-950/40 ring-2 ring-indigo-500/20'
                         : 'border-slate-200 bg-white hover:border-indigo-300 dark:border-slate-700 dark:bg-slate-900/40 dark:hover:border-indigo-600'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-start gap-2">
                       <Home className={`mt-0.5 h-5 w-5 shrink-0 ${isSelected ? 'text-indigo-600' : 'text-slate-400'}`} />
@@ -363,7 +359,7 @@ export function MyApartmentPage() {
                   applicationStatus={contractStatus?.applicationStatus ?? appStatus}
                 />
 
-                {/* Lịch 6 đợt thanh toán + nút thanh toán + lịch sử GD */}
+                {/* Lịch thanh toán (3–6 đợt) + nút thanh toán + lịch sử GD */}
                 <PaymentSection
                   installments={installments}
                   paid={installments.filter(i => i.status === 'PAID').reduce((s, i) => s + (i.paidAmount ?? i.amount), 0)}

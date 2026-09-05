@@ -158,16 +158,14 @@ export function SxdProjectsPage() {
               key={t.id}
               type="button"
               onClick={() => { setTab(t.id); setPageIndex(1); void load(1, t.id) }}
-              className={`relative -mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
-                tab === t.id
+              className={`relative -mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors ${tab === t.id
                   ? 'border-blue-600 text-blue-700 dark:text-blue-400'
                   : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'
-              }`}
+                }`}
             >
               {t.label}
-              <span className={`ml-1.5 rounded-full px-1.5 text-xs ${
-                tab === t.id ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
-              }`}>
+              <span className={`ml-1.5 rounded-full px-1.5 text-xs ${tab === t.id ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                }`}>
                 {t.count}
               </span>
             </button>
@@ -337,16 +335,15 @@ function ProjectRow({
             : '—'}
         </td>
         <td className="px-4 py-3">
-          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
-            isPend
+          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${isPend
               ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
               : normalizeStatus(project.status) === 'REJECTED'
-              ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
-              : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-          }`}>
+                ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
+                : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+            }`}>
             {isPend ? <><XCircle className="h-3 w-3" /> Chờ duyệt</> :
-             normalizeStatus(project.status) === 'REJECTED' ? <><X className="h-3 w-3" /> Từ chối</> :
-             <><CheckCircle2 className="h-3 w-3" /> {labelProjectStatus(project.status)}</>}
+              normalizeStatus(project.status) === 'REJECTED' ? <><X className="h-3 w-3" /> Từ chối</> :
+                <><CheckCircle2 className="h-3 w-3" /> {labelProjectStatus(project.status)}</>}
           </span>
         </td>
         <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
@@ -602,24 +599,37 @@ export function SxdProjectDetailPage() {
                   <MapPin className="h-4 w-4" />
                   {[project.address, project.ward, project.district, project.province].filter(Boolean).join(', ')}
                 </p>
-                {(project as Record<string, unknown>).decisionNumber as string && (
-                  <p className="mt-0.5 text-xs text-slate-400">Quyết định: {(project as Record<string, unknown>).decisionNumber as string}</p>
+                {((project as Record<string, unknown>).decisionNumber as string || (project as HousingProjectDto).decisionNumber) && (
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                    <span className="font-semibold text-slate-600 dark:text-slate-300">
+                      Quyết định: {((project as Record<string, unknown>).decisionNumber as string) || (project as HousingProjectDto).decisionNumber}
+                    </span>
+                    {((project as Record<string, unknown>).decisionDocumentUrl as string || (project as HousingProjectDto).decisionDocumentUrl) && (
+                      <a
+                        href={((project as Record<string, unknown>).decisionDocumentUrl as string) || (project as HousingProjectDto).decisionDocumentUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 rounded bg-teal-50 px-2 py-0.5 text-[11px] font-bold text-teal-700 hover:bg-teal-100 dark:bg-teal-950/60 dark:text-teal-300"
+                      >
+                        <ExternalLink className="h-3 w-3" /> Xem văn bản phê duyệt
+                      </a>
+                    )}
+                  </div>
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-3">
-                <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold ${
-                  isPend
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold ${isPend
                     ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
                     : raw === 'REJECTED'
-                    ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
-                    : raw === 'UPCOMING'
-                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
-                    : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-                }`}>
+                      ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
+                      : raw === 'UPCOMING'
+                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                        : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                  }`}>
                   {isPend ? <><XCircle className="h-4 w-4" /> Chờ duyệt</> :
-                   raw === 'REJECTED' ? <><X className="h-4 w-4" /> Từ chối</> :
-                   raw === 'UPCOMING' ? <><CheckCircle2 className="h-4 w-4" /> Sắp mở bán</> :
-                   <><CheckCircle2 className="h-4 w-4" /> {labelProjectStatus(project.status)}</>}
+                    raw === 'REJECTED' ? <><X className="h-4 w-4" /> Từ chối</> :
+                      raw === 'UPCOMING' ? <><CheckCircle2 className="h-4 w-4" /> Sắp mở bán</> :
+                        <><CheckCircle2 className="h-4 w-4" /> {labelProjectStatus(project.status)}</>}
                 </span>
               </div>
             </div>
@@ -685,7 +695,7 @@ export function SxdProjectDetailPage() {
                 <DetailRow label="Số căn hộ" value={String(project.availableUnits ?? 0)} />
                 <DetailRow label="Diện tích" value={project.minArea && project.maxArea
                   ? `${project.minArea} – ${project.maxArea} m²` : project.minArea
-                  ? `Từ ${project.minArea} m²` : project.maxArea ? `Đến ${project.maxArea} m²` : '—'} />
+                    ? `Từ ${project.minArea} m²` : project.maxArea ? `Đến ${project.maxArea} m²` : '—'} />
                 <DetailRow label="Giá" value={project.minPrice && project.maxPrice
                   ? `${formatPrice(project.minPrice)} – ${formatPrice(project.maxPrice)}`
                   : project.minPrice ? `Từ ${formatPrice(project.minPrice)}` : project.maxPrice ? `Đến ${formatPrice(project.maxPrice)}` : '—'} />

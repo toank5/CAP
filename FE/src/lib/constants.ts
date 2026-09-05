@@ -82,14 +82,88 @@ export const DOC_TYPE_LABELS: Record<string, string> = {
   PUBLIC_HOUSING_RETURN_CERTIFICATE: 'Văn bản trả lại nhà ở công vụ',
   LAND_RECOVERY_DECISION: 'Quyết định thu hồi đất/giải tỏa nhà ở',
   INCOME_CERTIFICATE: 'Giấy xác nhận thu nhập',
-  RESIDENCE_CONFIRMATION: 'Giấy xác nhận nơi cư trú',
+  RESIDENCE_CONFIRMATION: 'Giấy xác nhận nơi cư trú (CT07)',
   SINGLE_STATUS_CERTIFICATE: 'Giấy xác nhận tình trạng hôn nhân/độc thân',
   MARRIAGE_CERTIFICATE: 'Giấy chứng nhận kết hôn',
+  CITIZEN_CARD: 'CCCD người nộp hồ sơ',
+  CITIZEN_ID: 'CCCD người nộp hồ sơ',
+  HOUSEHOLD_REGISTRATION: 'Sổ hộ khẩu / Giấy tờ cư trú hộ gia đình',
+  HOUSEHOLD_PROOF: 'Giấy tờ chứng minh thành viên hộ gia đình',
+  HOUSEHOLD_MEMBER_DOCUMENT: 'Giấy tờ tùy thân người thân (CCCD/Khai sinh)',
+  DEPENDENT_PROOF: 'Giấy tờ chứng minh người phụ thuộc',
+  DEPENDENT_CERTIFICATE: 'Giấy xác nhận người phụ thuộc',
+  SPOUSE_INCOME_CERTIFICATE: 'Giấy xác nhận thu nhập của vợ/chồng',
+  SPOUSE_CITIZEN_CARD: 'CCCD của vợ/chồng',
+  RELATIVE_CITIZEN_CARD: 'CCCD người thân trong hộ gia đình',
 }
 
 export const HOUSING_STATUS_LABELS: Record<string, string> = {
   NO_HOUSE: 'Chưa có nhà ở',
+  NO_HOUSING: 'Chưa có nhà ở',
   SMALL_HOUSE: 'Nhà diện tích dưới 15m²',
+  DILAPIDATED: 'Nhà ở tạm bợ, hư hỏng, dột nát',
+  SUBSTANDARD_AREA: 'Diện tích bình quân dưới 10m²/người',
+  OVERCROWDED: 'Diện tích bình quân dưới 10m²/người',
+  RENTING: 'Đang thuê nhà ở',
+  LIVING_WITH_PARENTS: 'Ở nhờ / cùng người thân',
+  OWNED_STANDARD: 'Đã có nhà ở đạt chuẩn',
+}
+
+export const PRIORITY_GROUP_LABELS: Record<string, string> = {
+  MERIT_PERSON: 'Người có công với cách mạng',
+  RURAL_POOR: 'Hộ nghèo nông thôn',
+  RURAL_NEAR_POOR: 'Hộ cận nghèo nông thôn',
+  URBAN_POOR: 'Hộ nghèo đô thị',
+  URBAN_NEAR_POOR: 'Hộ cận nghèo đô thị',
+  LOW_INCOME_URBAN: 'Người thu nhập thấp tại đô thị',
+  LOW_INCOME: 'Người thu nhập thấp tại đô thị',
+  WORKER: 'Công nhân, người lao động tại DN/HTX/KCN',
+  INDUSTRIAL_PARK_WORKER: 'Công nhân, người lao động tại DN/HTX/KCN',
+  MILITARY_PERSONNEL: 'Lực lượng vũ trang, cơ yếu',
+  ARMED_FORCES: 'Lực lượng vũ trang, cơ yếu',
+  CIVIL_SERVANT: 'Cán bộ, công chức, viên chức',
+  PUBLIC_HOUSING_RETURN: 'Đối tượng trả lại nhà công vụ',
+  LAND_RECOVERY_AFFECTED: 'Bị thu hồi đất / giải tỏa nhà ở',
+}
+
+export const MARITAL_STATUS_LABELS: Record<string, string> = {
+  SINGLE: 'Độc thân',
+  MARRIED: 'Đã kết hôn',
+  DIVORCED: 'Đã ly hôn',
+  WIDOWED: 'Góa',
+}
+
+export const LOTTERY_RESULT_LABELS: Record<string, string> = {
+  WON: 'Trúng thăm chính thức',
+  PRIORITY_WON: 'Trúng diện ưu tiên',
+  LOST: 'Không trúng thăm',
+  LOTTERY_LOST: 'Không trúng thăm',
+  NOT_WON: 'Không trúng thăm',
+  WAITLIST: 'Trong danh sách chờ',
+  PENDING: 'Chờ bốc thăm',
+  Pending: 'Chờ bốc thăm',
+  pending: 'Chờ bốc thăm',
+}
+
+export const RELATIONSHIP_LABELS: Record<string, string> = {
+  SPOUSE: 'Vợ / Chồng',
+  CHILD: 'Con',
+  PARENT: 'Cha / Mẹ',
+  SIBLING: 'Anh / Chị / Em',
+  GRANDPARENT: 'Ông / Bà',
+  GRANDCHILD: 'Cháu',
+  OTHER: 'Khác',
+}
+
+export const GENDER_LABELS: Record<string, string> = {
+  MALE: 'Nam',
+  Male: 'Nam',
+  Nam: 'Nam',
+  FEMALE: 'Nữ',
+  Female: 'Nữ',
+  Nu: 'Nữ',
+  Nữ: 'Nữ',
+  OTHER: 'Khác',
 }
 
 export const ROLE_OPTIONS = [

@@ -4,13 +4,9 @@ import {
   Building2,
   Gavel,
   Radio,
-  User,
 } from 'lucide-react'
 import { useHashRoute, navigate } from '@/hooks/useHashRoute'
 import { type RouteId } from '@/router'
-import { ROLE_THEMES } from '@/lib/role-theme'
-
-const THEME = ROLE_THEMES.developer
 
 interface NavItem {
   route: RouteId
@@ -44,7 +40,6 @@ const ITEMS: NavItem[] = [
     label: 'Bốc thăm trực tiếp',
     icon: Radio,
   },
-  { route: 'profile', label: 'Tài khoản', icon: User, aliases: ['change-password'] },
 ]
 
 // Tất cả route của Housing Developer dùng sub-nav này.
@@ -70,13 +65,13 @@ function isActive(current: RouteId, item: NavItem): boolean {
   return item.aliases?.includes(current) ?? false
 }
 
-/** Menu phẳng tối giản dành cho Chủ đầu tư. */
-export function DeveloperSubNav() {
+/** Menu điều hướng dành cho Chủ đầu tư (hỗ trợ hiển thị trên TopNav). */
+export function DeveloperSubNav({ inline = false }: { inline?: boolean }) {
   const route = useHashRoute()
 
   return (
-    <nav aria-label="Điều hướng chủ đầu tư">
-      <div className="mx-auto flex max-w-[1760px] items-center gap-1 px-4 lg:px-6">
+    <nav aria-label="Điều hướng chủ đầu tư" className="flex items-center">
+      <div className={`flex items-center gap-1 xl:gap-2 ${inline ? '' : 'mx-auto max-w-[1760px] px-4 lg:px-6'}`}>
         {ITEMS.map((item) => {
           const active = isActive(route, item)
           const Icon = item.icon
@@ -85,14 +80,14 @@ export function DeveloperSubNav() {
               key={item.route}
               type="button"
               onClick={() => navigate(item.route)}
-              className={`relative inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+              className={`relative inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs xl:text-[13px] font-semibold transition-all duration-150 whitespace-nowrap ${
                 active
-                  ? `${THEME.navActiveBg} ${THEME.navActiveTextColor} font-semibold`
-                  : `text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white`
+                  ? 'bg-blue-600 font-bold text-white shadow-md shadow-blue-500/25 dark:bg-blue-600 dark:text-white'
+                  : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white'
               }`}
             >
-              <Icon className="h-4 w-4" />
-              <span className="whitespace-nowrap">{item.label}</span>
+              <Icon className={`h-4 w-4 shrink-0 ${active ? 'text-white' : 'text-slate-500 dark:text-slate-400'}`} />
+              <span>{item.label}</span>
             </button>
           )
         })}

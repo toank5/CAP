@@ -22,6 +22,7 @@ import {
   Bed,
   Maximize2,
   Box,
+  ExternalLink,
 } from 'lucide-react'
 import { housingProjectsApi, parseApartments } from '@/api/housing-projects'
 import { housingProjectStatusesApi, parseStatuses } from '@/api/housing-project-statuses'
@@ -100,6 +101,8 @@ export function ProjectsPage() {
   const [pageIndex, setPageIndex] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
+  const [notice, setNotice] = useState<string | null>(null)
+  const { isWishlisted, toggle } = useWishlist()
   const isApplicant = getRole() === 'Applicant'
   const isSxd = getRole() === 'Department Of Construction' || getRole() === 'SXD Staff'
   const PAGE_SIZE = 12
@@ -151,137 +154,225 @@ export function ProjectsPage() {
     return () => window.clearTimeout(timer)
   }, [])
 
+  useEffect(() => {
+    if (!notice) return
+    const id = window.setTimeout(() => setNotice(null), 4000)
+    return () => window.clearTimeout(id)
+  }, [notice])
+
+  const handleToggleFavorite = async (house: ReturnType<typeof mapProjectToCard>) => {
+    const added = await toggle(house.id)
+    if (added) setNotice(`Đã thêm "${house.name}" vào danh sách quan tâm.`)
+  }
+
   const cards = useMemo(() => all.map(mapProjectToCard), [all])
 
   return (
-    <div>
-      <PageHeader routeId="projects" />
-      <PageCard className="space-y-6 p-6">
-        {flashSuccess && (
-          <Alert variant="success" className="flex items-start justify-between gap-3">
-            <div className="flex items-start gap-2">
-              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
-              <div>
-                <p className="font-semibold">Tạo dự án thành công!</p>
-                <p className="mt-0.5 text-green-800 dark:text-green-300">
-                  Dự án <strong>{flashSuccess}</strong> đã được thêm vào danh sách.
-                </p>
-              </div>
+    <div className="space-y-6">
+      {/* 1. Modern Page Header & Hero Banner */}
+      <div className="relative overflow-hidden rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-teal-50/50 to-white p-6 dark:border-emerald-950/40 dark:from-slate-900 dark:via-emerald-950/20 dark:to-slate-900 shadow-sm">
+        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100/80 px-3 py-1 text-xs font-bold text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300">
+              <Building2 className="h-3.5 w-3.5" />
+              CỔNG THÔNG TIN DỰ ÁN NHÀ Ở XÃ HỘI
             </div>
-            <button
-              type="button"
-              className="rounded-lg p-1 text-green-700 hover:bg-green-100 dark:hover:bg-green-900/40"
-              aria-label="Đóng thông báo"
-              onClick={() => setFlashSuccess(null)}
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </Alert>
-        )}
+            <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white sm:text-3xl">
+              Danh mục Dự án Nhà ở Xã hội
+            </h1>
+            <p className="max-w-2xl text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+              Khám phá các dự án nhà ở xã hội quy hoạch chuẩn mực, thông tin minh bạch, chính sách thanh toán linh hoạt từ 3–6 đợt và nộp hồ sơ xét duyệt trực tuyến.
+            </p>
 
-        {flashDelete && (
-          <Alert variant="success" className="flex items-start justify-between gap-3">
-            <div className="flex items-start gap-2">
-              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
-              <div>
-                <p className="font-semibold">Xoá dự án thành công!</p>
-                <p className="mt-0.5 text-green-800 dark:text-green-300">
-                  Dự án đã được xoá khỏi danh sách.
-                </p>
-              </div>
+            {/* Quick Metrics Badges */}
+            <div className="flex flex-wrap items-center gap-2 pt-2">
+              <span className="inline-flex items-center gap-1 rounded-lg bg-white/80 px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-sm border border-slate-100 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                {loading ? 'Đang tải...' : `${totalCount || cards.length} dự án khả dụng`}
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-lg bg-white/80 px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-sm border border-slate-100 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700">
+                <MapPin className="h-3 w-3 text-rose-500" />
+                TP. Hồ Chí Minh
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-lg bg-white/80 px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-sm border border-slate-100 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700">
+                <ShieldCheck className="h-3 w-3 text-emerald-600" />
+                Sở Xây dựng giám sát
+              </span>
             </div>
-            <button
-              type="button"
-              className="rounded-lg p-1 text-green-700 hover:bg-green-100 dark:hover:bg-green-900/40"
-              aria-label="Đóng thông báo"
-              onClick={() => setFlashDelete(false)}
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </Alert>
-        )}
+          </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-slate-500 dark:text-slate-400">{loading ? 'Đang tải...' : `${cards.length} dự án`}</p>
           {!isApplicant && (
-            <Button variant="accent" onClick={() => setShowCreateProject(true)}>
+            <Button
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl px-4 py-2.5 shadow-md shadow-emerald-600/20 shrink-0"
+              onClick={() => setShowCreateProject(true)}
+            >
               <Plus className="mr-1.5 h-4 w-4" /> Tạo dự án mới
             </Button>
           )}
         </div>
+      </div>
 
-        <HousingSearchForm
-          value={filter}
-          onChange={setFilter}
-          loading={loading}
-          onSubmit={(next) => { void load(next) }}
-        />
-
-        {error && <Alert variant="error">{error}</Alert>}
-
-        {loading && (
-          <div className="grid gap-4 md:grid-cols-2">
-            <Skeleton className="h-64" />
-            <Skeleton className="h-64" />
-          </div>
-        )}
-
-        {!loading && cards.length === 0 && (
-          isApplicant ? (
-            <EmptyState
-              title="Không tìm thấy dự án"
-              description="Thử điều chỉnh bộ lọc để xem thêm dự án nhà ở xã hội."
-            />
-          ) : (
-            <EmptyState
-              title="Không tìm thấy dự án"
-              description="Thử điều chỉnh bộ lọc hoặc tạo dự án mới."
-              actionLabel="Tạo dự án mới"
-              onAction={() => setShowCreateProject(true)}
-            />
-          )
-        )}
-
-        {!loading && cards.length > 0 && (
-          <>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {cards.map((house) => {
-                const project = all.find((p) => p.id === house.id)
-                const isPending = project?.status === 'Đang chờ' || project?.status === 'Pending' || project?.status === 'PENDING'
-                return (
-                  <HouseCard
-                    key={house.id}
-                    house={house}
-                    actionButton={
-                      isSxd && isPending ? (
-                        <Button
-                          size="sm"
-                          variant="accent"
-                          className="w-full"
-                          onClick={() => {
-                            sessionStorage.setItem('projectId', house.id)
-                            navigate('project-detail')
-                          }}
-                        >
-                          Duyệt dự án
-                        </Button>
-                      ) : undefined
-                    }
-                  />
-                )
-              })}
+      {/* 2. Flash Success & Delete Alerts */}
+      {flashSuccess && (
+        <Alert variant="success" className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-2">
+            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+            <div>
+              <p className="font-semibold text-emerald-800 dark:text-emerald-300">Tạo dự án thành công!</p>
+              <p className="mt-0.5 text-xs text-emerald-700 dark:text-emerald-400">
+                Dự án <strong>{flashSuccess}</strong> đã được thêm vào hệ thống.
+              </p>
             </div>
-            {totalPages > 1 && (
-              <div className="mt-6 flex items-center justify-between">
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Hiển thị {(pageIndex - 1) * PAGE_SIZE + 1}–{Math.min(pageIndex * PAGE_SIZE, totalCount)} trong {totalCount} dự án
-                </p>
-                <Pagination pageIndex={pageIndex} totalPages={totalPages} onPageChange={(p) => void load(filter, p)} />
+          </div>
+          <button
+            type="button"
+            className="rounded-lg p-1 text-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/40"
+            aria-label="Đóng thông báo"
+            onClick={() => setFlashSuccess(null)}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </Alert>
+      )}
+
+      {flashDelete && (
+        <Alert variant="success" className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-2">
+            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+            <div>
+              <p className="font-semibold text-emerald-800 dark:text-emerald-300">Xoá dự án thành công!</p>
+              <p className="mt-0.5 text-xs text-emerald-700 dark:text-emerald-400">
+                Dự án đã được xoá khỏi danh sách.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="rounded-lg p-1 text-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/40"
+            aria-label="Đóng thông báo"
+            onClick={() => setFlashDelete(false)}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </Alert>
+      )}
+
+      {/* 3. Search & Filter Bar */}
+      <HousingSearchForm
+        value={filter}
+        onChange={setFilter}
+        loading={loading}
+        onSubmit={(next) => { void load(next) }}
+      />
+
+      {error && <Alert variant="error">{error}</Alert>}
+
+      {/* 4. Projects Cards Grid */}
+      {loading ? (
+        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+              <Skeleton className="aspect-[16/10] w-full rounded-xl" />
+              <div className="mt-4 space-y-3">
+                <Skeleton className="h-5 w-3/4" />
+                <Skeleton className="h-3 w-1/2" />
+                <div className="grid grid-cols-2 gap-2">
+                  <Skeleton className="h-10 rounded-xl" />
+                  <Skeleton className="h-10 rounded-xl" />
+                </div>
+                <Skeleton className="h-9 w-full rounded-xl" />
               </div>
-            )}
-          </>
-        )}
-      </PageCard>
+            </div>
+          ))}
+        </div>
+      ) : cards.length === 0 ? (
+        isApplicant ? (
+          <EmptyState
+            title="Không tìm thấy dự án phù hợp"
+            description="Thử điều chỉnh hoặc đặt lại bộ lọc để xem các dự án nhà ở xã hội đang mở."
+          />
+        ) : (
+          <EmptyState
+            title="Không tìm thấy dự án phù hợp"
+            description="Thử điều chỉnh bộ lọc hoặc tạo dự án mới cho hệ thống."
+            actionLabel="Tạo dự án mới"
+            onAction={() => setShowCreateProject(true)}
+          />
+        )
+      ) : (
+        <div className="space-y-6">
+          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            {cards.map((house) => {
+              const project = all.find((p) => p.id === house.id)
+              const isPending = project?.status === 'Đang chờ' || project?.status === 'Pending' || project?.status === 'PENDING'
+              return (
+                <HouseCard
+                  key={house.id}
+                  house={house}
+                  fav={isWishlisted(house.id)}
+                  onToggleFavorite={() => { void handleToggleFavorite(house) }}
+                  actionButton={
+                    isSxd && isPending ? (
+                      <Button
+                        size="sm"
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold"
+                        onClick={() => {
+                          sessionStorage.setItem('projectId', house.id)
+                          navigate('project-detail')
+                        }}
+                      >
+                        Duyệt dự án
+                      </Button>
+                    ) : undefined
+                  }
+                />
+              )
+            })}
+          </div>
+
+          {/* 5. Pagination */}
+          {totalPages > 1 && (
+            <div className="mt-8 flex flex-col items-center justify-between gap-4 border-t border-slate-100 pt-6 sm:flex-row dark:border-slate-800">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Hiển thị <span className="font-semibold text-slate-700 dark:text-slate-200">{(pageIndex - 1) * PAGE_SIZE + 1}–{Math.min(pageIndex * PAGE_SIZE, totalCount)}</span> trong tổng số <span className="font-semibold text-slate-700 dark:text-slate-200">{totalCount}</span> dự án
+              </p>
+              <Pagination pageIndex={pageIndex} totalPages={totalPages} onPageChange={(p) => void load(filter, p)} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Wishlist Toast */}
+      {notice && (
+        <div
+          role="status"
+          className="fixed inset-x-0 bottom-6 z-[100] flex justify-center px-4 pointer-events-none"
+        >
+          <div className="pointer-events-auto w-full max-w-sm animate-slide-up">
+            <div className="relative overflow-hidden rounded-2xl border border-emerald-300/50 bg-gradient-to-r from-emerald-600 to-emerald-500 p-px shadow-2xl shadow-emerald-500/30">
+              <div className="relative rounded-2xl bg-white px-5 py-4 dark:bg-slate-900 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white shadow-md shadow-emerald-500/30">
+                    <Heart className="h-4 w-4 fill-white" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400">Danh sách quan tâm</p>
+                    <p className="text-xs text-slate-600 dark:text-slate-300">{notice}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setNotice(null)}
+                  className="rounded-lg p-1 text-slate-400 hover:text-slate-600"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <CreateProjectModal
         open={showCreateProject}
         onClose={() => setShowCreateProject(false)}
@@ -960,12 +1051,6 @@ function ProjectDetailView({
     return v.toLocaleString('vi-VN')
   }
 
-  const formatWhen = (v?: string) => {
-    if (!v) return '—'
-    const d = new Date(v)
-    return Number.isNaN(d.getTime()) ? v : d.toLocaleDateString('vi-VN')
-  }
-
   // Available apartments & filter options
   const allApartments: ApartmentDto[] = project.apartments || []
   const availableBlocks = Array.from(new Set(allApartments.map((a) => a.buildingBlock || 'Block A').filter(Boolean)))
@@ -1166,8 +1251,8 @@ function ProjectDetailView({
               </div>
             </div>
 
-            {/* Quick Metrics (4 cards) */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {/* Quick Metrics (2 cards) */}
+            <div className="grid grid-cols-2 gap-3">
               <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3 text-center dark:border-slate-800 dark:bg-slate-800/40">
                 <p className="text-[11px] font-semibold uppercase text-slate-500 dark:text-slate-400">Quỹ căn trống</p>
                 <p className="mt-1 text-base font-bold text-teal-600 dark:text-teal-400">
@@ -1183,20 +1268,6 @@ function ProjectDetailView({
                     : project.minArea
                       ? `${project.minArea} m²`
                       : '50–70 m²'}
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3 text-center dark:border-slate-800 dark:bg-slate-800/40">
-                <p className="text-[11px] font-semibold uppercase text-slate-500 dark:text-slate-400">Mở nhận hồ sơ</p>
-                <p className="mt-1 text-xs font-bold text-slate-800 dark:text-slate-100">
-                  {formatWhen(openDate)}
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3 text-center dark:border-slate-800 dark:bg-slate-800/40">
-                <p className="text-[11px] font-semibold uppercase text-slate-500 dark:text-slate-400">Hạn nhận hồ sơ</p>
-                <p className="mt-1 text-xs font-bold text-slate-800 dark:text-slate-100">
-                  {formatWhen(closeDate)}
                 </p>
               </div>
             </div>
@@ -1263,9 +1334,21 @@ function ProjectDetailView({
 
         <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-800/40">
-            <div className="flex items-center gap-2 text-slate-500">
-              <FileText className="h-4 w-4 text-teal-600" />
-              <span className="text-xs font-semibold uppercase">Số quyết định phê duyệt</span>
+            <div className="flex items-center justify-between text-slate-500">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-teal-600" />
+                <span className="text-xs font-semibold uppercase">Số quyết định phê duyệt</span>
+              </div>
+              {project.decisionDocumentUrl && (
+                <a
+                  href={project.decisionDocumentUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 rounded-md bg-teal-50 px-2 py-0.5 text-[11px] font-bold text-teal-700 hover:bg-teal-100 dark:bg-teal-950/60 dark:text-teal-300"
+                >
+                  <ExternalLink className="h-3 w-3" /> Xem văn bản
+                </a>
+              )}
             </div>
             <p className="mt-2 text-sm font-bold text-slate-900 dark:text-white">
               {project.decisionNumber || 'Đang cập nhật'}

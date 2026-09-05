@@ -153,6 +153,7 @@ export interface HousingProjectDto {
   address?: string
   location?: string
   decisionNumber?: string
+  decisionDocumentUrl?: string
   minPrice?: number
   maxPrice?: number
   minArea?: number
@@ -307,6 +308,8 @@ export interface CreateHousingProjectRequestDto {
   thumbnailUrl?: string
   images?: string[]
   decisionNumber: string
+  decisionDocumentUrl?: string
+  developerId?: string
   approvalDate?: string
   isConfirmed?: boolean
   lotteryDate?: string
@@ -385,6 +388,12 @@ export interface HouseholdMemberDto {
   citizenId?: string | null
   dateOfBirth?: string | null
   relationship: string
+  occupation?: string | null
+  monthlyIncome?: number | null
+  isDependent?: boolean
+  dependentReason?: string | null
+  hasMeritService?: boolean
+  meritDetails?: string | null
   note?: string | null
 }
 
@@ -435,6 +444,7 @@ export interface ApplicationDocumentDto {
   fileUrl: string
   fileSizeBytes: number
   verificationStatus: string
+  aiRejectedReason?: string | null
   uploadedAt: string
   uploadedBy: string
 }
@@ -463,18 +473,35 @@ export interface ApplicationDetailDto {
   applicantId: string
   fullName: string
   citizenId: string
+  phoneNumber?: string | null
+  email?: string | null
+  dateOfBirth?: string | null
+  gender?: string | null
+  nationality?: string | null
+  placeOfOrigin?: string | null
+  isEkycVerified?: boolean
   occupation?: string | null
   workPlace?: string | null
   currentResidence: string
   permanentAddress: string
   housingStatus: string
+  totalHousingArea?: number | null
   maritalStatus?: string | null
+  spouseFullName?: string | null
+  spouseCitizenId?: string | null
+  spouseDateOfBirth?: string | null
   priorityGroup?: string | null
   /** @deprecated dùng monthlyIncome */
   estimatedMonthlyIncome: number
   monthlyIncome?: number | null
   spouseMonthlyIncome?: number | null
   averageHousingAreaPerPerson?: number | null
+  desiredApartmentTypeId?: string | null
+  desiredApartmentType?: string | null
+  desiredApartmentTypeLabel?: string | null
+  waitlistNumber?: number | null
+  waitlistPromotedAt?: string | null
+  depositDeadline?: string | null
   officerId?: string | null
   officerFullName?: string | null
   documents?: ApplicationDocumentDto[]
@@ -496,6 +523,12 @@ export interface ApplicationDetailDto {
     isHousingStatusEligible?: boolean
     isPriorityGroupEligible?: boolean
     totalScore?: number | null
+    totalHouseholdIncome?: number | null
+    maxAllowedIncome?: number | null
+    calculatedAverageArea?: number | null
+    maxAllowedAreaPerPerson?: number | null
+    summaryMessage?: string | null
+    reasons?: string[] | null
     verifiedAt?: string | null
   } | null
 }

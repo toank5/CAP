@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, Search, X } from 'lucide-react'
+import { ChevronDown, ChevronUp, Search, SlidersHorizontal, X, RotateCcw } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { housingProjectStatusesApi, parseStatuses } from '@/api/housing-project-statuses'
 import { Button } from '@/components/ui/button'
@@ -57,62 +57,53 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
     onSubmit({ ...next, province: HCM_PROVINCE })
   }
 
+  // Quick filter helpers
+  const isFilterAll = !locked.statusCode && !locked.statusId && !locked.minPriceMillion && !locked.maxPriceMillion && !locked.minArea && !locked.maxArea
+  const isFilterOpen = locked.statusCode === 'OPEN'
+  const isFilterUpcoming = locked.statusCode === 'UPCOMING'
+  const isFilterUnder15B = locked.maxPriceMillion === '1500' && !locked.minPriceMillion
+  const isFilterMediumArea = locked.minArea === '50' && locked.maxArea === '70'
+
   return (
     <form
-      className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900"
+      className="rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 transition-all"
       onSubmit={(e) => {
         e.preventDefault()
         submit()
       }}
     >
-      {/* Hàng 1: Tìm kiếm + Tỉnh/Phường */}
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+      {/* Hàng 1: Thanh tìm kiếm & bộ lọc chính */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
         {/* Search input */}
         <div className="relative min-w-0 flex-1">
-          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <Input
-            className="h-12 w-full border-slate-200 bg-slate-50 pl-12 pr-12 text-sm dark:border-slate-700 dark:bg-slate-800"
-            placeholder="Tìm theo tên dự án..."
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            className="w-full rounded-xl border border-slate-200 bg-slate-50/70 py-2.5 pl-10 pr-10 text-sm text-slate-900 placeholder:text-slate-400 transition focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+            placeholder="Tìm theo tên dự án, chủ đầu tư, địa chỉ..."
             value={locked.search}
             onChange={(e) => set({ search: e.target.value })}
           />
           {locked.search && (
             <button
               type="button"
-              onClick={() => set({ search: '' })}
-              className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700"
+              onClick={() => {
+                const next = { ...locked, search: '' }
+                onChange(next)
+                submit(next)
+              }}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
             >
               <X className="h-4 w-4" />
             </button>
           )}
         </div>
 
-        {/* Tỉnh/Thành - luôn hiển thị nhãn */}
-        <div className="w-full lg:w-56">
-          <label className="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">
-            Tỉnh/Thành phố
-          </label>
+        {/* Phường/Xã / Khu vực */}
+        <div className="w-full sm:w-52">
           <div className="relative">
             <select
-              className="input h-12 w-full cursor-not-allowed appearance-none border-slate-200 bg-slate-100 px-4 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
-              value={HCM_PROVINCE}
-              disabled
-              aria-label="Tỉnh/thành (chỉ TP. Hồ Chí Minh)"
-            >
-              <option value={HCM_PROVINCE}>{HCM_PROVINCE}</option>
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          </div>
-        </div>
-
-        {/* Phường/Xã */}
-        <div className="w-full lg:w-52">
-          <label className="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">
-            Phường/Xã
-          </label>
-          <div className="relative">
-            <select
-              className="input h-12 w-full appearance-none border-slate-200 bg-slate-50 px-4 pr-10 text-sm dark:border-slate-700 dark:bg-slate-800"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50/70 py-2.5 pl-3 pr-8 text-xs font-medium text-slate-700 transition focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 appearance-none"
               value={locked.ward}
               disabled={wardsLoading}
               onChange={(e) => {
@@ -121,23 +112,20 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
                 submit(next)
               }}
             >
-              <option value="">{wardsLoading ? 'Đang tải...' : 'Tất cả'}</option>
+              <option value="">Khu vực: {wardsLoading ? 'Đang tải...' : 'Toàn TP. HCM'}</option>
               {wards.map((w) => (
                 <option key={w} value={w}>{w}</option>
               ))}
             </select>
-            <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           </div>
         </div>
 
         {/* Sắp xếp */}
-        <div className="w-full lg:w-44">
-          <label className="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">
-            Sắp xếp
-          </label>
+        <div className="w-full sm:w-44">
           <div className="relative">
             <select
-              className="input h-12 w-full appearance-none border-slate-200 bg-slate-50 px-4 pr-10 text-sm dark:border-slate-700 dark:bg-slate-800"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50/70 py-2.5 pl-3 pr-8 text-xs font-medium text-slate-700 transition focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 appearance-none"
               value={locked.sort}
               onChange={(e) => {
                 const next = {
@@ -154,41 +142,148 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
                 <option key={o.key} value={o.key}>{o.label}</option>
               ))}
             </select>
-            <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           </div>
         </div>
 
-        {/* Nút Lọc + Tìm */}
-        <div className="flex shrink-0 gap-2 lg:pt-5">
+        {/* Nút Lọc nâng cao + Tìm kiếm */}
+        <div className="flex items-center gap-2">
           <Button
             type="button"
-            variant={showAdvanced ? 'accent' : 'outline'}
+            variant="outline"
             size="sm"
-            className="h-12 gap-1.5 px-3 lg:h-10"
+            className={`h-10 rounded-xl px-3 text-xs font-semibold gap-1.5 transition ${showAdvanced
+                ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+                : 'border-slate-200 text-slate-700 hover:border-emerald-300 hover:text-emerald-700 dark:border-slate-700 dark:text-slate-200'
+              }`}
             onClick={() => setShowAdvanced((v) => !v)}
           >
-            {showAdvanced ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            <span className="hidden sm:inline">Lọc</span>
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            <span>Bộ lọc</span>
             {activeCount > 0 && (
-              <span className="ml-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
+              <span className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-600 text-[10px] font-bold text-white">
                 {activeCount}
               </span>
             )}
+            {showAdvanced ? <ChevronUp className="h-3.5 w-3.5 ml-0.5" /> : <ChevronDown className="h-3.5 w-3.5 ml-0.5" />}
           </Button>
-          <Button type="submit" variant="accent" disabled={loading} className="h-12 w-12 px-0 lg:h-10 lg:w-auto lg:px-4">
-            <span className="lg:hidden"><Search className="h-4 w-4" /></span>
-            <span className="hidden lg:inline">Tìm kiếm</span>
+
+          <Button
+            type="submit"
+            disabled={loading}
+            className="h-10 rounded-xl bg-emerald-600 px-4 text-xs font-bold text-white hover:bg-emerald-700 shadow-sm shadow-emerald-600/20"
+          >
+            <Search className="h-3.5 w-3.5 mr-1.5" />
+            Tìm kiếm
           </Button>
         </div>
       </div>
 
-      {/* Hàng 2: Bộ lọc nâng cao */}
+      {/* Hàng 2: Tag lọc nhanh */}
+      <div className="mt-3.5 flex flex-wrap items-center gap-1.5 pt-3 border-t border-slate-100 dark:border-slate-800">
+        <span className="text-xs font-semibold text-slate-400 mr-1">Lọc nhanh:</span>
+        <button
+          type="button"
+          onClick={() => {
+            const next = { ...EMPTY_HOUSING_SEARCH, search: locked.search, ward: locked.ward, sort: locked.sort }
+            onChange(next)
+            submit(next)
+          }}
+          className={`rounded-full px-3 py-1 text-xs font-bold transition active:scale-95 ${isFilterAll
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+            }`}
+        >
+          Tất cả
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            const next = { ...locked, statusCode: isFilterOpen ? '' : 'OPEN', statusId: '' }
+            onChange(next)
+            submit(next)
+          }}
+          className={`rounded-full px-3 py-1 text-xs font-bold transition active:scale-95 ${isFilterOpen
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+            }`}
+        >
+          Đang mở đăng ký
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            const next = { ...locked, statusCode: isFilterUpcoming ? '' : 'UPCOMING', statusId: '' }
+            onChange(next)
+            submit(next)
+          }}
+          className={`rounded-full px-3 py-1 text-xs font-bold transition active:scale-95 ${isFilterUpcoming
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+            }`}
+        >
+          Sắp mở bán
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            const next = {
+              ...locked,
+              maxPriceMillion: isFilterUnder15B ? '' : '1500',
+              minPriceMillion: '',
+            }
+            onChange(next)
+            submit(next)
+          }}
+          className={`rounded-full px-3 py-1 text-xs font-bold transition active:scale-95 ${isFilterUnder15B
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+            }`}
+        >
+          Giá dưới 1.5 tỷ
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            const next = {
+              ...locked,
+              minArea: isFilterMediumArea ? '' : '50',
+              maxArea: isFilterMediumArea ? '' : '70',
+            }
+            onChange(next)
+            submit(next)
+          }}
+          className={`rounded-full px-3 py-1 text-xs font-bold transition active:scale-95 ${isFilterMediumArea
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+            }`}
+        >
+          Diện tích 50–70 m²
+        </button>
+
+        {activeCount > 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              const next = { ...EMPTY_HOUSING_SEARCH }
+              onChange(next)
+              submit(next)
+            }}
+            className="ml-auto inline-flex items-center gap-1 text-xs font-semibold text-rose-500 hover:text-rose-600"
+          >
+            <RotateCcw className="h-3 w-3" />
+            Đặt lại bộ lọc
+          </button>
+        )}
+      </div>
+
+      {/* Hàng 3: Khối lọc nâng cao */}
       {showAdvancedContent && (
         <div className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4 sm:grid-cols-3 lg:grid-cols-6 dark:border-slate-800">
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Giá từ (triệu)</label>
             <Input
-              className="h-10 text-sm"
+              className="h-9 rounded-xl text-xs focus:border-emerald-500 focus:ring-emerald-500/20"
               type="number"
               min={0}
               placeholder="VD: 500"
@@ -199,7 +294,7 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Giá đến (triệu)</label>
             <Input
-              className="h-10 text-sm"
+              className="h-9 rounded-xl text-xs focus:border-emerald-500 focus:ring-emerald-500/20"
               type="number"
               min={0}
               placeholder="VD: 2000"
@@ -210,7 +305,7 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Diện tích từ (m²)</label>
             <Input
-              className="h-10 text-sm"
+              className="h-9 rounded-xl text-xs focus:border-emerald-500 focus:ring-emerald-500/20"
               type="number"
               min={0}
               placeholder="VD: 45"
@@ -221,7 +316,7 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Diện tích đến (m²)</label>
             <Input
-              className="h-10 text-sm"
+              className="h-9 rounded-xl text-xs focus:border-emerald-500 focus:ring-emerald-500/20"
               type="number"
               min={0}
               placeholder="VD: 90"
@@ -232,7 +327,7 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Căn tối thiểu</label>
             <Input
-              className="h-10 text-sm"
+              className="h-9 rounded-xl text-xs focus:border-emerald-500 focus:ring-emerald-500/20"
               type="number"
               min={0}
               placeholder="VD: 1"
@@ -244,7 +339,7 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
             <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Trạng thái</label>
             <div className="relative">
               <select
-                className="input h-10 w-full appearance-none text-sm"
+                className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-3 pr-8 text-xs font-medium text-slate-700 transition focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 appearance-none h-9"
                 value={locked.statusCode || locked.statusId}
                 onChange={(e) => {
                   const v = e.target.value
@@ -268,29 +363,7 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
           </div>
         </div>
       )}
-
-      {/* Thanh thông báo lọc */}
-      {activeCount > 0 && (
-        <div className="mt-3 flex items-center gap-2">
-          <span className="text-xs text-slate-400">
-            {activeCount} bộ lọc đang áp dụng
-          </span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-7 gap-1 text-xs"
-            onClick={() => {
-              const next = { ...EMPTY_HOUSING_SEARCH }
-              onChange(next)
-              submit(next)
-            }}
-          >
-            <X className="h-3 w-3" />
-            Xóa hết
-          </Button>
-        </div>
-      )}
     </form>
   )
 }
+

@@ -4,18 +4,10 @@ import {
   Gavel,
   Radio,
   FileSignature,
-  ScrollText,
-  User,
   CheckSquare,
-  Wallet,
-  Bell,
 } from 'lucide-react'
-
 import { useHashRoute, navigate } from '@/hooks/useHashRoute'
 import { type RouteId } from '@/router'
-import { ROLE_THEMES } from '@/lib/role-theme'
-
-const THEME = ROLE_THEMES.sxd
 
 interface NavItem {
   route: RouteId
@@ -46,28 +38,11 @@ const ITEMS: NavItem[] = [
   },
   { route: 'lottery-live', label: 'Bốc thăm trực tiếp', icon: Radio },
   {
-    route: 'sxd-payments',
-    label: 'Thanh toán',
-    icon: Wallet,
-  },
-  {
-    route: 'sxd-announcements',
-    label: 'Thông báo',
-    icon: Bell,
-  },
-  {
-    route: 'audit-list',
-    label: 'Hậu kiểm',
-    icon: ScrollText,
-    aliases: ['audit-detail'],
-  },
-  {
     route: 'contracts',
     label: 'Hợp đồng',
     icon: FileSignature,
     aliases: ['contract-detail'],
   },
-  { route: 'profile', label: 'Tài khoản', icon: User, aliases: ['change-password'] },
 ]
 
 // Tất cả route của Sở Xây dựng dùng sub-nav này.
@@ -77,11 +52,9 @@ export const SXD_SUB_NAV_ROUTES: RouteId[] = [
   'application-detail',
   'sxd-projects',
   'sxd-project-detail',
-  'sxd-announcements',
   'lottery-sessions',
-  'lottery-detail',
   'lottery-live',
-  'sxd-payments',
+  'lottery-detail',
   'audit-list',
   'audit-detail',
   'contracts',
@@ -89,6 +62,7 @@ export const SXD_SUB_NAV_ROUTES: RouteId[] = [
   'profile',
   'change-password',
   'notifications',
+  'report-issue',
 ]
 
 function isActive(current: RouteId, item: NavItem): boolean {
@@ -96,13 +70,13 @@ function isActive(current: RouteId, item: NavItem): boolean {
   return item.aliases?.includes(current) ?? false
 }
 
-/** Menu phẳng tối giản dành cho Sở Xây dựng. */
-export function SxdSubNav() {
+/** Menu điều hướng dành cho Sở Xây dựng (hỗ trợ hiển thị trên TopNav). */
+export function SxdSubNav({ inline = false }: { inline?: boolean }) {
   const route = useHashRoute()
 
   return (
-    <nav aria-label="Điều hướng Sở Xây dựng">
-      <div className="mx-auto flex max-w-[1760px] items-center gap-1 px-4 lg:px-6">
+    <nav aria-label="Điều hướng Sở Xây dựng" className="flex items-center">
+      <div className={`flex items-center gap-1 xl:gap-1.5 ${inline ? '' : 'mx-auto max-w-[1760px] px-4 lg:px-6'}`}>
         {ITEMS.map((item) => {
           const active = isActive(route, item)
           const Icon = item.icon
@@ -111,14 +85,14 @@ export function SxdSubNav() {
               key={item.route}
               type="button"
               onClick={() => navigate(item.route)}
-              className={`relative inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+              className={`relative inline-flex items-center gap-1.5 rounded-xl px-2.5 xl:px-3 py-1.5 text-xs xl:text-[13px] font-semibold transition-all duration-150 whitespace-nowrap ${
                 active
-                  ? `${THEME.navActiveBg} ${THEME.navActiveTextColor} font-semibold`
-                  : `text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white`
+                  ? 'bg-amber-600 font-bold text-white shadow-md shadow-amber-500/25 dark:bg-amber-600 dark:text-white'
+                  : 'text-slate-700 hover:bg-amber-50 hover:text-amber-700 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white'
               }`}
             >
-              <Icon className="h-4 w-4" />
-              <span className="whitespace-nowrap">{item.label}</span>
+              <Icon className={`h-4 w-4 shrink-0 ${active ? 'text-white' : 'text-slate-500 dark:text-slate-400'}`} />
+              <span>{item.label}</span>
             </button>
           )
         })}

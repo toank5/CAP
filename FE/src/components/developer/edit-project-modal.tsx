@@ -14,6 +14,10 @@ import {
   FileSpreadsheet,
   SlidersHorizontal,
   Edit3,
+  FileText,
+  CheckCircle2,
+  FileCheck,
+  ExternalLink,
 } from 'lucide-react'
 import { housingProjectsApi, parseApartments } from '@/api/housing-projects'
 import { Modal } from '@/components/ui/modal'
@@ -25,6 +29,7 @@ import type { CreateApartmentDto, CreateHousingProjectRequestDto, MilestoneSetup
 import {
   VALID_TRIGGER_EVENTS,
   DIRECTION_OPTIONS,
+  MILESTONE_PRESETS,
   type ApartmentFormRow,
 } from './create-project-modal'
 
@@ -77,6 +82,7 @@ export function EditProjectModal({
   const bodyRef = useRef<HTMLDivElement>(null)
   const errorRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const documentInputRef = useRef<HTMLInputElement>(null)
 
   const [loadingProject, setLoadingProject] = useState(false)
   const [projectName, setProjectName] = useState('')
@@ -85,11 +91,15 @@ export function EditProjectModal({
   const [street, setStreet] = useState('')
   const [wards, setWards] = useState<string[]>([])
   const [decisionNumber, setDecisionNumber] = useState('')
+  const [existingDecisionDocumentUrl, setExistingDecisionDocumentUrl] = useState<string | null>(null)
+  const [decisionDocumentFile, setDecisionDocumentFile] = useState<File | null>(null)
+  const [decisionDocumentUrl, setDecisionDocumentUrl] = useState<string>('')
+  const [uploadingDocument, setUploadingDocument] = useState(false)
 
   const [milestones, setMilestones] = useState<MilestoneSetupItemDto[]>([
-    { phaseOrder: 1, phaseName: 'Đợt 1 (Cọc / Cấp nhà)', percentage: 30, triggerEvent: 'ON_LOTTERY_WON', dueDays: 7 },
-    { phaseOrder: 2, phaseName: 'Đợt 2 (Bàn giao nhà)', percentage: 65, triggerEvent: 'HANDOVER', dueDays: 14 },
-    { phaseOrder: 3, phaseName: 'Đợt 3 (Sổ hồng)', percentage: 5, triggerEvent: 'RED_BOOK_ISSUED', dueDays: 7 },
+    { phaseOrder: 1, phaseName: 'Đợt 1 (Đặt cọc / Cấp nhà)', percentage: 0, triggerEvent: 'ON_LOTTERY_WON', dueDays: 0 },
+    { phaseOrder: 2, phaseName: 'Đợt 2 (Bàn giao nhà)', percentage: 0, triggerEvent: 'HANDOVER', dueDays: 0 },
+    { phaseOrder: 3, phaseName: 'Đợt 3 (Nhận sổ hồng)', percentage: 0, triggerEvent: 'RED_BOOK_ISSUED', dueDays: 0 },
   ])
 
   const [apartments, setApartments] = useState<EditApartmentFormRow[]>([])
@@ -103,6 +113,31 @@ export function EditProjectModal({
   const [submitting, setSubmitting] = useState(false)
   const [transitioning, setTransitioning] = useState(false)
   const [error, setError] = useState('')
+
+  const handleDocumentChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setDecisionDocumentFile(file)
+    setUploadingDocument(true)
+    setError('')
+    try {
+      const res = (await housingProjectsApi.uploadDocument(file)) as any
+      const docUrl =
+        res?.url ||
+        res?.data?.url ||
+        res?.documentUrl ||
+        res?.data?.documentUrl ||
+        res?.data ||
+        (typeof res === 'string' ? res : '')
+      if (docUrl && typeof docUrl === 'string') {
+        setDecisionDocumentUrl(docUrl)
+      }
+    } catch (err: any) {
+      console.warn('[EditProjectModal] Warning upload decision document:', err)
+    } finally {
+      setUploadingDocument(false)
+    }
+  }
 
   // Load project details & apartments on open
   useEffect(() => {
@@ -126,6 +161,12 @@ export function EditProjectModal({
         setWard(p?.ward || p?.district || raw?.ward || raw?.district || '')
         setStreet(p?.street || raw?.street || raw?.Street || '')
         setDecisionNumber(p?.decisionNumber || raw?.decisionNumber || raw?.DecisionNumber || '')
+
+        const docUrl = p?.decisionDocumentUrl || raw?.decisionDocumentUrl || raw?.DecisionDocumentUrl || null
+        setExistingDecisionDocumentUrl(docUrl)
+        setDecisionDocumentUrl(docUrl || '')
+        setDecisionDocumentFile(null)
+
         setExistingThumbnailUrl(p?.thumbnailUrl || raw?.thumbnailUrl || null)
 
         const rawImages = p?.images || raw?.images || raw?.Images || []
@@ -207,17 +248,25 @@ export function EditProjectModal({
     if (!decisionNumber.trim()) return 'Vui lòng nhập số quyết định phê duyệt.'
 
     if (milestones.length < 3 || milestones.length > 6) return 'Tiến độ thanh toán phải từ 3 đến 6 đợt.'
-    const totalPercentage = milestones.reduce((sum, m) => sum + (Number(m.percentage) || 0), 0)
-    if (Math.abs(totalPercentage - 100) > 0.01) return `Tổng tỷ lệ thanh toán phải là 100% (hiện tại: ${totalPercentage}%).`
 
-    if (milestones[0] && Number(milestones[0].percentage) > 30) {
-      return 'Theo quy định Luật Nhà ở Xã hội, tỷ lệ thanh toán Đợt 1 tối đa là 30%.'
+    // Kiểm tra tỷ lệ Đợt 1 <= 30% theo Luật Nhà ở Xã hội
+    const phase1Pct = Number(milestones[0]?.percentage) || 0
+    if (phase1Pct > 30) {
+      return `Đợt 1 đang là ${phase1Pct}% — Theo quy định Luật Nhà ở Xã hội, tỷ lệ thanh toán Đợt 1 tối đa chỉ được 30%.`
+    }
+
+    const totalPercentage = milestones.reduce((sum, m) => sum + (Number(m.percentage) || 0), 0)
+    if (Math.abs(totalPercentage - 100) > 0.01) {
+      return `Tổng tỷ lệ thanh toán phải là 100% (hiện tại: ${totalPercentage}%).`
     }
 
     for (let i = 0; i < milestones.length; i++) {
       if (!milestones[i].phaseName.trim()) return `Đợt ${i + 1}: Vui lòng nhập tên đợt thanh toán.`
       if (!milestones[i].triggerEvent.trim()) return `Đợt ${i + 1}: Vui lòng chọn sự kiện kích hoạt.`
-      if (!milestones[i].percentage || milestones[i].percentage <= 0) return `Đợt ${i + 1}: Tỷ lệ % phải lớn hơn 0.`
+      const pct = Number(milestones[i].percentage)
+      if (pct <= 0) return `Đợt ${i + 1}: Vui lòng nhập tỷ lệ % thanh toán lớn hơn 0%.`
+      const days = Number(milestones[i].dueDays)
+      if (days < 0) return `Đợt ${i + 1}: Thời hạn thanh toán (ngày) không được âm.`
     }
     return null
   }
@@ -418,6 +467,22 @@ export function EditProjectModal({
         }
       }
 
+      let finalDocUrl = decisionDocumentUrl || existingDecisionDocumentUrl || undefined
+      if (decisionDocumentFile && !decisionDocumentUrl) {
+        try {
+          const docRes = (await housingProjectsApi.uploadDocument(decisionDocumentFile)) as any
+          finalDocUrl =
+            docRes?.url ||
+            docRes?.data?.url ||
+            docRes?.documentUrl ||
+            docRes?.data?.documentUrl ||
+            docRes?.data ||
+            (typeof docRes === 'string' ? docRes : undefined)
+        } catch (err) {
+          console.warn('[EditProjectModal] Warning upload decision document:', err)
+        }
+      }
+
       // 1. Cập nhật thông tin cơ bản dự án
       const body: CreateHousingProjectRequestDto = {
         projectName: projectName.trim(),
@@ -433,6 +498,7 @@ export function EditProjectModal({
         maxArea: areas.length ? Math.max(...areas) : 0,
         availableUnits: validApartmentRows.length,
         decisionNumber: decisionNumber.trim(),
+        decisionDocumentUrl: finalDocUrl,
         thumbnailUrl,
         images: newUploadedImages.length > 0 ? newUploadedImages : undefined,
       }
@@ -650,15 +716,112 @@ export function EditProjectModal({
                   />
                 </Field>
 
-                <Field label="Số quyết định phê duyệt" required className="md:col-span-12">
-                  <input
-                    className={inputClass}
-                    value={decisionNumber}
-                    onChange={(e) => setDecisionNumber(e.target.value)}
-                    placeholder="VD: 1234/QĐ-UBND hoặc 567/SXD-PTN"
-                    disabled={submitting}
-                  />
-                </Field>
+                {/* Section: Pháp lý & Quyết định phê duyệt */}
+                <div className="md:col-span-12 rounded-xl border border-teal-200/80 bg-teal-50/40 p-3.5 dark:border-teal-800/40 dark:bg-teal-950/20">
+                  <div className="mb-2.5 flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-teal-800 dark:text-teal-200">
+                      <FileText className="h-4 w-4 text-teal-600" />
+                      <span>Pháp lý dự án & Quyết định phê duyệt</span>
+                      {requiredDot}
+                    </div>
+                    <span className="text-[10px] text-teal-600 dark:text-teal-400">Được thẩm định bởi Sở Xây dựng</span>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-12">
+                    <div className="sm:col-span-6">
+                      <label className={labelClass}>
+                        <span>Số quyết định phê duyệt</span>
+                        {requiredDot}
+                      </label>
+                      <input
+                        className={inputClass}
+                        value={decisionNumber}
+                        onChange={(e) => setDecisionNumber(e.target.value)}
+                        placeholder="VD: 1234/QĐ-UBND hoặc 567/SXD-PTN"
+                        disabled={submitting}
+                      />
+                      <p className="mt-1 text-[10px] text-slate-500">Mã văn bản pháp lý chấp thuận đầu tư / phê duyệt dự án.</p>
+                    </div>
+
+                    <div className="sm:col-span-6">
+                      <label className={labelClass}>
+                        <span>Văn bản / Quyết định đính kèm</span>
+                        <span className="text-[10px] font-normal lowercase text-slate-400">(Tùy chọn: PDF, DOCX, Ảnh)</span>
+                      </label>
+
+                      <input
+                        ref={documentInputRef}
+                        type="file"
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                        className="hidden"
+                        onChange={handleDocumentChange}
+                        disabled={submitting || uploadingDocument}
+                      />
+
+                      {decisionDocumentFile || decisionDocumentUrl || existingDecisionDocumentUrl ? (
+                        <div className="flex items-center justify-between gap-2 rounded-lg border border-teal-300 bg-white p-2 text-xs shadow-sm dark:border-teal-700 dark:bg-slate-800">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <FileCheck className="h-5 w-5 shrink-0 text-teal-600 dark:text-teal-400" />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-semibold text-slate-800 dark:text-slate-200">
+                                {decisionDocumentFile?.name || 'Văn bản quyết định phê duyệt đính kèm'}
+                              </p>
+                              <p className="text-[10px] text-teal-600 dark:text-teal-400">
+                                {uploadingDocument ? (
+                                  <span className="flex items-center gap-1">
+                                    <Loader2 className="h-3 w-3 animate-spin" /> Đang tải file lên...
+                                  </span>
+                                ) : (
+                                  <span className="flex items-center gap-1">
+                                    <CheckCircle2 className="h-3 w-3" /> Đã có file đính kèm
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex shrink-0 items-center gap-1">
+                            {(decisionDocumentUrl || existingDecisionDocumentUrl) && (
+                              <a
+                                href={decisionDocumentUrl || existingDecisionDocumentUrl || '#'}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="rounded-md border border-slate-200 bg-slate-50 p-1.5 text-slate-600 hover:bg-teal-50 hover:text-teal-700 dark:border-slate-700 dark:bg-slate-700 dark:text-slate-300"
+                                title="Xem văn bản"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </a>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDecisionDocumentFile(null)
+                                setDecisionDocumentUrl('')
+                                setExistingDecisionDocumentUrl(null)
+                                if (documentInputRef.current) documentInputRef.current.value = ''
+                              }}
+                              disabled={submitting}
+                              className="rounded-md border border-rose-200 bg-rose-50 p-1.5 text-rose-600 hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-400"
+                              title="Xóa file đính kèm"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => documentInputRef.current?.click()}
+                          disabled={submitting || uploadingDocument}
+                          className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-teal-300 bg-white/80 px-3 py-2 text-xs font-semibold text-teal-700 transition hover:border-teal-500 hover:bg-teal-50/80 dark:border-teal-700 dark:bg-slate-800/80 dark:text-teal-300"
+                        >
+                          <Upload className="h-4 w-4" />
+                          <span>Tải lên văn bản / Quyết định (.PDF, .DOC, .PNG)</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
 
                 <Field
                   label="Mô tả dự án"
@@ -677,117 +840,198 @@ export function EditProjectModal({
                 </Field>
 
                 {/* Section: Tiến độ thanh toán (Milestones) */}
-                <div className="md:col-span-12 mt-3">
-                  <div className="mb-2 flex items-center justify-between border-l-[3px] border-teal-500 pl-2.5">
+                <div className="md:col-span-12 mt-2 rounded-xl border border-teal-200/80 bg-white p-3.5 shadow-sm dark:border-teal-800/40 dark:bg-slate-900/60">
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2 dark:border-slate-800">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-teal-700 dark:text-teal-300">
+                      <span className="text-sm font-bold text-teal-800 dark:text-teal-300">
                         Chính sách thanh toán theo tiến độ
                       </span>
-                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
-                        3–6 đợt
+                      <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-bold text-teal-700 dark:bg-teal-950 dark:text-teal-300">
+                        {milestones.length} đợt (quy định 3–6 đợt)
                       </span>
                       {requiredDot}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (milestones.length < 6)
-                          setMilestones([
-                            ...milestones,
-                            {
-                              phaseOrder: milestones.length + 1,
-                              phaseName: `Đợt ${milestones.length + 1}`,
-                              percentage: 0,
-                              triggerEvent: 'CONSTRUCTION_ROUGH_FLOOR',
-                              dueDays: 14,
-                            },
-                          ])
-                      }}
-                      disabled={milestones.length >= 6 || submitting}
-                      className="flex items-center gap-1 rounded-md border border-dashed border-teal-300 bg-teal-50 px-2.5 py-1 text-[11px] font-semibold text-teal-600 transition hover:bg-teal-100 disabled:opacity-40"
-                    >
-                      <Plus className="h-3 w-3" /> Thêm đợt
-                    </button>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (milestones.length < 6) {
+                            setMilestones([
+                              ...milestones,
+                              {
+                                phaseOrder: milestones.length + 1,
+                                phaseName: `Đợt ${milestones.length + 1}`,
+                                percentage: 0,
+                                triggerEvent: 'CONSTRUCTION_ROUGH_FLOOR',
+                                dueDays: 0,
+                              },
+                            ])
+                          }
+                        }}
+                        disabled={milestones.length >= 6 || submitting}
+                        className="flex items-center gap-1 rounded-md border border-dashed border-teal-400 bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-700 transition hover:bg-teal-100 disabled:opacity-40 dark:border-teal-700 dark:bg-teal-950/40 dark:text-teal-300"
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Thêm đợt ({milestones.length}/6)
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="space-y-1.5">
+                  {/* Presets buttons */}
+                  <div className="mb-3 flex flex-wrap items-center gap-1.5">
+                    <span className="text-[11px] font-semibold text-slate-500">Mẫu tiến độ chuẩn:</span>
+                    {MILESTONE_PRESETS.map((preset, pIdx) => (
+                      <button
+                        key={pIdx}
+                        type="button"
+                        onClick={() => setMilestones(preset.milestones)}
+                        disabled={submitting}
+                        className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium transition ${milestones.length === preset.milestones.length &&
+                          milestones[0]?.percentage === preset.milestones[0]?.percentage
+                          ? 'border-teal-500 bg-teal-50 font-bold text-teal-700 shadow-sm dark:bg-teal-950/50 dark:text-teal-300'
+                          : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-teal-300 hover:bg-teal-50/50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                          }`}
+                        title={preset.description}
+                      >
+                        🎯 {preset.name}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Total percentage bar indicator */}
+                  {(() => {
+                    const total = milestones.reduce((s, m) => s + (Number(m.percentage) || 0), 0)
+                    const isValid = Math.abs(total - 100) < 0.01
+                    const isPhase1Valid = !milestones[0] || Number(milestones[0].percentage) <= 30
+                    return (
+                      <div className="mb-3 rounded-lg border border-slate-100 bg-slate-50/80 p-2.5 dark:border-slate-800 dark:bg-slate-800/50">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-semibold text-slate-700 dark:text-slate-300">
+                            Tổng tỷ lệ các đợt thanh toán:
+                          </span>
+                          <span
+                            className={`font-bold ${isValid
+                              ? 'text-emerald-600 dark:text-emerald-400'
+                              : 'text-rose-600 dark:text-rose-400'
+                              }`}
+                          >
+                            {total}% / 100% {isValid ? '✓ Đạt chuẩn' : `(Chênh lệch ${total - 100 > 0 ? `+${total - 100}` : total - 100}%)`}
+                          </span>
+                        </div>
+                        <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                          <div
+                            className={`h-full transition-all duration-300 ${isValid
+                              ? 'bg-emerald-500'
+                              : total > 100
+                                ? 'bg-rose-500'
+                                : 'bg-amber-500'
+                              }`}
+                            style={{ width: `${Math.min(100, Math.max(0, total))}%` }}
+                          />
+                        </div>
+                        {!isPhase1Valid && (
+                          <div className="mt-2 flex items-center gap-1.5 rounded-lg border border-rose-300 bg-rose-50 px-2.5 py-1.5 text-[11px] font-semibold text-rose-700 dark:border-rose-800 dark:bg-rose-950/60 dark:text-rose-300">
+                            <span>⚠️ <strong>Lỗi vi phạm:</strong> Tỷ lệ thanh toán Đợt 1 đang là <strong>{milestones[0].percentage}%</strong> (Luật Nhà ở Xã hội quy định Đợt 1 không được vượt quá <strong>30%</strong>).</span>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()}
+
+                  <div className="space-y-2">
                     {milestones.map((m, idx) => (
                       <div
                         key={idx}
-                        className="flex items-center gap-2 rounded-xl border border-teal-100 bg-teal-50/40 p-2 dark:border-teal-800/40 dark:bg-teal-950/20"
+                        className={`flex flex-wrap items-center gap-2 rounded-xl border p-2.5 transition ${idx === 0 && Number(m.percentage) > 30
+                            ? 'border-rose-300 bg-rose-50/40 dark:border-rose-800/80 dark:bg-rose-950/20'
+                            : 'border-slate-200/80 bg-slate-50/60 hover:border-teal-300 dark:border-slate-700 dark:bg-slate-800/40'
+                          }`}
                       >
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-teal-600 text-xs font-bold text-white shadow-sm">
+                        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white shadow-sm ${idx === 0 && Number(m.percentage) > 30 ? 'bg-rose-600' : 'bg-teal-600'
+                          }`}>
                           {idx + 1}
                         </span>
-                        <input
-                          className="w-48 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400/30 dark:border-slate-700 dark:bg-slate-800"
-                          value={m.phaseName}
-                          placeholder="Tên đợt (VD: Đợt 1)"
-                          disabled={submitting}
-                          onChange={(e) => {
-                            const n = [...milestones]
-                            n[idx] = { ...n[idx], phaseName: e.target.value }
-                            setMilestones(n)
-                          }}
-                        />
-                        <div className="flex shrink-0 items-center gap-0.5 rounded-lg border border-slate-200 bg-white pr-1 dark:border-slate-700 dark:bg-slate-800">
+
+                        <div className="min-w-[160px] flex-1">
                           <input
-                            type="number"
-                            className="w-14 rounded-l-lg border-0 bg-transparent px-1 py-1 text-center text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:outline-none"
-                            value={m.percentage}
-                            min={1}
-                            max={99}
+                            className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                            value={m.phaseName}
+                            placeholder={`Tên đợt ${idx + 1}`}
                             disabled={submitting}
                             onChange={(e) => {
                               const n = [...milestones]
-                              n[idx] = { ...n[idx], percentage: Number(e.target.value) }
+                              n[idx] = { ...n[idx], phaseName: e.target.value }
                               setMilestones(n)
                             }}
                           />
-                          <span className="rounded-md bg-teal-100 px-1.5 py-0.5 text-[10px] font-bold text-teal-700">
+                        </div>
+
+                        <div className="flex shrink-0 items-center rounded-lg border border-slate-200 bg-white pr-1.5 shadow-sm dark:border-slate-600 dark:bg-slate-800">
+                          <input
+                            type="number"
+                            className="w-14 rounded-l-lg border-0 bg-transparent px-1.5 py-1.5 text-center text-xs font-bold text-teal-700 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:outline-none dark:text-teal-300"
+                            value={m.percentage === 0 ? '' : m.percentage}
+                            placeholder="0"
+                            min={0}
+                            max={idx === 0 ? 30 : 100}
+                            disabled={submitting}
+                            onChange={(e) => {
+                              const raw = e.target.value
+                              const n = [...milestones]
+                              n[idx] = { ...n[idx], percentage: raw === '' ? 0 : Number(raw) }
+                              setMilestones(n)
+                            }}
+                          />
+                          <span className="rounded bg-teal-100 px-1 py-0.5 text-[10px] font-bold text-teal-800 dark:bg-teal-900/60 dark:text-teal-200">
                             %
                           </span>
                         </div>
 
-                        <select
-                          className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400/30 dark:border-slate-700 dark:bg-slate-800"
-                          value={m.triggerEvent}
-                          disabled={submitting}
-                          onChange={(e) => {
-                            const n = [...milestones]
-                            n[idx] = { ...n[idx], triggerEvent: e.target.value }
-                            setMilestones(n)
-                          }}
-                        >
-                          {VALID_TRIGGER_EVENTS.map((t) => (
-                            <option key={t.code} value={t.code}>
-                              {t.label}
-                            </option>
-                          ))}
-                        </select>
-
-                        <div className="flex shrink-0 items-center gap-0.5 rounded-lg border border-slate-200 bg-white pr-1 dark:border-slate-700 dark:bg-slate-800">
-                          <input
-                            type="number"
-                            className="w-14 rounded-l-lg border-0 bg-transparent px-1 py-1 text-center text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:outline-none"
-                            value={m.dueDays ?? 7}
-                            min={1}
-                            max={180}
+                        <div className="min-w-[190px] flex-1">
+                          <select
+                            className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                            value={m.triggerEvent}
                             disabled={submitting}
                             onChange={(e) => {
                               const n = [...milestones]
-                              n[idx] = { ...n[idx], dueDays: Number(e.target.value) }
+                              n[idx] = { ...n[idx], triggerEvent: e.target.value }
+                              setMilestones(n)
+                            }}
+                          >
+                            {VALID_TRIGGER_EVENTS.map((t) => (
+                              <option key={t.code} value={t.code}>
+                                {t.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="flex shrink-0 items-center rounded-lg border border-slate-200 bg-white pr-1.5 shadow-sm dark:border-slate-600 dark:bg-slate-800">
+                          <input
+                            type="number"
+                            className="w-14 rounded-l-lg border-0 bg-transparent px-1.5 py-1.5 text-center text-xs font-medium text-amber-700 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:outline-none dark:text-amber-300"
+                            value={m.dueDays === 0 ? '' : (m.dueDays ?? '')}
+                            placeholder="0"
+                            min={0}
+                            max={180}
+                            disabled={submitting}
+                            onChange={(e) => {
+                              const raw = e.target.value
+                              const n = [...milestones]
+                              n[idx] = { ...n[idx], dueDays: raw === '' ? 0 : Number(raw) }
                               setMilestones(n)
                             }}
                           />
-                          <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">
+                          <span className="rounded bg-amber-100 px-1 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-900/60 dark:text-amber-200">
                             ngày
                           </span>
                         </div>
+
                         <button
                           type="button"
                           disabled={milestones.length <= 3 || submitting}
-                          className="shrink-0 text-slate-300 transition hover:text-rose-500 disabled:opacity-30"
+                          className="shrink-0 rounded-lg p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:opacity-30 dark:hover:bg-rose-950/40"
+                          title={milestones.length <= 3 ? 'Tối thiểu 3 đợt thanh toán' : 'Xóa đợt này'}
                           onClick={() => {
                             if (milestones.length > 3) {
                               const n = [...milestones]
@@ -800,17 +1044,6 @@ export function EditProjectModal({
                         </button>
                       </div>
                     ))}
-                  </div>
-
-                  <div className="mt-1.5 text-right text-xs font-semibold">
-                    {(() => {
-                      const total = milestones.reduce((s, m) => s + Number(m.percentage), 0)
-                      return Math.abs(total - 100) < 0.01 ? (
-                        <span className="text-emerald-600">Tổng: {total}% ✓ Hợp lệ</span>
-                      ) : (
-                        <span className="text-rose-500">Tổng: {total}% — phải bằng 100%</span>
-                      )
-                    })()}
                   </div>
                 </div>
 

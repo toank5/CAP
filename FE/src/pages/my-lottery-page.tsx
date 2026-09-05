@@ -18,6 +18,7 @@ import { Alert } from '@/components/ui/alert'
 import { PageCard, PageHeader } from '@/components/layout/page-header'
 import { navigate } from '@/hooks/useHashRoute'
 import { formatError } from '@/lib/format-error'
+import { LOTTERY_RESULT_LABELS } from '@/lib/constants'
 import { getRole } from '@/router'
 
 interface Row {
@@ -312,13 +313,12 @@ export function MyLotteryPage() {
                   {/* Kết quả của tôi */}
                   {own && (
                     <div
-                      className={`mt-3 rounded-lg border p-3 text-sm ${
-                        won
+                      className={`mt-3 rounded-lg border p-3 text-sm ${won
                           ? 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200'
                           : own.lotteryResult === 'LOST'
                             ? 'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200'
                             : 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/40'
-                      }`}
+                        }`}
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div>
@@ -327,9 +327,11 @@ export function MyLotteryPage() {
                             Kết quả:&nbsp;
                             {won
                               ? 'ĐÃ TRÚNG SUẤT'
-                              : own.lotteryResult === 'LOST'
+                              : own.lotteryResult === 'LOST' || own.lotteryResult === 'LOTTERY_LOST'
                                 ? 'CHƯA TRÚNG (chờ bổ sung)'
-                                : own.lotteryResult || 'ĐANG CẬP NHẬT'}
+                                : own.lotteryResult
+                                  ? (LOTTERY_RESULT_LABELS[own.lotteryResult] || own.lotteryResult).toUpperCase()
+                                  : 'ĐANG CẬP NHẬT'}
                           </p>
                           {won && !hasSlot && (
                             <p className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">

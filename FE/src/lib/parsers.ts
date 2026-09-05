@@ -58,6 +58,7 @@ function readProjectRow(p: Record<string, unknown>): HousingProjectDto {
     ward: ward || undefined,
     street: p.street ? String(p.street ?? p.Street) : undefined,
     decisionNumber: p.decisionNumber ? String(p.decisionNumber ?? p.DecisionNumber) : undefined,
+    decisionDocumentUrl: p.decisionDocumentUrl ? String(p.decisionDocumentUrl ?? p.DecisionDocumentUrl) : undefined,
     address: p.address ? String(p.address ?? p.Address) : undefined,
     location: [ward || district, province].filter(Boolean).join(', ') || undefined,
     minPrice: Number(p.minPrice ?? p.MinPrice ?? 0),

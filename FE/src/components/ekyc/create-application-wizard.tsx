@@ -71,12 +71,18 @@ interface PrefillData {
   averageHousingAreaPerPerson?: number | null
   priorityGroup?: string | null
   priorityGroupLabel?: string | null
-  householdMembersCount?: number
   householdMembers?: Array<{
     fullName: string
     relationship: string
     citizenId?: string | null
     dateOfBirth?: string | null
+    occupation?: string | null
+    monthlyIncome?: number | string | null
+    isDependent?: boolean | null
+    dependentReason?: string | null
+    hasMeritService?: boolean | null
+    meritDetails?: string | null
+    note?: string | null
   }> | null
   availableVaultDocuments?: Array<{
     documentId: string
@@ -347,7 +353,13 @@ export function CreateApplicationWizard() {
           relationship: m.relationship,
           dateOfBirth: m.dateOfBirth ?? null,
           citizenId: m.citizenId ?? null,
-          note: null,
+          occupation: m.occupation ?? null,
+          monthlyIncome: m.monthlyIncome != null ? Number(m.monthlyIncome) : null,
+          isDependent: Boolean(m.isDependent),
+          dependentReason: m.dependentReason ?? null,
+          hasMeritService: Boolean(m.hasMeritService),
+          meritDetails: m.meritDetails ?? null,
+          note: m.note ?? null,
         }))
         : null,
     }

@@ -20,6 +20,7 @@ import { formatError } from '@/lib/format-error'
 import { Alert } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { LOTTERY_RESULT_LABELS } from '@/lib/constants'
 import type { PaymentInfoDto } from '@/types'
 
 // ─── Deposit countdown ───────────────────────────────────────────────────────────
@@ -281,15 +282,14 @@ export function InstallmentRow({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 flex-1 items-start gap-3">
           <div
-            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-base font-bold ${
-              isPaid
-                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-                : isOverdue
-                  ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
-                  : isLocked
-                    ? 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
-                    : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
-            }`}
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-base font-bold ${isPaid
+              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+              : isOverdue
+                ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
+                : isLocked
+                  ? 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                  : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+              }`}
             aria-hidden
           >
             {inst.ordinal}
@@ -302,29 +302,28 @@ export function InstallmentRow({
               <Badge variant={badgeTone}>{toneBadgeText}</Badge>
             </div>
             {!isLocked && (
-            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
-              <span className="inline-flex items-center gap-1">
-                <Calendar className="h-3.5 w-3.5" />
-                Hạn: {dueLabel}
-              </span>
-              {countdownLabel && (
-                <span
-                  className={`inline-flex items-center gap-1 font-medium ${
-                    isOverdue ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'
-                  }`}
-                >
-                  <Clock className="h-3.5 w-3.5" />
-                  {countdownLabel}
+              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
+                <span className="inline-flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5" />
+                  Hạn: {dueLabel}
                 </span>
-              )}
-              {!isPaid && inst.ordinal === 1 && (
-                <DepositCountdown
-                  signedAt={signedAt}
-                  paid={isPaid}
-                  expired={isCancelled || inst.status === 'OVERDUE'}
-                />
-              )}
-            </div>
+                {countdownLabel && (
+                  <span
+                    className={`inline-flex items-center gap-1 font-medium ${isOverdue ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'
+                      }`}
+                  >
+                    <Clock className="h-3.5 w-3.5" />
+                    {countdownLabel}
+                  </span>
+                )}
+                {!isPaid && inst.ordinal === 1 && (
+                  <DepositCountdown
+                    signedAt={signedAt}
+                    paid={isPaid}
+                    expired={isCancelled || inst.status === 'OVERDUE'}
+                  />
+                )}
+              </div>
             )}
             {inst.ordinal === 5 && (
               <p className="mt-1.5 text-[11px] text-amber-700 dark:text-amber-400">
@@ -680,7 +679,7 @@ export function PaymentSection({
       <Alert variant="warning">
         <p className="font-medium">Hợp đồng đã ký nhưng hệ thống chưa sinh lịch thanh toán.</p>
         <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
-          Liên hệ CĐT / Ban quản lý dự án để được tạo lịch 6 đợt.
+          Liên hệ CĐT / Ban quản lý dự án để được tạo lịch thanh toán (3–6 đợt theo quy định dự án).
         </p>
       </Alert>
     )
@@ -689,7 +688,7 @@ export function PaymentSection({
   if (installments.length === 0) {
     return (
       <Alert variant="info">
-        <strong>Chưa có lịch thanh toán.</strong> Hệ thống sẽ sinh lịch 6 đợt sau khi CĐT gán căn hộ cho bạn.
+        <strong>Chưa có lịch thanh toán.</strong> Hệ thống sẽ sinh lịch thanh toán (3–6 đợt theo cấu hình của CĐT) sau khi CĐT gán căn hộ cho bạn.
       </Alert>
     )
   }
@@ -715,7 +714,7 @@ export function PaymentSection({
         <div className="mb-3 flex items-baseline justify-between">
           <h4 className="text-base font-semibold">Lịch thanh toán</h4>
           <span className="text-xs text-slate-500 dark:text-slate-400">
-            {installments.length} đợt · theo Luật Nhà ở
+            {installments.length} đợt · theo quy định dự án (3–6 đợt)
           </span>
         </div>
 
@@ -723,7 +722,7 @@ export function PaymentSection({
           <Alert variant="warning" className="mb-4">
             <p className="font-medium">Số tiền lịch thanh toán không khớp giá nhà chính thức.</p>
             <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
-              Tổng 6 đợt: <b>{sumPhases.toLocaleString('vi-VN')}</b> VNĐ —
+              Tổng {installments.length > 0 ? `${installments.length} đợt` : 'các đợt'}: <b>{sumPhases.toLocaleString('vi-VN')}</b> VNĐ —
               Giá nhà: <b>{ref!.toLocaleString('vi-VN')}</b> VNĐ.
               Vui lòng báo CĐT/ban quản lý đối soát.
             </p>
@@ -758,20 +757,20 @@ export function PaymentSection({
         applicationStatus === 'PARTIALLY_PAID' ||
         applicationStatus === 'PAID' ||
         applicationStatus === 'FULLY_PAID') && (
-        <Button
-          variant="outline"
-          onClick={async () => {
-            try {
-              await downloadContractPdf(applicationId)
-            } catch (err) {
-              // silent
-            }
-          }}
-        >
-          <Download className="mr-1.5 h-4 w-4" />
-          Tải PDF hợp đồng
-        </Button>
-      )}
+          <Button
+            variant="outline"
+            onClick={async () => {
+              try {
+                await downloadContractPdf(applicationId)
+              } catch (err) {
+                // silent
+              }
+            }}
+          >
+            <Download className="mr-1.5 h-4 w-4" />
+            Tải PDF hợp đồng
+          </Button>
+        )}
     </div>
   )
 }
@@ -821,6 +820,25 @@ export function ApartmentCard({
   projectName,
   lotteryResult,
 }: ApartmentCardProps) {
+  const normLottery = lotteryResult?.trim().toUpperCase()
+  const isWon = normLottery === 'WON' || normLottery === 'PRIORITY_WON'
+  const isLost = normLottery === 'LOST' || normLottery === 'LOTTERY_LOST' || normLottery === 'NOT_WON'
+
+  const lotteryBadgeText =
+    normLottery === 'WON'
+      ? '✓ Trúng bốc thăm'
+      : normLottery === 'PRIORITY_WON'
+        ? '✓ Ưu tiên trúng'
+        : isLost
+          ? 'Không trúng thăm'
+          : normLottery === 'WAITLIST'
+            ? 'Danh sách chờ'
+            : normLottery === 'PENDING'
+              ? 'Chờ bốc thăm'
+              : LOTTERY_RESULT_LABELS[lotteryResult ?? ''] || lotteryResult
+
+  const badgeVariant: 'success' | 'warning' | 'danger' = isWon ? 'success' : isLost ? 'danger' : 'warning'
+
   return (
     <div className="rounded-xl border border-indigo-200 bg-gradient-to-br from-indigo-50/60 to-violet-50/40 p-5 dark:border-indigo-800 dark:from-indigo-950/30 dark:to-violet-950/20">
       <div className="flex items-start gap-3">
@@ -836,9 +854,8 @@ export function ApartmentCard({
           </h3>
           <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-400">{projectName}</p>
           {lotteryResult && (
-            <Badge variant="success" className="mt-2">
-              {lotteryResult === 'WON' ? '✓ Trúng bốc thăm' :
-               lotteryResult === 'PRIORITY_WON' ? '✓ Ưu tiên trúng' : lotteryResult}
+            <Badge variant={badgeVariant} className="mt-2">
+              {lotteryBadgeText}
             </Badge>
           )}
         </div>

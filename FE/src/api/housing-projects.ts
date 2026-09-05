@@ -183,6 +183,28 @@ export const housingProjectsApi = {
     })
   },
 
+  uploadDocument: (file: File) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return request<ApiResult>('/api/HousingProjects/upload-document', {
+      method: 'POST',
+      body: fd,
+      auth: true,
+      timeoutMs: 90_000,
+    })
+  },
+
+  upload3DModel: (file: File) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return request<ApiResult>('/api/HousingProjects/upload-3d-model', {
+      method: 'POST',
+      body: fd,
+      auth: true,
+      timeoutMs: 90_000,
+    })
+  },
+
   createApartmentsBatch: (projectId: string, apartments: CreateApartmentDto[]) =>
     request<ApiResult>(`/api/housing-projects/${projectId}/apartments/batch`, {
       method: 'POST',
@@ -308,17 +330,6 @@ export const housingProjectsApi = {
   /** Lấy cấu trúc mặt bằng 3D toàn dự án (Block -> Tầng -> Căn hộ) */
   getFloorPlan: (projectId: string) =>
     request<ApiResult>(`/api/housing-projects/${projectId}/floor-plan`, { auth: false }),
-
-  /** Upload file mô hình 3D (.glb, .gltf, .obj...) lên Cloudinary */
-  upload3DModel: (file: File) => {
-    const formData = new FormData()
-    formData.append('file', file)
-    return request<ApiResult>('/api/HousingProjects/upload-3d-model', {
-      method: 'POST',
-      body: formData,
-      auth: true,
-    })
-  },
 }
 
 /** Action SXD dùng để chuyển trạng thái dự án. Match với BE controller. */

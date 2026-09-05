@@ -18,6 +18,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ApiError } from '@/api/http'
 import { labelApplicationStatus, labelReviewAction } from '@/lib/labels'
+import { LOTTERY_RESULT_LABELS } from '@/lib/constants'
 import { formatError } from '@/lib/format-error'
 import { isLoggedIn, navigate } from '@/router'
 
@@ -42,7 +43,8 @@ export function LookupPage() {
     setDetail(null)
     setPublicItem(null)
     try {
-      if (isLoggedIn()) {        const raw = await housingApplicationsApi.getById(id.trim())
+      if (isLoggedIn()) {
+        const raw = await housingApplicationsApi.getById(id.trim())
         setDetail(parseApplicationDetail(raw))
       } else {
         const raw = await publicPostCheckApi.getById(id.trim())
@@ -187,7 +189,7 @@ export function LookupPage() {
               <p className="mt-2 text-sm">Mã căn: <strong>{publicItem.slotCode}</strong></p>
             )}
             {publicItem.lotteryResult && (
-              <p className="mt-1 text-sm">Kết quả bốc thăm: <strong>{publicItem.lotteryResult}</strong></p>
+              <p className="mt-1 text-sm">Kết quả bốc thăm: <strong>{LOTTERY_RESULT_LABELS[publicItem.lotteryResult] ?? publicItem.lotteryResult}</strong></p>
             )}
           </CardContent>
         </Card>

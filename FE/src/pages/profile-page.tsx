@@ -236,6 +236,25 @@ export function ProfilePage() {
       setDateOfBirth('')
     }
 
+    try {
+      const citizenIdVal = String(u.citizenId ?? u.CitizenId ?? '')
+      if (citizenIdVal) {
+        const cacheData = {
+          fullName: String(u.fullName ?? u.FullName ?? ''),
+          citizenId: citizenIdVal,
+          phoneNumber: phone,
+          email: String(u.email ?? u.Email ?? ''),
+          dateOfBirth: dobRaw ? String(dobRaw) : null,
+          gender: String(u.gender ?? u.Gender ?? u.sex ?? u.Sex ?? 'Nam'),
+          address: String(u.address ?? u.Address ?? u.permanentAddress ?? u.PermanentAddress ?? ''),
+          placeOfOrigin: String(u.placeOfOrigin ?? u.PlaceOfOrigin ?? u.hometown ?? u.address ?? ''),
+          isEkycVerified: Boolean(u.isCitizenIdVerified ?? u.IsCitizenIdVerified ?? u.isEkycVerified ?? u.IsEkycVerified ?? true),
+        }
+        localStorage.setItem(`applicant_profile_${citizenIdVal}`, JSON.stringify(cacheData))
+        localStorage.setItem('last_citizen_profile', JSON.stringify(cacheData))
+      }
+    } catch { /* ignore */ }
+
     setCitizenInfo((prev) => ({
       ...prev,
       maritalStatus: String(u.maritalStatus ?? u.MaritalStatus ?? prev.maritalStatus ?? ''),

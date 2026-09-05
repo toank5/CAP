@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button'
 import { resolveRoleTheme } from '@/lib/role-theme'
 import { useHashRoute, navigate } from '@/hooks/useHashRoute'
 import { isLoggedIn, ADMIN_ROLE, AUTH_FORM_ROUTES, getRole, type RouteId } from '@/router'
-import { Sparkles, ChevronDown, LogOut, User, Settings } from 'lucide-react'
+import { ChevronDown, LogOut, User, Settings } from 'lucide-react'
 import { useUserProfile } from '@/providers/user-profile-provider'
 import { clearTokens } from '@/lib/token'
 
@@ -156,56 +156,53 @@ function InternalHeader({ logged, role }: { logged: boolean; role: string }) {
   const showSxdNav = isSxd && SXD_SUB_NAV_ROUTES.includes(route)
 
   return (
-    <div>
-      {/* Top bar */}
-      <header className="border-b border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
-        <div className="mx-auto flex h-14 max-w-[1760px] items-center gap-3 px-4 lg:px-6">
-          {/* Logo */}
+    <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur-md dark:border-slate-800/80 dark:bg-slate-900/95 shadow-xs">
+      <div className="mx-auto flex h-16 max-w-[1760px] items-center justify-between gap-3 px-3 sm:px-4 lg:px-6">
+        {/* Left: Logo & Portal Title */}
+        <div className="flex min-w-0 items-center gap-3 lg:gap-6">
           <button
             type="button"
             onClick={() => navigate(logged ? (theme.homeRoute as RouteId) : 'landing')}
-            className="flex min-w-0 items-center text-left"
+            className="flex shrink-0 min-w-0 items-center text-left transition hover:opacity-90"
             aria-label="Trang chủ"
           >
-            <BrandLogo size="sm" showPortal showAcronym className="max-w-[min(100%,480px)]" />
+            <BrandLogo size="sm" showPortal showAcronym={false} className="max-w-[240px] sm:max-w-[280px] xl:max-w-[320px]" />
           </button>
 
-          <div className="flex-1" />
-
-          {/* Right cluster */}
-          <div className="flex shrink-0 items-center gap-2">
-            <ThemeToggle />
-            {logged && <NotificationBell />}
-            {logged && <UserAccountCluster />}
-            {!logged && (
-              <Button variant="outline" size="sm" className="rounded-lg font-semibold" onClick={() => navigate('login')}>
-                Đăng nhập
-              </Button>
-            )}
-            {logged && (
-              <Button
-                size="sm"
-                className={`rounded-lg font-semibold text-white ${theme.ctaBg} ${theme.ctaBgHover}`}
-                onClick={() => navigate(theme.ctaRoute as RouteId)}
-              >
-                <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-                {theme.ctaLabel}
-              </Button>
-            )}
-          </div>
+          {/* Desktop TopNav inline */}
+          {logged && (
+            <div className="hidden items-center lg:flex">
+              {showApplicantNav && <ApplicantSubNav inline />}
+              {showAdminNav && <AdminSubNav inline />}
+              {showDeveloperNav && <DeveloperSubNav inline />}
+              {showSxdNav && <SxdSubNav inline />}
+            </div>
+          )}
         </div>
-      </header>
 
-      {/* Sub-nav */}
-      {(showApplicantNav || showAdminNav || showDeveloperNav || showSxdNav) && (
-        <div className="border-b border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50">
-          {showApplicantNav && <ApplicantSubNav />}
-          {showAdminNav && <AdminSubNav />}
-          {showDeveloperNav && <DeveloperSubNav />}
-          {showSxdNav && <SxdSubNav />}
+        {/* Right cluster: ThemeToggle, Notifications, User Account */}
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <ThemeToggle />
+          {logged && <NotificationBell />}
+          {logged && <UserAccountCluster />}
+          {!logged && (
+            <Button variant="outline" size="sm" className="rounded-lg font-semibold" onClick={() => navigate('login')}>
+              Đăng nhập
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Mobile / Tablet scrollable top-nav bar */}
+      {logged && (showApplicantNav || showAdminNav || showDeveloperNav || showSxdNav) && (
+        <div className="flex border-t border-slate-100 bg-slate-50/90 px-4 py-1.5 backdrop-blur-xs dark:border-slate-800 dark:bg-slate-900/80 lg:hidden overflow-x-auto no-scrollbar">
+          {showApplicantNav && <ApplicantSubNav inline />}
+          {showAdminNav && <AdminSubNav inline />}
+          {showDeveloperNav && <DeveloperSubNav inline />}
+          {showSxdNav && <SxdSubNav inline />}
         </div>
       )}
-    </div>
+    </header>
   )
 }
 
