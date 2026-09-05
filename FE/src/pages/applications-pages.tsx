@@ -1692,9 +1692,6 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
                 <Printer className="mr-1.5 h-4 w-4 text-blue-600 dark:text-blue-400" /> Phiếu tiếp nhận
               </Button>
             )}
-            <Button variant="ghost" size="sm" onClick={() => void refresh()} title="Làm mới dữ liệu">
-              <RefreshCw className="h-4 w-4 text-slate-600 dark:text-slate-300" />
-            </Button>
           </div>
         </div>
       </div>
