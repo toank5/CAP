@@ -4,6 +4,7 @@ import {
   Building2,
   Gavel,
   Radio,
+  FileSignature,
 } from 'lucide-react'
 import { useHashRoute, navigate } from '@/hooks/useHashRoute'
 import { type RouteId } from '@/router'
@@ -40,6 +41,12 @@ const ITEMS: NavItem[] = [
     label: 'Bốc thăm trực tiếp',
     icon: Radio,
   },
+  {
+    route: 'contracts',
+    label: 'Hợp đồng',
+    icon: FileSignature,
+    aliases: ['contract-detail', 'contract-create'],
+  },
 ]
 
 // Tất cả route của Housing Developer dùng sub-nav này.
@@ -53,6 +60,9 @@ export const DEVELOPER_SUB_NAV_ROUTES: RouteId[] = [
   'lottery-sessions',
   'lottery-live',
   'my-lottery',
+  'contracts',
+  'contract-detail',
+  'contract-create',
   'dashboard',
   'profile',
   'change-password',

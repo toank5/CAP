@@ -1,4 +1,4 @@
-import { Building2, FileText, Gavel, Heart, Home } from 'lucide-react'
+import { Building2, FileSignature, FileText, Gavel, Heart, Home } from 'lucide-react'
 import { useHashRoute, navigate } from '@/hooks/useHashRoute'
 import { type RouteId } from '@/router'
 
@@ -15,6 +15,7 @@ const ITEMS: NavItem[] = [
   { route: 'quan-tam', label: 'Quan tâm', icon: Heart },
   { route: 'applications', label: 'Hồ sơ', icon: FileText, aliases: ['application-detail', 'create-application'] },
   { route: 'my-lottery', label: 'Bốc thăm', icon: Gavel, aliases: ['lottery-lobby', 'lottery-live'] },
+  { route: 'contracts', label: 'Hợp đồng', icon: FileSignature, aliases: ['contract-detail'] },
 ]
 
 export const APPLICANT_SUB_NAV_ROUTES: RouteId[] = [
@@ -26,6 +27,7 @@ export const APPLICANT_SUB_NAV_ROUTES: RouteId[] = [
   'projects',
   'project-detail',
   'create-project',
+  'contracts',
   'contract-detail',
   'profile',
   'change-password',
@@ -34,7 +36,7 @@ export const APPLICANT_SUB_NAV_ROUTES: RouteId[] = [
   'lottery-live',
   'my-lottery',
   'report-issue',
-] 
+]
 
 function isActive(current: RouteId, item: NavItem): boolean {
   if (current === item.route) return true
@@ -56,11 +58,10 @@ export function ApplicantSubNav({ inline = false }: { inline?: boolean }) {
               key={item.route}
               type="button"
               onClick={() => navigate(item.route)}
-              className={`relative inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs xl:text-[13px] font-semibold transition-all duration-150 whitespace-nowrap ${
-                active
+              className={`relative inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs xl:text-[13px] font-semibold transition-all duration-150 whitespace-nowrap ${active
                   ? 'bg-blue-600 font-bold text-white shadow-md shadow-blue-500/25 dark:bg-blue-600 dark:text-white'
                   : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white'
-              }`}
+                }`}
             >
               <Icon className={`h-4 w-4 shrink-0 ${active ? 'text-white' : 'text-slate-500 dark:text-slate-400'}`} />
               <span>{item.label}</span>

@@ -87,6 +87,7 @@ export const LotteryBallCage: React.FC<Props> = ({
   recentWinners = [],
   onDrawNext,
   busy,
+  isDev = false,
   sessionStatus = '',
   remaining = 0,
   total = 0,
@@ -265,7 +266,7 @@ export const LotteryBallCage: React.FC<Props> = ({
   const isLive = sessionStatus === 'Live'
   const isFinished = sessionStatus === 'Finished' || sessionStatus === 'Published'
   const isOutOfUnits = remaining === 0 && total > 0
-  const canDraw = isLive && !isOutOfUnits && !isFinished
+  const canDraw = !!isDev && isLive && !isOutOfUnits && !isFinished
 
   return (
     <div className="relative overflow-hidden rounded-3xl border border-amber-200/90 bg-white p-5 sm:p-6 shadow-lg shadow-amber-900/5">
@@ -676,26 +677,46 @@ export const LotteryBallCage: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* 2. NÚT BỐC THĂM ĐỘC NHẤT */}
+        {/* 2. KHU VỰC THAO TÁC / GIÁM SÁT */}
         <div className="mt-3.5 flex items-center justify-center w-full z-10">
-          <button
-            onClick={canDraw ? onDrawNext : undefined}
-            disabled={!canDraw || !!busy || isSpinning}
-            className={`px-9 py-3 sm:py-3.5 min-w-[200px] max-w-[250px] flex items-center justify-center gap-2 rounded-2xl font-black text-sm sm:text-base tracking-widest uppercase transition-all select-none ${
-              canDraw
-                ? 'bg-gradient-to-r from-amber-400 via-rose-500 to-amber-500 border-2 border-yellow-200 text-white shadow-xl shadow-rose-500/35 hover:scale-105 active:scale-95 cursor-pointer'
-                : 'bg-emerald-950/80 border border-emerald-800/70 text-emerald-200/40 opacity-40 cursor-not-allowed shadow-none'
-            }`}
-          >
-            {isSpinning || busy ? (
-              <>
-                <Sparkles className="h-4.5 w-4.5 animate-spin text-amber-200" />
+          {isDev ? (
+            <button
+              onClick={canDraw ? onDrawNext : undefined}
+              disabled={!canDraw || !!busy || isSpinning}
+              className={`px-9 py-3 sm:py-3.5 min-w-[200px] max-w-[250px] flex items-center justify-center gap-2 rounded-2xl font-black text-sm sm:text-base tracking-widest uppercase transition-all select-none ${
+                canDraw
+                  ? 'bg-gradient-to-r from-amber-400 via-rose-500 to-amber-500 border-2 border-yellow-200 text-white shadow-xl shadow-rose-500/35 hover:scale-105 active:scale-95 cursor-pointer'
+                  : 'bg-emerald-950/80 border border-emerald-800/70 text-emerald-200/40 opacity-40 cursor-not-allowed shadow-none'
+              }`}
+            >
+              {isSpinning || busy ? (
+                <>
+                  <Sparkles className="h-4.5 w-4.5 animate-spin text-amber-200" />
+                  <span>BỐC THĂM</span>
+                </>
+              ) : (
                 <span>BỐC THĂM</span>
-              </>
-            ) : (
-              <span>BỐC THĂM</span>
-            )}
-          </button>
+              )}
+            </button>
+          ) : (
+            <div className="flex items-center gap-2 rounded-2xl bg-emerald-950/80 border border-emerald-700/60 px-5 py-2.5 text-emerald-200 text-xs sm:text-sm font-bold shadow-md">
+              {isSpinning ? (
+                <>
+                  <Sparkles className="h-4 w-4 animate-spin text-amber-300" />
+                  <span className="text-amber-200">Chủ đầu tư đang thực hiện quay số...</span>
+                </>
+              ) : isLive ? (
+                <>
+                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>Khán phòng trực tuyến • Giám sát phiên bốc thăm</span>
+                </>
+              ) : isFinished ? (
+                <span>✓ Phiên bốc thăm đã hoàn tất</span>
+              ) : (
+                <span>Chế độ giám sát trực tuyến</span>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
