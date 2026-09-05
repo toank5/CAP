@@ -3,17 +3,14 @@ import { motion } from 'framer-motion'
 import {
   Activity,
   AlertTriangle,
-  ArrowRight,
   Bell,
   Building2,
   CheckCircle2,
   CheckCheck,
   ChevronRight,
-  Eye,
   FileText,
   Home,
   Inbox,
-  Layers,
   Plus,
   RefreshCw,
   Send,
@@ -658,180 +655,13 @@ export function DeveloperHomePage() {
         </motion.div>
       </div>
 
-      {/* ── 5. ACTIVE PROJECTS PORTFOLIO SHOWCASE ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.35 }}
-        className="rounded-3xl border border-slate-200/80 bg-white/90 p-5 sm:p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/90"
-      >
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
-              <Layers className="h-5 w-5" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                Danh sách Dự án đang điều phối
-              </h3>
-              <p className="text-xs text-slate-500">
-                Theo dõi tình trạng quỹ căn hộ, tiến độ hồ sơ và tình trạng phê duyệt
-              </p>
-            </div>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate('projects')}
-            className="rounded-xl text-xs font-bold"
-          >
-            Xem tất cả dự án <ArrowRight className="ml-1 h-3 w-3" />
-          </Button>
-        </div>
-
-        {loading ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="rounded-2xl border border-slate-100 p-4 dark:border-slate-800">
-                <Skeleton className="aspect-[16/10] w-full rounded-2xl" />
-                <Skeleton className="mt-3 h-4 w-3/4" />
-                <Skeleton className="mt-2 h-3 w-1/2" />
-              </div>
-            ))}
-          </div>
-        ) : data.projects.length === 0 ? (
-          <div className="py-12 text-center">
-            <EmptyState
-              title="Chưa có dự án nào"
-              description="Bạn chưa đăng ký dự án nhà ở xã hội nào. Bắt đầu bằng cách tạo dự án đầu tiên của bạn."
-            />
-            <Button
-              onClick={() => setShowCreate(true)}
-              className="mt-4 rounded-xl bg-blue-600 font-semibold text-white shadow-md hover:bg-blue-700"
-            >
-              <Plus className="mr-1.5 h-4 w-4" /> Tạo dự án ngay
-            </Button>
-          </div>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {data.projects.slice(0, 6).map((project) => {
-              const evalInfo = project.id ? data.evaluations[project.id] : undefined
-              const isApproved =
-                String(project.status || '').toUpperCase() === 'APPROVED' ||
-                String(project.status || '').toUpperCase() === 'OPEN'
-              const applied = evalInfo?.totalQualifiedApplications ?? 0
-              const units = project.availableUnits ?? 0
-              const fillPct = units > 0 ? Math.min(100, Math.round((applied / units) * 100)) : 0
-              const firstImg = project.images?.[0]
-              const thumb = project.thumbnailUrl || (typeof firstImg === 'string' ? firstImg : (firstImg as any)?.imageUrl)
-
-              return (
-                <div
-                  key={project.id}
-                  className="group flex flex-col justify-between rounded-2xl border border-slate-200/80 bg-slate-50/50 p-4 transition-all hover:border-blue-400 hover:bg-white hover:shadow-md dark:border-slate-800 dark:bg-slate-850/50 dark:hover:bg-slate-800"
-                >
-                  <div className="space-y-3">
-                    {/* Project Image & Badge */}
-                    <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700/50">
-                      {thumb ? (
-                        <img
-                          src={thumb}
-                          alt={project.projectName}
-                          className="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-900/30 to-slate-850 text-blue-300">
-                          <Building2 className="h-12 w-12 opacity-60" />
-                        </div>
-                      )}
-                      <div className="absolute right-2.5 top-2.5">
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-[11px] font-bold shadow-md backdrop-blur-md ${
-                            isApproved
-                              ? 'bg-emerald-500/90 text-white'
-                              : 'bg-amber-500/90 text-white'
-                          }`}
-                        >
-                          {project.status || 'Đang mở bán'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div>
-                      <h4 className="line-clamp-1 text-sm font-bold text-slate-900 group-hover:text-blue-600 dark:text-white dark:group-hover:text-blue-400">
-                        {project.projectName || project.name}
-                      </h4>
-                      <p className="line-clamp-1 text-xs text-slate-500 mt-0.5">
-                        📍 {project.ward || project.district || 'TP. Hồ Chí Minh'}
-                      </p>
-                    </div>
-
-                    {/* Quick Stats Grid */}
-                    <div className="grid grid-cols-2 gap-2 rounded-xl bg-white p-2.5 text-xs dark:bg-slate-800/80 border border-slate-100 dark:border-slate-700/60">
-                      <div>
-                        <p className="text-[10px] text-slate-400">Quỹ căn hộ</p>
-                        <p className="font-bold text-slate-800 dark:text-slate-200">
-                          {units} căn
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] text-slate-400">Hồ sơ đã nộp</p>
-                        <p className="font-bold text-blue-600 dark:text-blue-400">
-                          {applied} hồ sơ
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Interest / Demand Meter */}
-                    <div>
-                      <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 mb-1">
-                        <span>Tỷ lệ nộp hồ sơ</span>
-                        <span className={fillPct >= 100 ? 'text-amber-600 font-bold' : 'text-slate-700 dark:text-slate-300'}>
-                          {fillPct}% {fillPct >= 100 ? '(Vượt căn)' : ''}
-                        </span>
-                      </div>
-                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-                        <div
-                          className={`h-full rounded-full transition-all ${
-                            fillPct >= 100 ? 'bg-amber-500' : 'bg-blue-500'
-                          }`}
-                          style={{ width: `${Math.min(100, fillPct)}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate('projects')}
-                      className="flex-1 rounded-xl text-xs font-semibold h-8"
-                    >
-                      <Eye className="mr-1 h-3 w-3" /> Chi tiết
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => navigate('applications')}
-                      className="flex-1 rounded-xl bg-blue-600 text-xs font-semibold text-white h-8 hover:bg-blue-700"
-                    >
-                      <FileText className="mr-1 h-3 w-3" /> Duyệt hồ sơ
-                    </Button>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </motion.div>
-
-      {/* ── 6. RECENT APPLICATIONS & LIVE NOTIFICATIONS ── */}
+      {/* ── 5. RECENT APPLICATIONS & LIVE NOTIFICATIONS ── */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Left: Recent Applicants Feed */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
+          transition={{ delay: 0.35 }}
           className="rounded-3xl border border-slate-200/80 bg-white/90 p-5 sm:p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/90"
         >
           <div className="mb-4 flex items-center justify-between">
