@@ -19,6 +19,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { navigate } from '@/hooks/useHashRoute'
 import { useHousingProjects } from '@/hooks/useHousingProjects'
 import { useWishlist } from '@/hooks/useWishlist'
+import { getRole, isLoggedIn } from '@/router'
 import type { ProjectCard } from '@/lib/projects'
 
 function goToProjectDetail(house: ProjectCard) {
@@ -233,16 +234,18 @@ const SpotlightProjectCard = memo(function SpotlightProjectCard({
               >
                 Chi tiết dự án <ArrowRight className="ml-1 h-3.5 w-3.5" />
               </Button>
-              <Button
-                size="sm"
-                className="rounded-xl bg-emerald-600 text-xs font-bold text-white hover:bg-emerald-700 shadow-sm shadow-emerald-600/20"
-                onClick={() => {
-                  sessionStorage.setItem('projectId', house.id)
-                  navigate('create-application')
-                }}
-              >
-                Nộp hồ sơ ngay
-              </Button>
+              {(!isLoggedIn() || getRole() === 'Applicant') && (
+                <Button
+                  size="sm"
+                  className="rounded-xl bg-emerald-600 text-xs font-bold text-white hover:bg-emerald-700 shadow-sm shadow-emerald-600/20"
+                  onClick={() => {
+                    sessionStorage.setItem('projectId', house.id)
+                    navigate('create-application')
+                  }}
+                >
+                  Nộp hồ sơ ngay
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -346,16 +349,18 @@ const ProjectGridCard = memo(function ProjectGridCard({
             >
               Chi tiết
             </Button>
-            <Button
-              size="sm"
-              className="rounded-xl bg-emerald-600 text-xs font-semibold px-3 h-8 text-white hover:bg-emerald-700 shadow-sm shadow-emerald-600/20"
-              onClick={() => {
-                sessionStorage.setItem('projectId', house.id)
-                navigate('create-application')
-              }}
-            >
-              Nộp hồ sơ
-            </Button>
+            {(!isLoggedIn() || getRole() === 'Applicant') && (
+              <Button
+                size="sm"
+                className="rounded-xl bg-emerald-600 text-xs font-semibold px-3 h-8 text-white hover:bg-emerald-700 shadow-sm shadow-emerald-600/20"
+                onClick={() => {
+                  sessionStorage.setItem('projectId', house.id)
+                  navigate('create-application')
+                }}
+              >
+                Nộp hồ sơ
+              </Button>
+            )}
           </div>
         </div>
       </div>

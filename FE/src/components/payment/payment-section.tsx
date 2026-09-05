@@ -14,14 +14,19 @@ import {
   extractPaymentUrl,
   paymentApi,
   downloadContractPdf,
+  type CancellationPreviewDto,
 } from '@/api/payment'
 import { openVnPayPopupAndWait, vnPayResultMessage } from '@/lib/vnpay-popup'
 import { formatError } from '@/lib/format-error'
 import { Alert } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { FormField } from '@/components/ui/label'
+import { Input, Textarea } from '@/components/ui/input'
+import { Modal } from '@/components/ui/modal'
 import { LOTTERY_RESULT_LABELS } from '@/lib/constants'
 import type { PaymentInfoDto } from '@/types'
+
 
 // ─── Deposit countdown ───────────────────────────────────────────────────────────
 
@@ -655,7 +660,10 @@ export function PaymentSection({
   role,
   projectId,
 }: PaymentSectionProps) {
+  const [withdrawModalOpen, setWithdrawModalOpen] = useState(false)
+
   if (hasError) {
+
     return (
       <div className="rounded-md border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-700 dark:bg-yellow-900/20">
         <p className="text-sm font-medium text-yellow-800 dark:text-yellow-300">
@@ -750,30 +758,225 @@ export function PaymentSection({
       {/* Lịch sử giao dịch */}
       <PaymentHistoryPanel applicationId={applicationId} />
 
-      {/* Tải PDF */}
-      {(applicationStatus === 'CONTRACT_PENDING' ||
-        applicationStatus === 'CONTRACT_SIGNED' ||
-        applicationStatus === 'CONTRACTING' ||
-        applicationStatus === 'PARTIALLY_PAID' ||
-        applicationStatus === 'PAID' ||
-        applicationStatus === 'FULLY_PAID') && (
+      {/* Hành động: Tải PDF hợp đồng & Xin rút hồ sơ */}
+      <div className="flex flex-wrap items-center gap-3">
+        {(applicationStatus === 'CONTRACT_PENDING' ||
+          applicationStatus === 'CONTRACT_SIGNED' ||
+          applicationStatus === 'CONTRACTING' ||
+          applicationStatus === 'PARTIALLY_PAID' ||
+          applicationStatus === 'PAID' ||
+          applicationStatus === 'FULLY_PAID') && (
+            <Button
+              variant="outline"
+              onClick={async () => {
+                try {
+                  await downloadContractPdf(applicationId)
+                } catch (err) {
+                  // silent
+                }
+              }}
+            >
+              <Download className="mr-1.5 h-4 w-4" />
+              Tải PDF hợp đồng
+            </Button>
+          )}
+
+        {role !== 'Housing Developer' && (
           <Button
-            variant="outline"
-            onClick={async () => {
-              try {
-                await downloadContractPdf(applicationId)
-              } catch (err) {
-                // silent
-              }
-            }}
+            variant="ghost"
+            className="text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/40"
+            onClick={() => setWithdrawModalOpen(true)}
           >
-            <Download className="mr-1.5 h-4 w-4" />
-            Tải PDF hợp đồng
+            <XCircle className="mr-1.5 h-4 w-4" />
+            Xin rút hồ sơ / Hủy hợp đồng
           </Button>
         )}
+      </div>
+
+      <WithdrawalRequestModal
+        open={withdrawModalOpen}
+        onClose={() => setWithdrawModalOpen(false)}
+        applicationId={applicationId}
+        onSuccess={() => {
+          onReload()
+        }}
+      />
     </div>
   )
 }
+
+// ─── Modal Xin rút hồ sơ / Hủy hợp đồng (Applicant) ───────────────────────────
+
+export function WithdrawalRequestModal({
+  open,
+  onClose,
+  applicationId,
+  onSuccess,
+}: {
+  open: boolean
+  onClose: () => void
+  applicationId: string
+  onSuccess: () => void
+}) {
+  const [loading, setLoading] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [preview, setPreview] = useState<CancellationPreviewDto | null>(null)
+  const [error, setError] = useState('')
+  const [reason, setReason] = useState('')
+  const [bankAccountNumber, setBankAccountNumber] = useState('')
+  const [bankName, setBankName] = useState('')
+  const [accountHolderName, setAccountHolderName] = useState('')
+
+  useEffect(() => {
+    if (!open || !applicationId) return
+    setLoading(true)
+    setError('')
+    paymentApi.getCancellationPreview(applicationId)
+      .then((res) => {
+        const d = res && typeof res === 'object' && 'data' in res ? (res as Record<string, unknown>).data : res
+        setPreview((d ?? {}) as CancellationPreviewDto)
+      })
+      .catch((err) => {
+        setError(formatError(err))
+      })
+      .finally(() => setLoading(false))
+  }, [open, applicationId])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!reason.trim()) {
+      setError('Vui lòng nêu rõ lý do xin rút hồ sơ / hủy hợp đồng.')
+      return
+    }
+    setSubmitting(true)
+    setError('')
+    try {
+      await paymentApi.requestCancellation(applicationId, {
+        reason: reason.trim(),
+        isForcedRevocation: false,
+        bankAccountNumber: bankAccountNumber.trim() || undefined,
+        bankName: bankName.trim() || undefined,
+        accountHolderName: accountHolderName.trim() || undefined,
+      })
+      onSuccess()
+      onClose()
+    } catch (err) {
+      setError(formatError(err))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <Modal
+      open={open}
+      onClose={submitting ? () => undefined : onClose}
+      title="Yêu cầu rút hồ sơ & Chấm dứt hợp đồng"
+      description="Xem trước khoản phạt cọc và số tiền hoàn lại theo quy định Nhà ở xã hội"
+      size="lg"
+    >
+      {loading ? (
+        <div className="flex items-center justify-center py-8">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <span className="ml-2 text-sm text-slate-500">Đang tính toán mức phạt cọc và tiền hoàn lại...</span>
+        </div>
+      ) : (
+        <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
+          {error && <Alert variant="error">{error}</Alert>}
+
+          {/* Preview cards */}
+          <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-4 dark:border-rose-900/60 dark:bg-rose-950/30">
+            <h4 className="font-semibold text-rose-900 dark:text-rose-200">
+              ⚠️ Cảnh báo quy chế tự ý rút hồ sơ / chấm dứt hợp đồng
+            </h4>
+            <p className="mt-1 text-xs text-rose-800 dark:text-rose-300 leading-relaxed">
+              Theo quy định Điều 38 Nghị định 100/2024/NĐ-CP và Hợp đồng nguyên tắc: Trường hợp người mua tự ý xin rút hồ sơ hoặc đơn phương chấm dứt hợp đồng sau khi đã đặt cọc, <strong>toàn bộ số tiền đặt cọc (Đợt 1) sẽ bị sung công quỹ / giữ lại theo quy chế</strong>. Suất mua sẽ được chuyển giao cho ứng viên tiếp theo trong Danh sách dự bị (Waitlist).
+            </p>
+
+            <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <div className="rounded-lg bg-white/80 p-2.5 dark:bg-slate-900/60">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">Tổng đã thanh toán</p>
+                <p className="font-bold text-slate-900 dark:text-slate-100">
+                  {Number(preview?.totalPaid ?? 0).toLocaleString('vi-VN')} VNĐ
+                </p>
+              </div>
+              <div className="rounded-lg bg-white/80 p-2.5 dark:bg-slate-900/60">
+                <p className="text-[11px] text-rose-600 dark:text-rose-400 font-medium">Tiền cọc bị phạt/giữ</p>
+                <p className="font-bold text-rose-600 dark:text-rose-400">
+                  {Number(preview?.forfeitedAmount ?? preview?.depositAmount ?? 0).toLocaleString('vi-VN')} VNĐ
+                </p>
+              </div>
+              <div className="rounded-lg bg-white/80 p-2.5 dark:bg-slate-900/60">
+                <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">Tiền hoàn lại dự kiến</p>
+                <p className="font-bold text-emerald-600 dark:text-emerald-400">
+                  {Number(preview?.refundAmount ?? 0).toLocaleString('vi-VN')} VNĐ
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <FormField label="Lý do xin rút hồ sơ / hủy hợp đồng *" htmlFor="cancel-reason">
+            <Textarea
+              id="cancel-reason"
+              required
+              rows={3}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="VD: Không thu xếp được tài chính / Chuyển nơi công tác / Thay đổi nhu cầu..."
+            />
+          </FormField>
+
+          <div className="border-t border-slate-200 pt-3 dark:border-slate-700">
+            <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              Thông tin tài khoản nhận tiền hoàn (nếu có tiền hoàn lại)
+            </h4>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <FormField label="Số tài khoản" htmlFor="bank-acc">
+                <Input
+                  id="bank-acc"
+                  value={bankAccountNumber}
+                  onChange={(e) => setBankAccountNumber(e.target.value)}
+                  placeholder="VD: 1903..."
+                />
+              </FormField>
+              <FormField label="Tên ngân hàng" htmlFor="bank-name">
+                <Input
+                  id="bank-name"
+                  value={bankName}
+                  onChange={(e) => setBankName(e.target.value)}
+                  placeholder="VD: Vietcombank, Techcombank..."
+                />
+              </FormField>
+              <FormField label="Tên chủ tài khoản" htmlFor="bank-owner">
+                <Input
+                  id="bank-owner"
+                  value={accountHolderName}
+                  onChange={(e) => setAccountHolderName(e.target.value)}
+                  placeholder="VD: NGUYEN VAN A"
+                />
+              </FormField>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" disabled={submitting} onClick={onClose}>
+              Hủy bỏ
+            </Button>
+            <Button
+              type="submit"
+              variant="outline"
+              disabled={submitting || !reason.trim()}
+              className="border-rose-300 bg-rose-600 font-bold text-white hover:bg-rose-700 hover:text-white"
+            >
+              {submitting ? 'Đang gửi yêu cầu...' : 'Xác nhận xin rút hồ sơ'}
+            </Button>
+          </div>
+        </form>
+      )}
+    </Modal>
+  )
+}
+
 
 // ─── Ký HĐ section ───────────────────────────────────────────────────────────
 

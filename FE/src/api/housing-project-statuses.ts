@@ -17,6 +17,17 @@ export interface PolicyConfigDto {
   updatedAt?: string
 }
 
+export interface PriorityGroupPointItemDto {
+  groupCode: string
+  groupName: string
+  points: number
+  description?: string | null
+}
+
+export interface PriorityPointsTableDto {
+  pointsTable: PriorityGroupPointItemDto[]
+}
+
 export const housingProjectStatusesApi = {
   list: () =>
     request<ApiResult>('/api/housing-project-statuses'),
@@ -30,7 +41,18 @@ export const housingProjectStatusesApi = {
       body: JSON.stringify(body),
       auth: true,
     }),
+
+  getPriorityPoints: () =>
+    request<PriorityPointsTableDto | ApiResult>('/api/PolicyConfig/priority-points', { auth: true }),
+
+  updatePriorityPoints: (body: PriorityPointsTableDto) =>
+    request<ApiResult>('/api/PolicyConfig/priority-points', {
+      method: 'PUT',
+      body: JSON.stringify(body),
+      auth: true,
+    }),
 }
+
 
 export function parseStatuses(data: unknown): HousingProjectStatusDto[] {
   if (!data || typeof data !== 'object') return []

@@ -27,6 +27,7 @@ export function normalizeStatus(status?: string | null): string {
   const map: Record<string, string> = {
     'ĐANG CHỜ': 'PENDING',
     'CHỜ DUYỆT': 'PENDING',
+    'CHỜ PHÊ DUYỆT': 'PENDING',
     'SẮP MỞ BÁN': 'UPCOMING',
     'ĐANG MỞ ĐĂNG KÝ': 'OPEN',
     'MỞ BÁN': 'OPEN',
@@ -34,6 +35,7 @@ export function normalizeStatus(status?: string | null): string {
     'HẾT CĂN': 'FULL',
     'TỪ CHỐI': 'REJECTED',
     'ĐÃ TỪ CHỐI': 'REJECTED',
+    'BỊ TỪ CHỐI': 'REJECTED',
   }
   return map[s] ?? s
 }

@@ -419,8 +419,8 @@ export function ApplicationsPage() {
                   setPageIndex(1)
                 }}
                 className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${active
-                    ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/20'
-                    : 'bg-slate-100/80 text-slate-600 hover:bg-slate-200/70 hover:text-slate-900 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+                  ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/20'
+                  : 'bg-slate-100/80 text-slate-600 hover:bg-slate-200/70 hover:text-slate-900 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
                   }`}
               >
                 {tab.label}
@@ -691,10 +691,10 @@ export function ApplicationsPage() {
                               {countdown ? (
                                 <span
                                   className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold ${countdown.isOverdue
-                                      ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'
-                                      : countdown.days <= 3
-                                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
-                                        : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                                    ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'
+                                    : countdown.days <= 3
+                                      ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+                                      : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
                                     }`}
                                 >
                                   <Clock className="h-3 w-3" />
@@ -773,10 +773,10 @@ export function ApplicationsPage() {
                     key={app.applicationId}
                     onClick={openDetail}
                     className={`group relative cursor-pointer overflow-hidden rounded-2xl border transition-all duration-200 p-5 sm:p-6 shadow-sm hover:shadow-md ${app.isViolation
-                        ? 'border-rose-300 bg-rose-50/20 dark:border-rose-900/60 dark:bg-rose-950/20'
-                        : isNeedMoreDocs
-                          ? 'border-amber-300 bg-amber-50/20 dark:border-amber-900/60 dark:bg-amber-950/20'
-                          : 'border-slate-200/90 bg-white hover:border-emerald-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-emerald-700/60'
+                      ? 'border-rose-300 bg-rose-50/20 dark:border-rose-900/60 dark:bg-rose-950/20'
+                      : isNeedMoreDocs
+                        ? 'border-amber-300 bg-amber-50/20 dark:border-amber-900/60 dark:bg-amber-950/20'
+                        : 'border-slate-200/90 bg-white hover:border-emerald-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-emerald-700/60'
                       }`}
                   >
                     {/* Top Row: Project info & Status Badge */}

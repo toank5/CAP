@@ -45,6 +45,77 @@ export async function startVnPayPayment(
   return { url, orderId }
 }
 
+export interface CancellationPreviewDto {
+  applicationId?: string
+  totalPaid?: number
+  depositAmount?: number
+  forfeitedAmount?: number
+  refundAmount?: number
+  isDepositForfeited?: boolean
+  penaltyPercentage?: number
+  message?: string
+  notes?: string
+}
+
+export interface CancelContractRequestDto {
+  reason?: string | null
+  isForcedRevocation?: boolean
+  bankAccountNumber?: string | null
+  bankName?: string | null
+  accountHolderName?: string | null
+}
+
+export interface RejectCancellationRequestDto {
+  reason?: string | null
+}
+
+export interface CancellationRequestItemDto {
+  applicationId: string
+  applicantName?: string
+  citizenId?: string
+  phoneNumber?: string
+  apartmentCode?: string
+  totalPaid?: number
+  forfeitedAmount?: number
+  refundAmount?: number
+  reason?: string
+  bankAccountNumber?: string
+  bankName?: string
+  accountHolderName?: string
+  requestedAt?: string
+  status?: string
+}
+
+export function parseCancellationRequests(data: unknown): CancellationRequestItemDto[] {
+  if (Array.isArray(data)) return data as CancellationRequestItemDto[]
+  if (data && typeof data === 'object') {
+    const o = data as Record<string, unknown>
+    const items = o.items ?? o.Items ?? o.data ?? o.Data ?? o.requests ?? o.Requests
+    if (Array.isArray(items)) {
+      return items.map((it) => {
+        const x = it as Record<string, unknown>
+        return {
+          applicationId: String(x.applicationId ?? x.ApplicationId ?? ''),
+          applicantName: (x.applicantName ?? x.ApplicantName ?? x.fullName ?? x.FullName) as string | undefined,
+          citizenId: (x.citizenId ?? x.CitizenId) as string | undefined,
+          phoneNumber: (x.phoneNumber ?? x.PhoneNumber) as string | undefined,
+          apartmentCode: (x.apartmentCode ?? x.ApartmentCode ?? x.unitName ?? x.UnitName) as string | undefined,
+          totalPaid: Number(x.totalPaid ?? x.TotalPaid ?? 0),
+          forfeitedAmount: Number(x.forfeitedAmount ?? x.ForfeitedAmount ?? 0),
+          refundAmount: Number(x.refundAmount ?? x.RefundAmount ?? 0),
+          reason: (x.reason ?? x.Reason ?? x.cancelReason ?? x.CancelReason) as string | undefined,
+          bankAccountNumber: (x.bankAccountNumber ?? x.BankAccountNumber) as string | undefined,
+          bankName: (x.bankName ?? x.BankName) as string | undefined,
+          accountHolderName: (x.accountHolderName ?? x.AccountHolderName) as string | undefined,
+          requestedAt: (x.requestedAt ?? x.RequestedAt ?? x.createdAt ?? x.CreatedAt) as string | undefined,
+          status: (x.status ?? x.Status ?? 'PENDING') as string | undefined,
+        }
+      })
+    }
+  }
+  return []
+}
+
 export const paymentApi = {
   createPaymentUrl: (body: CreatePaymentDto) =>
     request<PaymentResponseDto>('/api/Payment/create-payment-url', {
@@ -76,6 +147,57 @@ export const paymentApi = {
       body: JSON.stringify(body),
       auth: true,
     }),
+
+  /** Xem trước khoản phạt cọc và số tiền hoàn lại khi xin rút hồ sơ / hủy hợp đồng */
+  getCancellationPreview: (applicationId: string) =>
+    request<CancellationPreviewDto>(`/api/Payment/applications/${applicationId}/cancellation-preview`, { auth: true }),
+
+  /** Người dân gửi yêu cầu xin rút hồ sơ / tự nguyện thanh lý hợp đồng (chấp nhận phạt cọc) */
+  requestCancellation: (applicationId: string, body: CancelContractRequestDto) =>
+    request<ApiResult>(`/api/Payment/applications/${applicationId}/request-cancellation`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+      auth: true,
+    }),
+
+  /** CĐT xem danh sách các yêu cầu xin rút hồ sơ của dự án */
+  getCancellationRequests: (projectId: string) =>
+    request<CancellationRequestItemDto[] | ApiResult>(`/api/Payment/projects/${projectId}/cancellation-requests`, { auth: true }),
+
+  /** CĐT duyệt yêu cầu rút hồ sơ & hoàn trả tiền cho người dân */
+  approveCancellation: (applicationId: string) =>
+    request<ApiResult>(`/api/Payment/applications/${applicationId}/approve-cancellation`, {
+      method: 'POST',
+      auth: true,
+    }),
+
+  /** CĐT từ chối yêu cầu rút hồ sơ */
+  rejectCancellation: (applicationId: string, body: RejectCancellationRequestDto) =>
+    request<ApiResult>(`/api/Payment/applications/${applicationId}/reject-cancellation`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+      auth: true,
+    }),
+
+  /** CĐT / Hệ thống cưỡng chế thanh lý hợp đồng do nợ quá hạn >2 đợt hoặc vi phạm */
+  cancelContract: (applicationId: string, body: CancelContractRequestDto) =>
+    request<ApiResult>(`/api/Payment/applications/${applicationId}/cancel-contract`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+      auth: true,
+    }),
+
+  /** Xem tiến độ thu tiền tổng thể của dự án */
+  getPaymentProgress: (projectId: string) =>
+    request<ApiResult>(`/api/Payment/projects/${projectId}/payment-progress`, { auth: true }),
+
+  /** CĐT mở đợt thanh toán theo tiến độ xây dựng (Đợt 3-6) */
+  unlockPhase: (projectId: string, triggerEvent: string) =>
+    request<ApiResult>(`/api/Payment/projects/${projectId}/unlock-phase`, {
+      method: 'PATCH',
+      body: JSON.stringify({ triggerEvent }),
+      auth: true,
+    }),
 }
 
 /** Tải PDF hợp đồng — dùng fetch blob + Bearer (KHÔNG dùng request JSON vì endpoint trả file). */
@@ -97,3 +219,4 @@ export async function downloadContractPdf(applicationId: string): Promise<void> 
   document.body.removeChild(a)
   URL.revokeObjectURL(url)
 }
+

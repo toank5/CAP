@@ -1,10 +1,12 @@
 import type { LotteryScheduleDto } from '@/api/lottery'
+import { normalizeStatus } from '@/lib/project-status-flow'
 
 /**
  * FSM phiên bốc thăm trên UI — quyết định nút nào hiện cho CĐT / SXD.
  * Ưu tiên sessionStatus từ BE; fallback theo isLotteryApproved + status map.
  */
 export type LotteryPhase =
+  | 'project_pending'
   | 'not_scheduled'
   | 'awaiting_approval'
   | 'ready_open_lobby'
@@ -14,7 +16,15 @@ export type LotteryPhase =
   | 'finished'
   | 'published'
 
-export function getLotteryPhase(schedule: LotteryScheduleDto | null | undefined): LotteryPhase {
+export function getLotteryPhase(
+  schedule: LotteryScheduleDto | null | undefined,
+  projectStatus?: string | null,
+): LotteryPhase {
+  const normProj = normalizeStatus(projectStatus)
+  if (normProj === 'PENDING' || normProj === 'REJECTED') {
+    return 'project_pending'
+  }
+
   if (!schedule) return 'not_scheduled'
 
   const session = String(schedule.sessionStatus ?? '').trim()
@@ -41,8 +51,9 @@ export function getLotteryPhase(schedule: LotteryScheduleDto | null | undefined)
 }
 
 export const LOTTERY_PHASE_STEPS: { id: LotteryPhase; label: string }[] = [
+  { id: 'project_pending', label: '0. Chờ duyệt dự án' },
   { id: 'not_scheduled', label: '1. Lên lịch' },
-  { id: 'awaiting_approval', label: '2. Sở duyệt' },
+  { id: 'awaiting_approval', label: '2. Sở duyệt lịch' },
   { id: 'ready_open_lobby', label: '3. Mở sảnh' },
   { id: 'waiting_lobby', label: '4. Sảnh chờ' },
   { id: 'live', label: '5. Live' },
@@ -58,10 +69,12 @@ export function phaseStepIndex(phase: LotteryPhase): number {
 
 export function phaseChipLabel(phase: LotteryPhase): string {
   switch (phase) {
+    case 'project_pending':
+      return 'Dự án chờ Sở duyệt'
     case 'not_scheduled':
       return 'Chưa lên lịch'
     case 'awaiting_approval':
-      return 'Chờ Sở phê duyệt'
+      return 'Chờ Sở phê duyệt lịch'
     case 'ready_open_lobby':
       return 'Đã duyệt — chờ mở sảnh'
     case 'waiting_lobby':

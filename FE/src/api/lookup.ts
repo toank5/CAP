@@ -61,6 +61,23 @@ export const lookupApi = {
   },
 
   priorityGroups: () => request<unknown>('/api/lookup/priority-groups'),
+
+  dependentReasons: () => request<unknown>('/api/lookup/dependent-reasons'),
+}
+
+export interface DependentReasonDto {
+  code: string
+  label: string
+}
+
+export function parseDependentReasons(data: unknown): DependentReasonDto[] {
+  return pickArray(data).map((it) => {
+    const x = it as Record<string, unknown>
+    return {
+      code: String(x.code ?? x.Code ?? ''),
+      label: String(x.label ?? x.Label ?? x.code ?? ''),
+    }
+  })
 }
 
 export function parseDocumentTypes(data: unknown): DocumentTypeDto[] {
@@ -86,3 +103,4 @@ export function parsePriorityGroups(data: unknown): PriorityGroupDto[] {
     }
   })
 }
+

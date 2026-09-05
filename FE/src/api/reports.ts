@@ -52,8 +52,25 @@ export const reportsApi = {
     await asDownload(res, 'hau-kiem.xlsx')
   },
 
-  async exportLotteryResultsExcel(projectId: string) {
-    const res = await authFetch(`/api/reports/lottery-results/${projectId}/excel`)
-    await asDownload(res, 'ket-qua-boc-tham.xlsx')
+  async exportApplicationsPdf(filter: {
+    projectId?: string
+    status?: string
+    search?: string
+  } = {}) {
+    const res = await authFetch('/api/Reports/applications/pdf', {
+      method: 'POST',
+      body: JSON.stringify(filter),
+    })
+    await asDownload(res, 'danh-sach-ho-so.pdf')
+  },
+
+  async exportLotteryResultsPdf(projectId: string) {
+    const res = await authFetch(`/api/Reports/lottery-results/${projectId}/pdf`)
+    await asDownload(res, 'ket-qua-boc-tham.pdf')
+  },
+
+  async exportProjectsSummaryExcel() {
+    const res = await authFetch('/api/Reports/projects-summary/excel')
+    await asDownload(res, 'tong-hop-du-an.xlsx')
   },
 }

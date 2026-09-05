@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Alert } from '@/components/ui/alert'
-import { Badge } from '@/components/ui/badge'
-import { PageCard, PageHeader } from '@/components/layout/page-header'
+import { Button } from '@/components/ui/button'
 import { navigate } from '@/hooks/useHashRoute'
 import { formatError } from '@/lib/format-error'
 import {
@@ -11,6 +10,9 @@ import {
   type LiveStateDto,
   type LotteryScheduleDto,
 } from '@/api/lottery'
+import { housingProjectsApi } from '@/api/housing-projects'
+import type { HousingProjectSummaryDto } from '@/types'
+import { normalizeStatus } from '@/lib/project-status-flow'
 import { connectLotteryHub, stopLotteryHub } from '@/api/lotteryHub'
 import { getRole } from '@/router'
 import { getLotteryPhase } from '@/lib/lottery-phase'
@@ -18,40 +20,53 @@ import { LiveZone } from './LiveZone'
 import { WinnersZone } from './WinnersZone'
 import { ApartmentFundZone } from './ApartmentFundZone'
 import { ControlPanel } from './ControlPanel'
+import { lotteryAudio } from '@/lib/lottery-audio'
+import {
+  RefreshCw,
+  ArrowLeft,
+  Volume2,
+  VolumeX,
+  Zap,
+} from 'lucide-react'
 
 const PROJECT_KEY = 'lotteryProjectId'
 
-function loadProjectId(): string {
+function loadStoredProjectId(): string {
   return sessionStorage.getItem(PROJECT_KEY) ?? ''
 }
 
-/** OTP dân nhập ở lottery-lobby, lưu lại theo projectId để Hub JoinProjectLobby
- *  gửi kèm khi Applicant vào xem Live lần kế tiếp (mà không phải nhập OTP lại). */
+function persistProjectId(id: string) {
+  if (id) sessionStorage.setItem(PROJECT_KEY, id)
+  else sessionStorage.removeItem(PROJECT_KEY)
+}
+
 function loadApplicantOtp(projectId: string): string {
   return sessionStorage.getItem(`lotteryLobbyOtp:${projectId}`) ?? ''
 }
 
-/**
- * Rút ra thông báo thân thiện cho banner lỗi Hub.
- * SignalR khi BE chưa chạy thường ném `TypeError: Failed to fetch` thuần —
- * nhưng connectLotteryHub() đã gói lại thành `Error('Hub ...: <msg>. <hint>')`
- * để người debug dễ truy vết. Ta cắt bỏ phần stack/hint, chỉ giữ thông điệp
- * ngắn gọn đủ để user biết realtime tạm ngắt.
- */
 function hubErrorMessage(err: unknown): string {
   const raw = err instanceof Error ? err.message : String(err)
   if (raw.includes('Failed to fetch') || raw.toLowerCase().includes('networkerror')) {
-    return 'Không thể kết nối realtime (BE chưa chạy hoặc bị chặn). Dữ liệu vẫn được tải qua polling.'
+    return 'Không thể kết nối trực tuyến (máy chủ chưa phản hồi). Dữ liệu vẫn được tự động đồng bộ liên tục.'
   }
   return formatError(err)
 }
 
-export function LotteryLivePage() {
-  const projectId = loadProjectId()
+export interface LiveEligibleProject extends HousingProjectSummaryDto {
+  sessionStatus?: string
+  isLotteryApproved?: boolean
+}
+
+export const LotteryLivePage: React.FC = () => {
   const role = getRole()
   const isDev = role === 'Housing Developer'
   const isSxd = role === 'Department Of Construction'
   const isApplicant = role === 'Applicant'
+
+  const [projectId, setProjectId] = useState<string>(() => loadStoredProjectId())
+  const [projectList, setProjectList] = useState<LiveEligibleProject[]>([])
+  const [currentProject, setCurrentProject] = useState<LiveEligibleProject | null>(null)
+  const [eligibleList, setEligibleList] = useState<import('@/api/lottery').LotteryEligibleEntry[]>([])
 
   const [schedule, setSchedule] = useState<LotteryScheduleDto | null>(null)
   const [liveState, setLiveState] = useState<LiveStateDto | null>(null)
@@ -59,106 +74,179 @@ export function LotteryLivePage() {
   const [loading, setLoading] = useState(true)
   const [hubError, setHubError] = useState('')
   const [hubConnected, setHubConnected] = useState(false)
-  // Đồng hồ cho top bar (UI-only, không ảnh hưởng logic)
   const [now, setNow] = useState<Date>(() => new Date())
-  // Lần đầu fail mới hiện banner đỏ; các lần reconnect sau chỉ log console.
   const hubAnnouncedRef = useRef(false)
   const [busy, setBusy] = useState('')
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [soundEnabled, setSoundEnabled] = useState(() => lotteryAudio.isEnabled())
+  const [batchModalOpen, setBatchModalOpen] = useState(false)
   const connectionRef = useRef<import('@microsoft/signalr').HubConnection | null>(null)
 
-  // ── Initial data load ──────────────────────────────────────────────────────
-  // Bóc lỗi riêng từng API: nếu 1 cái fail (vd Applicant không được xem
-  // schedule sau khi phiên Finished), vẫn hiển thị được phần còn lại thay vì
-  // banner đỏ che hết UI. Gộp thông điệm vào `msg` để debug.
+  // 1. Tải danh sách dự án hợp lệ cho trường quay trực tiếp
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        setLoading(true)
+        const data = await housingProjectsApi.list({ pageIndex: 1, pageSize: 50 })
+        const raw = data && typeof data === 'object' ? (data as Record<string, unknown>) : {}
+        const list = (raw.items ?? raw.Items ?? []) as HousingProjectSummaryDto[]
+
+        // Lọc các dự án đã được Sở duyệt
+        const approvedProjects = list.filter((p) => {
+          const s = normalizeStatus(p.status)
+          return s !== 'PENDING' && s !== 'REJECTED' && s !== 'CLOSED'
+        })
+
+        // Tải lịch bốc thăm
+        const checked = await Promise.all(
+          approvedProjects.map(async (p) => {
+            try {
+              const schedData = await lotteryApi.getSchedule(p.id)
+              const sched = parseLotterySchedule(schedData)
+              const isApproved =
+                sched?.isLotteryApproved === true ||
+                ['Live', 'WaitingLobby', 'Scheduled', 'Paused', 'Finished', 'Published'].includes(
+                  String(sched?.sessionStatus),
+                )
+              return {
+                project: p,
+                schedule: sched,
+                isApproved,
+              }
+            } catch {
+              return { project: p, schedule: null, isApproved: false }
+            }
+          }),
+        )
+
+        const eligible: LiveEligibleProject[] = checked
+          .filter((c) => c.isApproved)
+          .map((c) => ({
+            ...c.project,
+            sessionStatus: c.schedule?.sessionStatus ?? undefined,
+            isLotteryApproved: c.schedule?.isLotteryApproved ?? undefined,
+          }))
+
+        if (cancelled) return
+        setProjectList(eligible)
+
+        // Chỉ auto-select nếu có dự án đang thực sự LIVE hoặc MỞ SẢNH CHỜ
+        const activeLive = eligible.find(
+          (p) => p.sessionStatus === 'Live' || p.sessionStatus === 'WaitingLobby',
+        )
+
+        if (activeLive) {
+          setProjectId(activeLive.id)
+          persistProjectId(activeLive.id)
+          setCurrentProject(activeLive)
+        } else {
+          // Không có phiên Live nào đang chạy -> Giữ sảnh ở chế độ chờ (trống)
+          setProjectId('')
+          persistProjectId('')
+          setCurrentProject(null)
+        }
+      } catch (err) {
+        console.warn('[LotteryLivePage] Failed to fetch eligible live project list:', err)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Cập nhật currentProject khi projectId thay đổi
+  useEffect(() => {
+    if (!projectId) {
+      setCurrentProject(null)
+      return
+    }
+    const found = projectList.find((p) => p.id === projectId)
+    if (found) {
+      setCurrentProject(found)
+    }
+  }, [projectId, projectList])
+
+  // Đổi dự án từ dropdown
+  const handleSelectProject = (newId: string) => {
+    if (newId === projectId) return
+    setProjectId(newId)
+    persistProjectId(newId)
+    setSchedule(null)
+    setLiveState(null)
+    setEligibleList([])
+    setHubError('')
+    setMsg(null)
+  }
+
+  // 2. Load dữ liệu lịch & trạng thái Live
   const load = async (quiet = false) => {
     if (!projectId) return
     if (!quiet) setLoading(true)
-    const errs: string[] = []
     try {
       const schedRes = await lotteryApi
         .getSchedule(projectId)
         .then((d) => ({ ok: true as const, data: d }))
         .catch((e) => ({ ok: false as const, err: formatError(e) }))
+
+      let loadedSchedule: LotteryScheduleDto | null = null
       if (schedRes.ok) {
-        setSchedule(parseLotterySchedule(schedRes.data))
+        loadedSchedule = parseLotterySchedule(schedRes.data)
+        setSchedule(loadedSchedule)
       } else {
-        errs.push(`schedule: ${schedRes.err}`)
+        setSchedule(null)
       }
 
-      const liveRes = await lotteryApi
-        .getLiveState(projectId)
-        .then((d) => ({ ok: true as const, data: d }))
-        .catch((e) => ({ ok: false as const, err: formatError(e) }))
-      if (liveRes.ok) {
-        const ls = parseLiveState(liveRes.data)
-        if (ls) setLiveState(ls)
+      const isApproved =
+        loadedSchedule?.isLotteryApproved === true ||
+        ['Live', 'WaitingLobby', 'Scheduled', 'Paused', 'Finished', 'Published'].includes(
+          String(loadedSchedule?.sessionStatus),
+        )
+
+      if (isApproved) {
+        const [liveRes, elRes] = await Promise.all([
+          lotteryApi
+            .getLiveState(projectId)
+            .then((d) => ({ ok: true as const, data: d }))
+            .catch((e) => ({ ok: false as const, err: formatError(e) })),
+          lotteryApi
+            .getEligibleParticipants(projectId)
+            .then((d) => ({ ok: true as const, data: d }))
+            .catch(() => ({ ok: false as const, data: [] })),
+        ])
+
+        if (liveRes.ok) {
+          const ls = parseLiveState(liveRes.data)
+          if (ls) setLiveState(ls)
+        }
+        if (elRes.ok && Array.isArray(elRes.data)) {
+          setEligibleList(elRes.data)
+        }
       } else {
-        errs.push(`live-state: ${liveRes.err}`)
+        setLiveState(null)
+        setEligibleList([])
       }
     } finally {
       if (!quiet) setLoading(false)
     }
-    if (!quiet && errs.length > 0) {
-      setMsg({ type: 'error', text: errs.join(' · ') })
-    } else if (!quiet) {
-      setMsg(null)
-    }
   }
 
-  // Auto-dismiss error banner sau 6s — UI-only, không đổi logic API.
-  // Tránh banner đỏ "dính" vĩnh viễn khi BE tạm thời 400 (vd Applicant xem
-  // live-state khi phiên đã Finished).
   useEffect(() => {
-    if (!msg || msg.type !== 'error') return
-    const id = window.setTimeout(() => setMsg(null), 6000)
-    return () => window.clearTimeout(id)
-  }, [msg])
+    void load()
+  }, [projectId])
 
-  // Polling fails: chỉ log console, không set msg error — tránh banner
-  // nhấp nháy mỗi 4s khi applicant xem phiên Finished.
-  const polledFailCountRef = useRef(0)
-
-  // ── Quiet-load wrapper (dùng cho polling + sau drawResult) ───────────────
-  // Luôn log lỗi console (không nuốt), nhưng KHÔNG bao giờ set `msg` —
-  // chỉ initial `load()` (không quiet) mới hiện banner.
-  const loadQuiet = async () => {
-    if (!projectId) return
-    try {
-      const [s, l] = await Promise.all([
-        lotteryApi.getSchedule(projectId).catch((e) => ({ __err: formatError(e) } as never)),
-        lotteryApi.getLiveState(projectId).catch((e) => ({ __err: formatError(e) } as never)),
-      ])
-      const schedData = s && !(s as { __err?: string }).__err ? (s as Awaited<ReturnType<typeof lotteryApi.getSchedule>>) : null
-      const liveData = l && !(l as { __err?: string }).__err ? (l as Awaited<ReturnType<typeof lotteryApi.getLiveState>>) : null
-      if (schedData) setSchedule(parseLotterySchedule(schedData))
-      if (liveData) {
-        const ls = parseLiveState(liveData)
-        if (ls) setLiveState(ls)
-      }
-    } catch (err) {
-      polledFailCountRef.current += 1
-      // Log lần đầu + mỗi 10 lần để khỏi spam console; vẫn để dev thấy.
-      if (polledFailCountRef.current === 1 || polledFailCountRef.current % 10 === 0) {
-        console.warn(
-          `[LotteryLivePage] Quiet reload failed (${polledFailCountRef.current}):`,
-          err,
-        )
-      }
-    }
-  }
-
-  useEffect(() => { void load() }, [projectId])
-
-  // Tick đồng hồ UI top bar mỗi 1s (không đụng logic)
+  // Tick đồng hồ
   useEffect(() => {
     const id = window.setInterval(() => setNow(new Date()), 1000)
     return () => window.clearInterval(id)
   }, [])
 
-  // ── My appId for highlight ────────────────────────────────────────────────
+  // Applicant highlight ID
   useEffect(() => {
-    if (!isApplicant) return
+    if (!isApplicant || !projectId) return
     void (async () => {
       try {
         const raw = await fetch(`${import.meta.env.VITE_API_BASE_URL ?? ''}/api/applications/my`, {
@@ -173,34 +261,44 @@ export function LotteryLivePage() {
     })()
   }, [projectId, isApplicant])
 
-  // ── SignalR hub ───────────────────────────────────────────────────────────
-  // Cho phép cả 3 role nối Hub/polling: CĐT + SXD điều khiển/giám sát,
-  // Applicant xem realtime. LiveZone đã ẩn nút "BỐC TIẾP" khi !isDev,
-  // nên mở guard không gây rủi ro cấp quyền.
+  // 3. SignalR Hub
   useEffect(() => {
     if (!projectId) return
-    // Applicant phải vào qua lottery-lobby trước để có OTP; nếu chưa có thì
-    // bỏ qua effect này — render block "chưa vào sảnh" bên dưới sẽ tự xử lý.
+
+    const isScheduleApproved =
+      schedule?.isLotteryApproved === true ||
+      ['Live', 'WaitingLobby', 'Scheduled', 'Paused', 'Finished', 'Published'].includes(
+        String(schedule?.sessionStatus),
+      )
+
+    if (!isScheduleApproved) {
+      setHubConnected(false)
+      setHubError('')
+      return
+    }
+
     const applicantOtp = isApplicant ? loadApplicantOtp(projectId) : ''
     if (isApplicant && !applicantOtp) return
 
     let cancelled = false
 
-    // Poll backup every 4s
     const poll = window.setInterval(() => {
-      void loadQuiet()
-    }, 4000)
+      void load(true)
+    }, 5000)
 
     void (async () => {
       try {
         const conn = await connectLotteryHub(projectId, isApplicant ? applicantOtp : undefined, {
-          onLobbyCount: (n) => setLiveState((p) => p ? { ...p, lobbyCount: n } : p),
-          onSxdSupervisorCount: (n) => setLiveState((p) => p ? { ...p, sxdOnlineCount: n } : p),
+          onLobbyCount: (n) => setLiveState((p) => (p ? { ...p, lobbyCount: n } : p)),
+          onSxdSupervisorCount: (n) => setLiveState((p) => (p ? { ...p, sxdOnlineCount: n } : p)),
           onStatus: (s) => {
-            setLiveState((p) => p ? { ...p, sessionStatus: s } : p)
-            setSchedule((p) => p ? { ...p, sessionStatus: s } : p)
+            setLiveState((p) => (p ? { ...p, sessionStatus: s } : p))
+            setSchedule((p) => (p ? { ...p, sessionStatus: s } : p))
           },
-          onDrawResult: () => { void loadQuiet() },
+          onDrawResult: () => {
+            lotteryAudio.playWinnerFanfare()
+            void load(true)
+          },
           onLiveState: (state) => {
             if (!cancelled) setLiveState(state)
           },
@@ -212,19 +310,13 @@ export function LotteryLivePage() {
         connectionRef.current = conn
         setHubConnected(true)
         setHubError('')
-        // Khi đã nối thành công, reset cờ để lần fail kế tiếp (reconnect hoặc đổi dự án)
-        // lại được phép hiện banner 1 lần.
         hubAnnouncedRef.current = false
       } catch (err) {
         if (!cancelled) {
           setHubConnected(false)
-          // Lần đầu fail mới hiện banner — lần sau (reconnect) chỉ log console
-          // để tránh UI nhấp nháy đỏ liên tục khi BE chưa sẵn sàng.
           if (!hubAnnouncedRef.current) {
             hubAnnouncedRef.current = true
             setHubError(hubErrorMessage(err))
-          } else {
-            console.warn('[LotteryLivePage] Hub reconnect failed (suppressed):', err)
           }
         }
       }
@@ -236,12 +328,11 @@ export function LotteryLivePage() {
       void stopLotteryHub(connectionRef.current)
       connectionRef.current = null
       setHubConnected(false)
-      // Reset cờ thông báo để lần mount kế tiếp coi như "lần đầu".
       hubAnnouncedRef.current = false
     }
-  }, [projectId, isDev, isSxd, isApplicant])
+  }, [projectId, schedule?.isLotteryApproved, schedule?.sessionStatus, isApplicant])
 
-  // ── Action helper ──────────────────────────────────────────────────────────
+  // Action helper
   const action = async (label: string, fn: () => Promise<unknown>) => {
     if (busy) return
     setBusy(label)
@@ -257,187 +348,237 @@ export function LotteryLivePage() {
     }
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────────
-  if (!projectId) {
-    return (
-      <div>
-        <PageHeader routeId="lottery-live" />
-        <PageCard className="p-6">
-          <Alert variant="warning">
-            <strong>Chưa chọn dự án.</strong> Vào <strong>Danh sách bốc thăm</strong> → chọn dự án → mở Live.
-          </Alert>
-          <div className="mt-3">
-            <button className="rounded-xl bg-primary px-4 py-2 font-semibold text-white" onClick={() => navigate('lottery-sessions')}>
-              ← Danh sách bốc thăm
-            </button>
-          </div>
-        </PageCard>
-      </div>
-    )
+  const handleRunBatchConfirm = async () => {
+    setBatchModalOpen(false)
+    if (!projectId) return
+    lotteryAudio.playSpin()
+    await action('Chạy bốc thăm tự động', () => lotteryApi.runLottery(projectId))
+    lotteryAudio.playWinnerFanfare()
   }
 
-  if (loading) {
-    return (
-      <div>
-        <PageHeader routeId="lottery-live" />
-        <PageCard className="p-6">
-          <div className="flex items-center gap-3">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            <span className="text-slate-500">Đang tải sảnh Live…</span>
-          </div>
-        </PageCard>
-      </div>
-    )
+  const toggleSound = () => {
+    const next = lotteryAudio.toggleSound()
+    setSoundEnabled(next)
   }
 
+  const phase = getLotteryPhase(schedule, currentProject?.status)
   const sessionStatus = liveState?.sessionStatus ?? schedule?.sessionStatus ?? ''
-  const phase = getLotteryPhase(schedule)
   const sxdOnline = liveState?.sxdOnlineCount ?? schedule?.sxdOnlineCount ?? 0
   const lobbyCount = liveState?.lobbyCount ?? 0
 
   return (
-    <div>
-      <PageHeader routeId="lottery-live" />
-      <PageCard className="space-y-4 p-4">
-
-        {/* ── Top bar (mẫu: status pill trái · tên dự án · đồng hồ + connection pill phải) ── */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <Badge variant={sessionStatus === 'Live' ? 'warning' : sessionStatus === 'Finished' || sessionStatus === 'Published' ? 'success' : 'default'}>
-              {sessionStatus === 'Live' && '● ĐANG XÁY VÀ LIVE'}
-              {sessionStatus === 'Paused' && '⏸ TẠM DỪNG'}
-              {sessionStatus === 'WaitingLobby' && '⏳ SẢNH CHỜ'}
-              {sessionStatus === 'Finished' && '✓ KẾT THÚC'}
-              {sessionStatus === 'Published' && '📢 ĐÃ CÔNG BỐ'}
-              {sessionStatus === 'Scheduled' && '📅 ĐÃ LÊN LỊCH'}
-              {!sessionStatus && '…'}
-            </Badge>
-            <h1 className="text-lg font-bold text-slate-800 dark:text-slate-100">
-              {schedule?.projectName ?? liveState?.projectName ?? 'Dự án bốc thăm'}
-            </h1>
+    <div className="space-y-4">
+      {/* Top Studio Command Bar */}
+      <div className="flex flex-col gap-4 rounded-3xl border border-slate-200/90 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          {/* Left: Studio Branding & Title */}
+          <div className="flex items-center gap-3.5">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 shadow-md text-white font-black text-2xl">
+              🎲
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-mono text-[11px] font-extrabold uppercase tracking-widest text-amber-700">
+                  TRƯỜNG QUAY XỔ SỐ KIẾN THIẾT SỐ - NOXH
+                </span>
+                <span
+                  className={`flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider ${sessionStatus === 'Live'
+                    ? 'bg-rose-500 text-white animate-pulse'
+                    : sessionStatus === 'WaitingLobby'
+                      ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                      : sessionStatus === 'Finished' || sessionStatus === 'Published'
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-slate-100 text-slate-700'
+                    }`}
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                  {sessionStatus === 'Live' && '🔴 TRỰC TIẾP TỪ TRƯỜNG QUAY'}
+                  {sessionStatus === 'WaitingLobby' && '⏳ SẢNH CHỜ MỞ'}
+                  {sessionStatus === 'Paused' && '⏸ TẠM DỪNG'}
+                  {sessionStatus === 'Finished' && '✓ KẾT THÚC'}
+                  {sessionStatus === 'Published' && '📢 ĐÃ CÔNG BỐ'}
+                  {!sessionStatus && '⚪ CHẾ ĐỘ CHỜ'}
+                </span>
+              </div>
+              <h1 className="mt-0.5 text-lg font-black text-slate-900 sm:text-xl">
+                {schedule?.projectName ?? liveState?.projectName ?? currentProject?.projectName ?? 'Sảnh Bốc Thăm Trực Tuyến'}
+              </h1>
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
-            <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 font-mono tabular-nums dark:border-slate-700 dark:bg-slate-800">
+
+          {/* Right: Studio Metric Badges & Utilities */}
+          <div className="flex flex-wrap items-center gap-2.5 text-xs">
+            {/* Live Time */}
+            <span className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 font-mono font-semibold text-slate-700">
               🕒 {now.toLocaleTimeString('vi-VN')}
             </span>
-            <span
-              className={`rounded-full px-2.5 py-1 font-bold uppercase tracking-wide ${
-                hubConnected
-                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-                  : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
-              }`}
-            >
-              {hubConnected ? '✓ KẾT NỐI ỔN ĐỊNH' : '⏳ ĐANG KẾT NỐI'}
+
+            {/* SXD Supervisor Presence */}
+            <span className="flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 font-bold text-emerald-800">
+              🏛 SXD Giám sát: {sxdOnline}
             </span>
-            <span>👥 Sảnh: <strong>{lobbyCount}</strong></span>
-            <span>🏛 SXD online: <strong>{sxdOnline}</strong></span>
-            <span>🎲 Tỷ lệ: <strong className="text-emerald-600">{liveState?.winRatePercentage ?? 0}%</strong></span>
+
+            {/* Lobby Viewers */}
+            <span className="flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3 py-1.5 font-bold text-blue-800">
+              👥 Khán phòng: {lobbyCount}
+            </span>
+
+            {/* Realtime Hub Status */}
+            {projectId && (
+              <span
+                className={`rounded-xl border px-3 py-1.5 font-bold ${hubConnected
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                  : 'border-amber-200 bg-amber-50 text-amber-800'
+                  }`}
+              >
+                {hubConnected ? '✓ KẾT NỐI TRỰC TUYẾN' : '⏳ ĐANG ĐỒNG BỘ'}
+              </span>
+            )}
+
+            {/* Sound Toggle */}
+            <button
+              onClick={toggleSound}
+              className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 font-bold text-slate-700 hover:bg-slate-100 transition-all cursor-pointer"
+              title="Bật/Tắt âm thanh trường quay"
+            >
+              {soundEnabled ? <Volume2 className="h-4 w-4 text-amber-600" /> : <VolumeX className="h-4 w-4 text-slate-400" />}
+            </button>
           </div>
         </div>
 
-        {/* ── Connection status ── */}
-        {hubError ? (
-          <Alert variant="error">
-            Không nối realtime: {hubError}
-          </Alert>
-        ) : !hubConnected && !isApplicant ? (
-          <Alert variant="info">Đang kết nối sảnh realtime…</Alert>
-        ) : hubConnected ? (
-          <Alert variant="success">
-            ✓ Đã nối realtime · SXD online: {sxdOnline}
-            {isSxd ? ' (bạn đang giám sát — giữ trang mở)' : ''}
-          </Alert>
-        ) : null}
-
-        {/* ── Message ── */}
-        {msg && <Alert variant={msg.type === 'error' ? 'error' : 'success'}>{msg.text}</Alert>}
-
-        {/* ── Applicant fallback: phiên đã kết thúc / công bố (BE 400) ── */}
-        {isApplicant && !loading && !liveState && !schedule && msg?.type === 'error' && (
-          <Alert variant="info">
-            Phiên bốc thăm đã kết thúc hoặc công bố — không còn dữ liệu trực tiếp.
-            Bạn có thể xem kết quả trong mục <strong>Bốc thăm của tôi</strong> hoặc <strong>Quỹ căn</strong> của dự án.
-            <div className="mt-3 flex gap-2">
-              <button
-                className="rounded-xl bg-primary px-4 py-2 font-semibold text-white"
-                onClick={() => navigate('my-lottery')}
+        {/* Project Selector & Actions Bar */}
+        <div className="flex flex-col gap-3 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Chọn phiên bốc thăm:
+            </span>
+            <div className="relative">
+              <select
+                value={projectId}
+                onChange={(e) => handleSelectProject(e.target.value)}
+                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-900 shadow-xs focus:border-indigo-500 focus:outline-none"
               >
-                ← Về Bốc thăm của tôi
-              </button>
-              <button
-                className="rounded-xl border border-slate-300 px-4 py-2 font-semibold text-slate-700 dark:border-slate-700 dark:text-slate-200"
-                onClick={() => navigate('projects')}
-              >
-                Danh sách dự án
-              </button>
+                <option value="">-- Chưa chọn dự án bốc thăm --</option>
+                {projectList.map((p) => {
+                  const isLive = p.sessionStatus === 'Live'
+                  const isLobby = p.sessionStatus === 'WaitingLobby'
+                  const isPublished = p.sessionStatus === 'Published' || p.sessionStatus === 'Finished'
+                  return (
+                    <option key={p.id} value={p.id}>
+                      {p.projectName} {isLive ? '🔴 (Đang trực tiếp)' : isLobby ? '⏳ (Sảnh chờ)' : isPublished ? '✓ (Đã công bố)' : '📅 (Đã duyệt lịch)'}
+                    </option>
+                  )
+                })}
+              </select>
             </div>
-          </Alert>
-        )}
+          </div>
 
-        {/* ── Applicant guard: phải qua lottery-lobby nhập OTP trước khi xem ── */}
-        {isApplicant && !loadApplicantOtp(projectId) && (
-          <Alert variant="warning">
-            Bạn chưa vào sảnh (thiếu OTP). Vui lòng vào sảnh chờ để nhập mã OTP 6 số,
-            rồi quay lại đây xem tiếp.
-            <div className="mt-3">
-              <button
-                className="rounded-xl bg-primary px-4 py-2 font-semibold text-white"
-                onClick={() => navigate('lottery-lobby')}
-              >
-                Đi tới sảnh chờ nhập OTP
-              </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('lottery-sessions')}
+              className="text-xs"
+            >
+              <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
+              Về Trung tâm Bốc thăm
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={loading}
+              onClick={() => void load()}
+              className="text-xs"
+            >
+              <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+              Làm mới
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Thông báo thao tác */}
+      {msg && <Alert variant={msg.type === 'error' ? 'error' : 'success'}>{msg.text}</Alert>}
+
+      {/* Realtime Hub Error Alert */}
+      {hubError && (
+        <Alert variant="error">
+          Lưu ý kết nối trực tiếp: {hubError}
+        </Alert>
+      )}
+
+      {/* 2-Column Grid Top: Live Candidate Shuffler Studio (Khu 1) & Realtime Prize Board (Khu 2) */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <LiveZone
+          state={liveState}
+          sessionStatus={sessionStatus}
+          isDev={isDev}
+          eligibleList={eligibleList}
+          onDrawNext={() => action('Bốc tiếp', () => lotteryApi.drawNext(projectId))}
+          onRunBatch={() => setBatchModalOpen(true)}
+          busy={busy === 'Bốc tiếp' || busy === 'Chạy bốc thăm tự động'}
+        />
+        <WinnersZone state={liveState} myAppId={myAppId} />
+      </div>
+
+      {/* 2-Column Grid Bottom: Apartment Fund Vault (Khu 3) & Operator Deck (Khu 4) */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <ApartmentFundZone state={liveState} />
+        <ControlPanel
+          phase={phase}
+          session={schedule}
+          liveState={liveState}
+          isDev={isDev}
+          isSxd={isSxd}
+          isApplicant={isApplicant}
+          busy={busy}
+          onAction={action}
+          onRunBatch={() => setBatchModalOpen(true)}
+          projectId={projectId}
+        />
+      </div>
+
+      {/* Modal xác nhận Chạy bốc thăm tự động (Batch Auto Run) */}
+      {batchModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-3xl border border-amber-200 bg-white p-6 shadow-2xl">
+            <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-100 text-amber-600">
+                <Zap className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-900 uppercase">
+                  Chạy Bốc Thăm Tự Động Toàn Sảnh
+                </h3>
+                <p className="text-xs text-slate-500">Thuật toán xáo trộn Fisher-Yates chuẩn Đ38.2</p>
+              </div>
             </div>
-          </Alert>
-        )}
 
-        {/* ═══════════════════════════════════════════════════════════════════ */}
-        {/* 2-COLUMN GRID (mẫu): trái = Sảnh quay, phải = Danh sách trúng */}
-        {/* ═══════════════════════════════════════════════════════════════════ */}
-        <div className="grid gap-4 lg:grid-cols-2">
-          {/* KHU 1 — Sảnh quay số */}
-          <LiveZone
-            state={liveState}
-            sessionStatus={sessionStatus}
-            isDev={isDev}
-            onDrawNext={() => action('Bốc tiếp', () => lotteryApi.drawNext(projectId))}
-            busy={busy === 'Bốc tiếp'}
-          />
+            <p className="mt-4 text-xs leading-relaxed text-slate-600">
+              Hệ thống sẽ tự động xáo trộn và phân bổ toàn bộ quỹ căn hộ cho tất cả hồ sơ đủ điều kiện theo đúng <strong>tỷ lệ ưu tiên 30%</strong> quy định tại Nghị định 100/2024/NĐ-CP.
+            </p>
 
-          {/* KHU 2 — Danh sách trúng */}
-          <WinnersZone state={liveState} myAppId={myAppId} />
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setBatchModalOpen(false)}
+              >
+                Hủy bỏ
+              </Button>
+              <Button
+                variant="accent"
+                size="sm"
+                onClick={handleRunBatchConfirm}
+                className="bg-gradient-to-r from-amber-500 to-rose-600 text-white font-black"
+              >
+                <Zap className="mr-1.5 h-4 w-4" />
+                Xác nhận chạy ngay
+              </Button>
+            </div>
+          </div>
         </div>
-
-        {/* ═══════════════════════════════════════════════════════════════════ */}
-        {/* 2-COLUMN GRID: trái = Quỹ căn, phải = Điều khiển (CĐT/SXD/Applicant) */}
-        {/* ═══════════════════════════════════════════════════════════════════ */}
-        <div className="grid gap-4 lg:grid-cols-2">
-          {/* KHU 3 — Quỹ căn */}
-          <ApartmentFundZone state={liveState} />
-
-          {/* KHU 4 — Điều khiển (giữ nguyên ControlPanel đã có sẵn) */}
-          <ControlPanel
-            phase={phase}
-            session={schedule}
-            liveState={liveState}
-            isDev={isDev}
-            isSxd={isSxd}
-            isApplicant={isApplicant}
-            busy={busy}
-            onAction={action}
-            projectId={projectId}
-          />
-        </div>
-
-        {/* ── Footer nav ── */}
-        <div className="flex justify-end">
-          <button
-            className="rounded-lg px-3 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
-            onClick={() => navigate('lottery-detail')}
-          >
-            ← Về chi tiết bốc thăm
-          </button>
-        </div>
-      </PageCard>
+      )}
     </div>
   )
 }

@@ -1,90 +1,145 @@
+import React from 'react'
 import type { LiveStateDto } from '@/api/lottery'
+import { Building2, ShieldCheck, Home, CheckCircle2, PieChart } from 'lucide-react'
 
 interface Props {
   state: LiveStateDto | null
 }
 
-export function ApartmentFundZone({ state }: Props) {
+export const ApartmentFundZone: React.FC<Props> = ({ state }) => {
   const totalStat = state?.projectApartmentFundStat
   const total = totalStat?.totalUnits ?? 0
-  const remaining = totalStat?.remainingUnits ?? total
-  const assigned = totalStat?.assignedUnits ?? 0
-  const pct = total > 0 ? Math.round((remaining / total) * 100) : 0
+  const remaining = totalStat?.remainingUnits ?? 0
+  const assigned = totalStat?.assignedUnits ?? (total > 0 ? total - remaining : 0)
+
+  // Tiến độ phân bổ quỹ căn (% đã bốc trúng và gán cho người dân)
+  const assignedPct = total > 0 ? Math.round((assigned / total) * 100) : 0
+  const isFullyAllocated = total > 0 && assigned >= total
 
   const funds = state?.apartmentFundStats ?? []
 
   return (
-    <section className="space-y-3 rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50/70 to-yellow-50/50 p-5 dark:border-amber-800 dark:from-amber-950/30 dark:to-yellow-950/20">
-      <div className="flex items-center justify-between">
-        <h2 className="flex items-center gap-2 text-lg font-bold text-amber-800 dark:text-amber-200">
-          <span className="text-2xl">🏠</span> Quỹ căn hộ
-        </h2>
+    <div className="flex flex-col gap-3 rounded-3xl border border-slate-200/90 bg-white p-5 shadow-sm">
+      {/* Header */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-50 border border-indigo-200/60 text-indigo-600 shadow-xs">
+            <Building2 className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="text-base font-black uppercase tracking-wider text-slate-900 flex items-center gap-2">
+              Quỹ Căn Hộ Mở Bốc Thăm
+              {isFullyAllocated && (
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-700">
+                  ĐÃ PHÂN BỔ 100%
+                </span>
+              )}
+            </h2>
+            <p className="text-[11px] text-slate-500">Giám sát hạn ngạch căn hộ NOXH phân bổ theo thời gian thực</p>
+          </div>
+        </div>
+
         {total > 0 && (
-          <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">
-            {assigned} đã gán · {pct}% còn
-          </span>
+          <div className={`rounded-full border px-3 py-1 text-xs font-bold ${isFullyAllocated
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+              : 'border-indigo-200 bg-indigo-50 text-indigo-800'
+            }`}>
+            {assigned}/{total} căn đã có chủ · Còn {remaining} căn
+          </div>
         )}
       </div>
 
-      {/* Overall bar */}
-      {totalStat && total > 0 && (
-        <div>
-          <div className="mb-1.5 flex items-center justify-between text-sm">
-            <span className="font-medium text-slate-600 dark:text-slate-300">Tổng quỹ dự án</span>
-            <span className="font-bold tabular-nums text-amber-700 dark:text-amber-300">
-              {remaining} / {total} căn còn
+      {/* Overall Progress Vault */}
+      {totalStat && total > 0 ? (
+        <div className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/40 via-white to-blue-50/30 p-4">
+          <div className="flex items-center justify-between text-xs font-bold">
+            <span className="text-slate-700 flex items-center gap-1.5">
+              <PieChart className="h-4 w-4 text-indigo-600" />
+              Tiến độ phân bổ quỹ căn NOXH
+            </span>
+            <span className="font-mono font-black text-indigo-700">
+              {assigned} / {total} căn ({assignedPct}%)
             </span>
           </div>
-          <div className="h-3 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+
+          <div className="mt-2 h-3.5 overflow-hidden rounded-full bg-slate-100 p-0.5 border border-slate-200/60">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-amber-400 to-yellow-400 transition-all duration-700"
-              style={{ width: `${pct}%` }}
+              className={`h-full rounded-full transition-all duration-700 ${isFullyAllocated
+                  ? 'bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600'
+                  : 'bg-gradient-to-r from-indigo-500 via-blue-500 to-amber-500'
+                }`}
+              style={{ width: `${Math.max(assignedPct, 4)}%` }}
             />
           </div>
-          <div className="mt-1 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-            <span className="text-amber-600 dark:text-amber-400">Đã gán: {assigned} căn</span>
-            <span className="font-bold text-amber-600 dark:text-amber-400">{pct}%</span>
+
+          <div className="mt-2 flex items-center justify-between text-[11px]">
+            <span className="text-slate-600 font-medium">
+              Đã bốc trúng: <strong className="text-indigo-700 font-bold">{assigned} căn</strong>
+            </span>
+            <span className={`font-bold ${isFullyAllocated ? 'text-emerald-600' : 'text-amber-600'}`}>
+              {isFullyAllocated ? '✓ Đã phân bổ hết toàn bộ quỹ căn' : `Còn lại: ${remaining} căn khả dụng`}
+            </span>
           </div>
         </div>
-      )}
+      ) : null}
 
-      {/* By category */}
+      {/* Category breakdown */}
       {funds.length > 0 ? (
-        <div className="space-y-2">
+        <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
           {funds.map((f, idx) => {
             const t = f.totalUnits ?? 0
             const r = f.remainingUnits ?? t
-            const p = t > 0 ? Math.round((r / t) * 100) : 0
+            const a = f.assignedUnits ?? (t > 0 ? t - r : 0)
+            const catPct = t > 0 ? Math.round((a / t) * 100) : 0
+            const isCatFull = t > 0 && a >= t
+
             return (
               <div
                 key={idx}
-                className="rounded-lg border border-amber-200 bg-white/60 p-3 dark:border-amber-800 dark:bg-amber-950/20"
+                className="rounded-xl border border-slate-100 bg-slate-50/70 p-3 hover:bg-slate-50 transition-all"
               >
-                <div className="mb-1.5 flex items-center justify-between text-sm">
-                  <span className="font-semibold text-amber-900 dark:text-amber-100">
-                    {f.categoryName || `Loại ${idx + 1}`}
+                <div className="flex items-center justify-between text-xs font-bold">
+                  <span className="text-slate-800 flex items-center gap-1.5">
+                    <Home className="h-3.5 w-3.5 text-indigo-500" />
+                    {f.categoryName || `Căn hộ Loại #${idx + 1}`}
                   </span>
-                  <span className="text-xs text-slate-500 tabular-nums dark:text-slate-400">
-                    {r} / {t} căn còn
+                  <span className="font-mono text-indigo-700 flex items-center gap-1">
+                    {a}/{t} căn
+                    {isCatFull && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />}
                   </span>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
+                <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-slate-200">
                   <div
-                    className="h-full rounded-full bg-amber-400 transition-all"
-                    style={{ width: `${p}%` }}
+                    className={`h-full rounded-full transition-all ${isCatFull
+                        ? 'bg-emerald-500'
+                        : 'bg-gradient-to-r from-indigo-500 to-blue-500'
+                      }`}
+                    style={{ width: `${Math.max(catPct, 5)}%` }}
                   />
+                </div>
+                <div className="mt-1 flex items-center justify-between text-[10px] text-slate-500">
+                  <span>Đã gán: {a} căn</span>
+                  <span>{isCatFull ? 'Hết suất' : `Còn ${r} căn`}</span>
                 </div>
               </div>
             )
           })}
         </div>
       ) : (
-        <div className="rounded-xl border border-dashed border-amber-300 bg-white/40 py-6 text-center dark:border-amber-800 dark:bg-amber-950/20">
-          <p className="text-3xl">🏗</p>
-          <p className="mt-2 font-medium text-amber-600 dark:text-amber-400">Chưa có thông tin quỹ căn</p>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Quỹ căn sẽ hiển thị sau khi bắt đầu Live</p>
+        <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 py-5 text-center">
+          <p className="text-xl">🏢</p>
+          <p className="mt-1.5 text-xs font-bold text-slate-600">Đã cập nhật quỹ căn tổng thể</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">Phân bổ chi tiết từng loại phòng áp dụng theo hồ sơ trúng thăm</p>
         </div>
       )}
-    </section>
+
+      {/* Legal standard note */}
+      <div className="mt-1 flex items-start gap-2 rounded-xl border border-emerald-100 bg-emerald-50/50 p-2.5 text-[11px] text-slate-600">
+        <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+        <span>
+          <strong>Quỹ căn bốc thăm:</strong> Toàn bộ số lượng căn hộ được Sở Xây dựng cấp phép mở bốc theo <strong>Khoản 2 Điều 38 Nghị định 100/2024/NĐ-CP</strong>. Mỗi lượt bốc trúng sẽ được tự động gán vào 1 căn trong quỹ.
+        </span>
+      </div>
+    </div>
   )
 }

@@ -30,6 +30,7 @@ import {
   VALID_TRIGGER_EVENTS,
   DIRECTION_OPTIONS,
   MILESTONE_PRESETS,
+  normalizeDirection,
   type ApartmentFormRow,
 } from './create-project-modal'
 
@@ -331,8 +332,8 @@ export function EditProjectModal({
     numberOfBathrooms: r.numberOfBathrooms !== '' ? Number(r.numberOfBathrooms) : undefined,
     area: parseFloat(r.area) || 0,
     grossArea: r.grossArea ? parseFloat(r.grossArea) : undefined,
-    mainDoorDirection: r.mainDoorDirection.trim() || undefined,
-    balconyDirection: r.balconyDirection.trim() || undefined,
+    mainDoorDirection: normalizeDirection(r.mainDoorDirection),
+    balconyDirection: normalizeDirection(r.balconyDirection),
     viewDescription: r.viewDescription.trim() || undefined,
     maxOccupants: r.maxOccupants !== '' ? Number(r.maxOccupants) : undefined,
     minSuitableIncome: r.minSuitableIncome ? parseFloat(r.minSuitableIncome) : undefined,
@@ -360,7 +361,18 @@ export function EditProjectModal({
     )
   }
 
-  const handleDownloadTemplate = () => {
+  const [importingExcel, setImportingExcel] = useState(false)
+
+  const handleDownloadTemplate = async () => {
+    try {
+      if (projectId) {
+        await housingProjectsApi.downloadApartmentsExcelTemplate(projectId)
+        return
+      }
+    } catch (e) {
+      console.warn('[EditProjectModal] BE template download failed, falling back to CSV:', e)
+    }
+
     const csvHeader = 'Mã căn,Tòa/Block,Tầng,Số PN,Số WC,Diện tích thông thủy (m2),Diện tích tim tường (m2),Giá bán (VNĐ),Nhóm căn (STANDARD/PRIORITY),Hình thức bán (FULL_OWNERSHIP/CO_OWNERSHIP),Tỷ lệ sở hữu (%),Hướng cửa chính (EAST/WEST/SOUTH/NORTH/SOUTH_EAST/NORTH_EAST/SOUTH_WEST/NORTH_WEST),Hướng ban công,Mô tả view,Sức chứa tối đa (người),Ghi chú\n'
     const sampleRows = [
       'A-101,Block A,1,2,1,55,60,850000000,STANDARD,FULL_OWNERSHIP,100,SOUTH_EAST,EAST,View công viên nội khu,4,Căn mẫu tiêu chuẩn\n',
@@ -377,9 +389,50 @@ export function EditProjectModal({
     URL.revokeObjectURL(url)
   }
 
-  const handleImportCsv = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportCsv = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+
+    const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls')
+    if (isExcel && projectId) {
+      setImportingExcel(true)
+      setError('')
+      try {
+        await housingProjectsApi.importApartmentsExcel(projectId, file)
+        const updatedProj = await housingProjectsApi.getById(projectId)
+        const apts = parseApartments(updatedProj)
+        if (apts.length > 0) {
+          setApartments(apts.map((a, i) => ({
+            id: a.id,
+            unitName: a.unitName || `Căn ${i + 1}`,
+            buildingBlock: a.buildingBlock || 'Block A',
+            floorNumber: a.floorNumber || 1,
+            numberOfBedrooms: a.numberOfBedrooms || 2,
+            numberOfBathrooms: a.numberOfBathrooms || 1,
+            area: String(a.area || '50'),
+            grossArea: a.grossArea ? String(a.grossArea) : '',
+            price: String(a.price || '800000000'),
+            unitGroup: (a.unitGroup === 'PRIORITY' ? 'PRIORITY' : 'STANDARD') as any,
+            saleType: (a.saleType === 'CO_OWNERSHIP' ? 'CO_OWNERSHIP' : 'FULL_OWNERSHIP') as any,
+            coOwnershipRatio: a.coOwnershipRatio != null ? Number(a.coOwnershipRatio) : '',
+            mainDoorDirection: a.mainDoorDirection || 'SOUTH_EAST',
+            balconyDirection: a.balconyDirection || 'EAST',
+            viewDescription: a.viewDescription || '',
+            maxOccupants: a.maxOccupants || 4,
+            minSuitableIncome: '',
+            maxSuitableIncome: '',
+            description: a.description || '',
+            isExpanded: false,
+          })))
+        }
+      } catch (err: any) {
+        setError('Lỗi khi import file Excel lên hệ thống: ' + formatError(err))
+      } finally {
+        setImportingExcel(false)
+        if (fileInputRef.current) fileInputRef.current.value = ''
+      }
+      return
+    }
 
     const reader = new FileReader()
     reader.onload = (evt) => {
@@ -409,8 +462,8 @@ export function EditProjectModal({
             unitGroup: cols[8]?.toUpperCase().includes('PRIORITY') ? 'PRIORITY' : 'STANDARD',
             saleType: cols[9]?.toUpperCase().includes('CO') ? 'CO_OWNERSHIP' : 'FULL_OWNERSHIP',
             coOwnershipRatio: cols[10] ? parseInt(cols[10], 10) || 50 : '',
-            mainDoorDirection: cols[11] || 'SOUTH_EAST',
-            balconyDirection: cols[12] || 'EAST',
+            mainDoorDirection: normalizeDirection(cols[11]) || 'SOUTH_EAST',
+            balconyDirection: normalizeDirection(cols[12]) || 'EAST',
             viewDescription: cols[13] || '',
             maxOccupants: cols[14] ? parseInt(cols[14], 10) || 4 : 4,
             minSuitableIncome: '',
@@ -425,7 +478,7 @@ export function EditProjectModal({
           setError('')
         }
       } catch (err: any) {
-        setError('Lỗi khi đọc file CSV: ' + err.message)
+        setError('Lỗi khi đọc file: ' + err.message)
       } finally {
         if (fileInputRef.current) fileInputRef.current.value = ''
       }
@@ -943,8 +996,8 @@ export function EditProjectModal({
                       <div
                         key={idx}
                         className={`flex flex-wrap items-center gap-2 rounded-xl border p-2.5 transition ${idx === 0 && Number(m.percentage) > 30
-                            ? 'border-rose-300 bg-rose-50/40 dark:border-rose-800/80 dark:bg-rose-950/20'
-                            : 'border-slate-200/80 bg-slate-50/60 hover:border-teal-300 dark:border-slate-700 dark:bg-slate-800/40'
+                          ? 'border-rose-300 bg-rose-50/40 dark:border-rose-800/80 dark:bg-rose-950/20'
+                          : 'border-slate-200/80 bg-slate-50/60 hover:border-teal-300 dark:border-slate-700 dark:bg-slate-800/40'
                           }`}
                       >
                         <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white shadow-sm ${idx === 0 && Number(m.percentage) > 30 ? 'bg-rose-600' : 'bg-teal-600'
@@ -1191,7 +1244,7 @@ export function EditProjectModal({
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept=".csv,text/csv"
+                      accept=".xlsx,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
                       className="hidden"
                       onChange={handleImportCsv}
                     />
@@ -1199,23 +1252,27 @@ export function EditProjectModal({
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      disabled={submitting}
+                      disabled={submitting || importingExcel}
                       className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
-                      title="Nhập danh sách căn từ file CSV/Excel"
+                      title="Nhập danh sách căn từ file Excel (.xlsx) hoặc CSV"
                     >
-                      <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
-                      Nhập từ CSV
+                      {importingExcel ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-600" />
+                      ) : (
+                        <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
+                      )}
+                      {importingExcel ? 'Đang import...' : 'Nhập Excel / CSV'}
                     </button>
 
                     <button
                       type="button"
                       onClick={handleDownloadTemplate}
-                      disabled={submitting}
+                      disabled={submitting || importingExcel}
                       className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
-                      title="Tải file mẫu để điền danh sách căn hộ"
+                      title="Tải file mẫu Excel (.xlsx) hoặc CSV để điền danh sách căn hộ"
                     >
                       <Download className="h-3.5 w-3.5 text-blue-600" />
-                      Tải file mẫu
+                      Tải file mẫu Excel
                     </button>
 
                     <button

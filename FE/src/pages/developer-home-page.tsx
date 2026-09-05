@@ -495,7 +495,10 @@ export function DeveloperHomePage() {
             {urgentProjects.slice(0, 4).map(({ project, evaluation, scenario, daysToClose }) => (
               <div
                 key={project.id}
-                onClick={() => navigate('project-detail')}
+                onClick={() => {
+                  sessionStorage.setItem('projectId', project.id || '')
+                  navigate('project-detail')
+                }}
                 className="group flex cursor-pointer items-start justify-between gap-3 rounded-2xl border border-amber-200/80 bg-white/90 p-4 shadow-sm transition hover:border-amber-400 hover:shadow-md dark:border-amber-900/50 dark:bg-slate-900/90"
               >
                 <div className="min-w-0 flex-1 space-y-1.5">
@@ -647,8 +650,8 @@ export function DeveloperHomePage() {
             <span className="font-bold text-emerald-600 dark:text-emerald-400">
               {data.counts.approved + data.counts.rejected > 0
                 ? `${Math.round(
-                    (data.counts.approved / (data.counts.approved + data.counts.rejected)) * 100,
-                  )}%`
+                  (data.counts.approved / (data.counts.approved + data.counts.rejected)) * 100,
+                )}%`
                 : '100%'}
             </span>
           </div>
@@ -816,9 +819,8 @@ export function DeveloperHomePage() {
                     onClick={() => {
                       if (!n.isRead) void markAsRead(n.notificationId)
                     }}
-                    className={`group flex cursor-pointer items-start gap-3 py-3 transition hover:bg-slate-50/80 dark:hover:bg-slate-800/40 rounded-xl px-2 -mx-2 ${
-                      !n.isRead ? 'bg-blue-50/40 dark:bg-blue-950/20' : ''
-                    }`}
+                    className={`group flex cursor-pointer items-start gap-3 py-3 transition hover:bg-slate-50/80 dark:hover:bg-slate-800/40 rounded-xl px-2 -mx-2 ${!n.isRead ? 'bg-blue-50/40 dark:bg-blue-950/20' : ''
+                      }`}
                   >
                     <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${toneBg}`}>
                       <Bell className="h-4 w-4" />
@@ -917,9 +919,8 @@ function KpiCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay }}
       onClick={onClick}
-      className={`group relative flex flex-col justify-between rounded-3xl border bg-white/90 p-5 sm:p-6 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg dark:bg-slate-900/90 cursor-pointer ${
-        t.border
-      } ${t.hover} ${highlight ? 'ring-2 ring-blue-500/30' : ''}`}
+      className={`group relative flex flex-col justify-between rounded-3xl border bg-white/90 p-5 sm:p-6 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg dark:bg-slate-900/90 cursor-pointer ${t.border
+        } ${t.hover} ${highlight ? 'ring-2 ring-blue-500/30' : ''}`}
     >
       <div>
         <div className="flex items-center justify-between">

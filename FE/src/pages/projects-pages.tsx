@@ -31,6 +31,7 @@ import { EditProjectModal } from '@/components/developer/edit-project-modal'
 import { Building3DViewer } from '@/components/housing-projects/building-3d-viewer'
 import { Apartment3DViewer } from '@/components/housing-projects/apartment-3d-viewer'
 import { DeveloperDecisionPanel } from '@/components/developer-decision-panel'
+import { ProjectPaymentManagementPanel } from '@/components/developer/project-payment-management-panel'
 import { ProjectStatusControl } from '@/components/developer/project-status-control'
 import { LocationFields } from '@/components/forms/location-fields'
 import { RichEditor } from '@/components/forms/rich-editor'
@@ -56,7 +57,7 @@ import { matchesOpenStatus } from '@/lib/housing-search'
 import { FLASH_CREATE_PROJECT_KEY, FLASH_DELETE_PROJECT_KEY } from '@/lib/constants'
 import { ensureVerifiedForApplication } from '@/lib/ekyc-gate'
 import { getRole, isLoggedIn } from '@/router'
-import { isPending, isUpcoming } from '@/lib/project-status-flow'
+import { isPending, isUpcoming, isOpenForRegistration } from '@/lib/project-status-flow'
 import {
   applyClientFilters,
   EMPTY_HOUSING_SEARCH,
@@ -755,7 +756,7 @@ export function ProjectDetailPage() {
   const isAdmin = role === 'System Administrator'
   const isStaffEditor = logged && (isDeveloper || isAdmin || role === 'Department Of Construction')
   const showPublicView = !logged || isApplicant || !isStaffEditor
-  const canEditProject = isStaffEditor && isPending(project)
+  const canEditProject = Boolean(project) && isStaffEditor && isPending(project)
 
   return (
     <div>
@@ -776,7 +777,7 @@ export function ProjectDetailPage() {
           <ProjectDetailView projectId={projectId} onLoaded={setProject} />
         ) : (
           <>
-            {(isDeveloper || isAdmin) && (
+            {Boolean(project) && (isDeveloper || isAdmin) && !isPending(project) && !isUpcoming(project) && !isOpenForRegistration(project) && (
               <section
                 id="developer-decision"
                 className="mb-8 rounded-xl border-2 border-blue-200 bg-blue-50/60 p-4 dark:border-blue-800 dark:bg-blue-950/30"
@@ -855,6 +856,15 @@ export function ProjectDetailPage() {
                     </Button>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {Boolean(project) && (isDeveloper || isAdmin) && !isPending(project) && !isUpcoming(project) && !isOpenForRegistration(project) && (
+              <div className="mt-8">
+                <ProjectPaymentManagementPanel
+                  projectId={projectId}
+                  projectName={project?.projectName || project?.name}
+                />
               </div>
             )}
           </>

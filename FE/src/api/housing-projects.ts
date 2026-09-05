@@ -251,8 +251,27 @@ export const housingProjectsApi = {
     })
   },
 
+  downloadApartmentsExcelTemplate: async (projectId: string): Promise<void> => {
+    const token = sessionStorage.getItem('accessToken')
+    const res = await fetch(
+      `${import.meta.env.VITE_API_BASE_URL ?? ''}/api/housing-projects/${projectId}/apartments/excel-template`,
+      { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+    )
+    if (!res.ok) throw new Error(`Không tải được file mẫu Excel (HTTP ${res.status})`)
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `Mau_Nhap_Can_Ho_${projectId.slice(0, 8)}.xlsx`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  },
+
   getApartmentStatistics: (projectId: string) =>
     request<ApiResult>(`/api/housing-projects/${projectId}/apartment-statistics`, { auth: true }),
+
 
   getApartments: (projectId: string, params?: Record<string, string | number | undefined>) => {
     const qs = new URLSearchParams()

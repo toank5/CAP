@@ -415,11 +415,84 @@ export const lotteryApi = {
     )
   },
 
+  /** Lấy danh sách dự bị (Waitlist) theo dự án và loại căn */
+  getWaitlist(projectId: string, desiredApartmentTypeId?: string) {
+    const qs = desiredApartmentTypeId ? `?desiredApartmentTypeId=${encodeURIComponent(desiredApartmentTypeId)}` : ''
+    return request<WaitlistEntryDto[] | ApiResult>(`/api/projects/${projectId}/lottery/waitlist${qs}`, { auth: true })
+  },
+
+  /** Đôn ứng viên đứng đầu danh sách chờ (Waitlist #1) lên quyền mua chính thức */
+  promoteWaitlist(projectId: string, desiredApartmentTypeId?: string) {
+    const qs = desiredApartmentTypeId ? `?desiredApartmentTypeId=${encodeURIComponent(desiredApartmentTypeId)}` : ''
+    return request<ApiResult>(`/api/projects/${projectId}/lottery/promote-waitlist${qs}`, {
+      method: 'POST',
+      auth: true,
+    })
+  },
+
   minutesUrl(projectId: string) {
     const base = import.meta.env.VITE_API_BASE_URL ?? ''
     return `${base}/api/projects/${projectId}/lottery/minutes.pdf`
   },
+
+  async downloadMinutesBlob(projectId: string): Promise<void> {
+    const token = sessionStorage.getItem('accessToken')
+    const res = await fetch(
+      `${import.meta.env.VITE_API_BASE_URL ?? ''}/api/projects/${projectId}/lottery/minutes.pdf`,
+      { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+    )
+    if (!res.ok) throw new Error(`Không tải được biên bản PDF (HTTP ${res.status})`)
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `BienBan_BocTham_${projectId.slice(0, 8)}.pdf`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  },
 }
+
+export interface WaitlistEntryDto {
+  applicationId: string
+  applicantName: string
+  citizenId: string
+  phoneNumber?: string
+  waitlistRank: number
+  score?: number
+  apartmentTypeName?: string
+  desiredApartmentTypeId?: string
+  depositDeadline?: string | null
+  status?: string
+}
+
+export function parseWaitlist(data: unknown): WaitlistEntryDto[] {
+  if (Array.isArray(data)) return data as WaitlistEntryDto[]
+  if (data && typeof data === 'object') {
+    const o = data as Record<string, unknown>
+    const items = o.items ?? o.Items ?? o.data ?? o.Data ?? o.waitlist ?? o.Waitlist
+    if (Array.isArray(items)) {
+      return items.map((it, idx) => {
+        const x = it as Record<string, unknown>
+        return {
+          applicationId: String(x.applicationId ?? x.ApplicationId ?? ''),
+          applicantName: String(x.applicantName ?? x.ApplicantName ?? x.fullName ?? x.FullName ?? ''),
+          citizenId: String(x.citizenId ?? x.CitizenId ?? ''),
+          phoneNumber: (x.phoneNumber ?? x.PhoneNumber) as string | undefined,
+          waitlistRank: Number(x.waitlistRank ?? x.WaitlistRank ?? x.rank ?? x.Rank ?? idx + 1),
+          score: x.score != null ? Number(x.score ?? x.Score) : undefined,
+          apartmentTypeName: (x.apartmentTypeName ?? x.ApartmentTypeName ?? x.unitType ?? x.UnitType) as string | undefined,
+          desiredApartmentTypeId: (x.desiredApartmentTypeId ?? x.DesiredApartmentTypeId) as string | undefined,
+          depositDeadline: (x.depositDeadline ?? x.DepositDeadline) as string | null | undefined,
+          status: (x.status ?? x.Status ?? 'WAITLIST') as string | undefined,
+        }
+      })
+    }
+  }
+  return []
+}
+
 
 export const LOTTERY_STATUS_LABEL: Record<string, string> = {
   NOT_SCHEDULED: 'Chưa lên lịch',

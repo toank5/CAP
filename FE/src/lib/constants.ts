@@ -126,6 +126,14 @@ export const PRIORITY_GROUP_LABELS: Record<string, string> = {
   LAND_RECOVERY_AFFECTED: 'Bị thu hồi đất / giải tỏa nhà ở',
 }
 
+export function formatPriorityGroup(code: string | null | undefined): string {
+  if (!code) return 'Hồ sơ tiêu chuẩn'
+  const key = code.trim().toUpperCase()
+  if (PRIORITY_GROUP_LABELS[key]) return PRIORITY_GROUP_LABELS[key]
+  if (key === 'NONE' || key === 'DEFAULT') return 'Hồ sơ tiêu chuẩn'
+  return code
+}
+
 export const MARITAL_STATUS_LABELS: Record<string, string> = {
   SINGLE: 'Độc thân',
   MARRIED: 'Đã kết hôn',

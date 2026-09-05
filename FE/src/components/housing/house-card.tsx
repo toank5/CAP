@@ -2,6 +2,7 @@ import { memo } from 'react'
 import { Heart, MapPin, Ruler, Layers } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { navigate } from '@/hooks/useHashRoute'
+import { getRole, isLoggedIn } from '@/router'
 import type { ProjectCard } from '@/lib/projects'
 
 export const HouseCard = memo(function HouseCard({
@@ -15,6 +16,10 @@ export const HouseCard = memo(function HouseCard({
   onToggleFavorite?: () => void
   actionButton?: React.ReactNode
 }) {
+  const role = getRole()
+  const logged = isLoggedIn()
+  const isApplicant = !logged || role === 'Applicant'
+
   const goToDetail = () => {
     sessionStorage.setItem('projectId', house.id)
     navigate('project-detail')
@@ -120,7 +125,7 @@ export const HouseCard = memo(function HouseCard({
           <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
             {actionButton ? (
               actionButton
-            ) : (
+            ) : isApplicant ? (
               <>
                 <Button
                   variant="outline"
@@ -138,6 +143,15 @@ export const HouseCard = memo(function HouseCard({
                   Nộp hồ sơ
                 </Button>
               </>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-xl border-emerald-300 bg-emerald-50/60 text-xs font-bold px-3.5 h-8 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-400 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+                onClick={goToDetail}
+              >
+                Chi tiết dự án
+              </Button>
             )}
           </div>
         </div>

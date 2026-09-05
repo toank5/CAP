@@ -56,10 +56,13 @@ const PRIORITY_DOCUMENT_CODES: Record<string, string[]> = {
 }
 
 const DEPENDENT_REASON_OPTIONS = [
-  { value: 'UNDER_18', label: 'Con dưới 18 tuổi, chưa đến tuổi lao động' },
-  { value: 'STUDENT', label: 'Đang theo học đại học' },
-  { value: 'INCAPACITATED', label: 'Mất sức lao động' },
+  { value: 'UNDER_18', label: 'Con dưới 18 tuổi' },
+  { value: 'STUDENT', label: 'Học sinh / Sinh viên đang theo học' },
+  { value: 'DISABLED', label: 'Mất sức lao động / Người khuyết tật' },
+  { value: 'ELDERLY', label: 'Người già hết tuổi lao động' },
+  { value: 'OTHER', label: 'Khác (thuộc diện bảo trợ xã hội)' },
 ]
+
 
 const RELATIONSHIP_OPTIONS = [
   { value: 'SPOUSE', label: 'Vợ / Chồng' },

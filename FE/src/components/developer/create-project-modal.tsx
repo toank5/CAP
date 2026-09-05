@@ -121,6 +121,37 @@ export const DIRECTION_OPTIONS = [
   { code: 'NORTH_WEST', label: 'Tây Bắc' },
 ]
 
+export function normalizeDirection(dir?: string | null): string | undefined {
+  if (!dir) return undefined
+  const s = dir.trim().toUpperCase()
+  if (!s) return undefined
+  if (['EAST', 'WEST', 'SOUTH', 'NORTH', 'SOUTH_EAST', 'NORTH_EAST', 'SOUTH_WEST', 'NORTH_WEST'].includes(s)) {
+    return s
+  }
+  const map: Record<string, string> = {
+    'SOUTHEAST': 'SOUTH_EAST',
+    'NORTHEAST': 'NORTH_EAST',
+    'SOUTHWEST': 'SOUTH_WEST',
+    'NORTHWEST': 'NORTH_WEST',
+    'ĐÔNG': 'EAST',
+    'TÂY': 'WEST',
+    'NAM': 'SOUTH',
+    'BẮC': 'NORTH',
+    'ĐÔNG NAM': 'SOUTH_EAST',
+    'ĐÔNG BẮC': 'NORTH_EAST',
+    'TÂY NAM': 'SOUTH_WEST',
+    'TÂY BẮC': 'NORTH_WEST',
+    'DONG': 'EAST',
+    'TAY': 'WEST',
+    'BAC': 'NORTH',
+    'DONG NAM': 'SOUTH_EAST',
+    'DONG BAC': 'NORTH_EAST',
+    'TAY NAM': 'SOUTH_WEST',
+    'TAY BAC': 'NORTH_WEST',
+  }
+  return map[s] || undefined
+}
+
 const createDefaultApartment = (index: number): ApartmentFormRow => ({
   unitName: `A-${100 + index + 1}`,
   buildingBlock: 'Block A',
@@ -344,8 +375,8 @@ export function CreateProjectModal({
         numberOfBathrooms: r.numberOfBathrooms !== '' ? Number(r.numberOfBathrooms) : undefined,
         area: parseFloat(r.area) || 0,
         grossArea: r.grossArea ? parseFloat(r.grossArea) : undefined,
-        mainDoorDirection: r.mainDoorDirection.trim() || undefined,
-        balconyDirection: r.balconyDirection.trim() || undefined,
+        mainDoorDirection: normalizeDirection(r.mainDoorDirection),
+        balconyDirection: normalizeDirection(r.balconyDirection),
         viewDescription: r.viewDescription.trim() || undefined,
         maxOccupants: r.maxOccupants !== '' ? Number(r.maxOccupants) : undefined,
         minSuitableIncome: r.minSuitableIncome ? parseFloat(r.minSuitableIncome) : undefined,
@@ -422,8 +453,8 @@ export function CreateProjectModal({
             unitGroup: cols[8]?.toUpperCase().includes('PRIORITY') ? 'PRIORITY' : 'STANDARD',
             saleType: cols[9]?.toUpperCase().includes('CO') ? 'CO_OWNERSHIP' : 'FULL_OWNERSHIP',
             coOwnershipRatio: cols[10] ? parseInt(cols[10], 10) || 50 : '',
-            mainDoorDirection: cols[11] || 'SOUTH_EAST',
-            balconyDirection: cols[12] || 'EAST',
+            mainDoorDirection: normalizeDirection(cols[11]) || 'SOUTH_EAST',
+            balconyDirection: normalizeDirection(cols[12]) || 'EAST',
             viewDescription: cols[13] || '',
             maxOccupants: cols[14] ? parseInt(cols[14], 10) || 4 : 4,
             minSuitableIncome: '',
@@ -522,7 +553,20 @@ export function CreateProjectModal({
       const projectId = (createRes.data as any)?.id || (createRes as any)?.id
 
       if (projectId && aptPayload.length > 0) {
-        await housingProjectsApi.createApartmentsBatch(projectId, aptPayload)
+        try {
+          await housingProjectsApi.createApartmentsBatch(projectId, aptPayload)
+        } catch (aptErr) {
+          console.error('[CreateProjectModal] Batch apartments error after project created:', aptErr)
+          if (onCreated) await onCreated()
+          try {
+            sessionStorage.setItem(FLASH_CREATE_PROJECT_KEY, body.projectName)
+          } catch (e) { }
+          resetForm()
+          onClose()
+          navigate('projects')
+          alert(`Dự án "${body.projectName}" đã được tạo thành công trên hệ thống. Tuy nhiên phần thêm quỹ căn hộ gặp lỗi: ${formatError(aptErr)}. Bạn có thể mở mục "Chỉnh sửa dự án" để cập nhật lại danh sách căn hộ.`)
+          return
+        }
       }
 
       try {
@@ -930,8 +974,8 @@ export function CreateProjectModal({
                     <div
                       key={idx}
                       className={`flex flex-wrap items-center gap-2 rounded-xl border p-2.5 transition ${idx === 0 && Number(m.percentage) > 30
-                          ? 'border-rose-300 bg-rose-50/40 dark:border-rose-800/80 dark:bg-rose-950/20'
-                          : 'border-slate-200/80 bg-slate-50/60 hover:border-teal-300 dark:border-slate-700 dark:bg-slate-800/40'
+                        ? 'border-rose-300 bg-rose-50/40 dark:border-rose-800/80 dark:bg-rose-950/20'
+                        : 'border-slate-200/80 bg-slate-50/60 hover:border-teal-300 dark:border-slate-700 dark:bg-slate-800/40'
                         }`}
                     >
                       <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white shadow-sm ${idx === 0 && Number(m.percentage) > 30 ? 'bg-rose-600' : 'bg-teal-600'

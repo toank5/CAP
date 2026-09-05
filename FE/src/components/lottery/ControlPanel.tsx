@@ -1,6 +1,23 @@
+import React, { useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import type { LotteryScheduleDto, LiveStateDto } from '@/api/lottery'
 import type { LotteryPhase } from '@/lib/lottery-phase'
+import { lotteryApi } from '@/api/lottery'
+import {
+  ShieldCheck,
+  Play,
+  Pause,
+  Square,
+  Sparkles,
+  Zap,
+  Send,
+  FileText,
+  Copy,
+  Check,
+  AlertTriangle,
+  ArrowRight,
+} from 'lucide-react'
+import { navigate } from '@/hooks/useHashRoute'
 
 interface Props {
   phase: LotteryPhase
@@ -11,202 +28,285 @@ interface Props {
   isApplicant: boolean
   busy: string
   onAction: (label: string, fn: () => Promise<unknown>) => void
+  onRunBatch?: () => void
   projectId: string
 }
 
-interface Action {
-  label: string
-  fn: () => Promise<unknown>
-  variant?: 'accent' | 'outline' | 'default'
-  disabled?: boolean
-}
+export const ControlPanel: React.FC<Props> = ({
+  phase,
+  session,
+  liveState,
+  isDev,
+  isSxd,
+  isApplicant,
+  busy,
+  onAction,
+  onRunBatch,
+  projectId,
+}) => {
+  const [copied, setCopied] = useState(false)
 
-export function ControlPanel({ phase, session, liveState, isDev, isSxd, isApplicant, busy, onAction, projectId }: Props) {
-  if (isApplicant) {
+  if (!projectId) {
     return (
-      <section className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-700 dark:bg-slate-800/40">
-        <p className="text-sm text-slate-600 dark:text-slate-300">
-          👤 Bạn là <strong>người dân</strong> — chỉ theo dõi kết quả. CĐT sẽ bốc thăm và công bố kết quả.
+      <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-6 text-center shadow-sm">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100">
+          <Sparkles className="h-6 w-6" />
+        </div>
+        <h3 className="mt-3 text-sm font-black uppercase tracking-wider text-slate-900">
+          Bàn Điều Khiển Sẵn Sàng
+        </h3>
+        <p className="mx-auto mt-1 max-w-md text-xs text-slate-500">
+          Chưa chọn phiên bốc thăm nào. Vui lòng chọn một dự án từ menu phía trên hoặc vào Trung tâm Quản lý Bốc thăm để mở sảnh điều hành.
         </p>
-        {session?.joinCode && (
-          <p className="mt-2 text-sm">
-            Mã OTP vào sảnh:{' '}
-            <strong className="font-mono text-lg text-blue-600 dark:text-blue-300">{session.joinCode}</strong>
-          </p>
-        )}
-      </section>
+        <button
+          onClick={() => navigate('lottery-sessions')}
+          className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700 transition-all cursor-pointer shadow-xs"
+        >
+          Đến Trung tâm Quản lý Bốc thăm
+          <ArrowRight className="h-3.5 w-3.5" />
+        </button>
+      </div>
     )
   }
 
-  if (isSxd) {
-    const sxdCount = liveState?.sxdOnlineCount ?? session?.sxdOnlineCount ?? 0
-    const canPublish = phase === 'finished'
+  const copyCode = (code: string) => {
+    void navigator.clipboard.writeText(code)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const sxdCount = liveState?.sxdOnlineCount ?? session?.sxdOnlineCount ?? 0
+
+  // 1. Giao diện Người dân
+  if (isApplicant) {
     return (
-      <section className="space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-800 dark:bg-emerald-950/30">
-        <div className="flex items-center justify-between">
-          <h3 className="font-bold text-emerald-800 dark:text-emerald-200">🛡 Giám sát Sở Xây dựng</h3>
-          <Badge variant={sxdCount > 0 ? 'success' : 'warning'}>
+      <div className="rounded-3xl border border-blue-200 bg-white p-5 shadow-sm">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 flex items-center gap-2">
+            <span>📺</span> Khán Phòng Theo Dõi Trực Tuyến
+          </h3>
+          <Badge variant="default" className="text-[10px]">
+            Chế độ Người dân
+          </Badge>
+        </div>
+        <p className="mt-3 text-xs text-slate-600 leading-relaxed">
+          Bạn đang xem trực tiếp tiến trình bốc thăm quyền mua. Kết quả từng hồ sơ sẽ tự động nhảy lên màn hình theo thời gian thực.
+        </p>
+        {session?.joinCode && (
+          <div className="mt-3 flex items-center justify-between rounded-2xl border border-blue-100 bg-blue-50/60 p-3.5">
+            <div>
+              <span className="text-[10px] uppercase text-blue-800 font-bold block">Mã OTP vào sảnh</span>
+              <span className="font-mono text-xl font-black text-indigo-900">{session.joinCode}</span>
+            </div>
+            <button
+              onClick={() => copyCode(session.joinCode || '')}
+              className="flex items-center gap-1 rounded-xl bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-700 transition-all shadow-xs"
+            >
+              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+              {copied ? 'Đã chép' : 'Sao chép'}
+            </button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // 2. Giao diện Sở Xây Dựng / Giám sát
+  if (isSxd) {
+    const canPublish = phase === 'finished'
+
+    return (
+      <div className="rounded-3xl border border-emerald-200 bg-white p-5 shadow-sm">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-emerald-600" />
+            <h3 className="text-sm font-black uppercase tracking-wider text-slate-900">
+              Giám Sát Sở Xây Dựng
+            </h3>
+          </div>
+          <Badge variant={sxdCount > 0 ? 'success' : 'warning'} className="font-bold text-xs">
             {sxdCount > 0 ? `✓ Online (${sxdCount})` : 'Offline'}
           </Badge>
         </div>
-        <p className="text-sm text-emerald-700 dark:text-emerald-300">
+
+        <p className="mt-3 text-xs text-slate-600 leading-relaxed">
           {sxdCount > 0
-            ? 'Bạn đang giám sát. Giữ trang này mở — CĐT cần SXD online để chạy Live.'
-            : 'Vào trang này để được tính là SXD online. Giữ trang mở.'}
+            ? 'Bạn đang trực tuyến giám sát phiên bốc thăm này. CĐT chỉ được bấm Bốc tiếp khi có ít nhất 1 cán bộ Sở online.'
+            : 'Vui lòng giữ trang này mở để tính hiện diện giám sát của Sở Xây dựng theo Điều 36 NĐ 100/2024.'}
         </p>
+
+        {/* Action Publish Session */}
         {canPublish && (
-          <div className="space-y-2 border-t border-emerald-200 pt-3 dark:border-emerald-800">
-            <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">
-              ✓ Phiên đã kết thúc — bạn có quyền Công bố kết quả
+          <div className="mt-4 rounded-2xl border-2 border-emerald-200 bg-emerald-50/70 p-4">
+            <p className="text-xs font-black text-emerald-900 uppercase tracking-wide">
+              ✓ Phiên bốc thăm đã kết thúc hoàn tất
             </p>
-            <div className="flex flex-wrap gap-2">
+            <p className="mt-1 text-xs text-slate-700">
+              Sở Xây dựng có thẩm quyền phê duyệt và công bố chính thức kết quả lên cổng thông tin công cộng.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2.5">
               <button
-                className="rounded-xl bg-gradient-to-r from-emerald-500 to-green-500 px-5 py-2.5 font-bold text-white shadow transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
                 disabled={!!busy}
-                onClick={() => onAction('Công bố kết quả', () => import('@/api/lottery').then(m => m.lotteryApi.publishSession(projectId)))}
+                onClick={() => onAction('Công bố kết quả', () => lotteryApi.publishSession(projectId))}
+                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 px-4 py-2.5 text-xs font-black text-white shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
               >
-                📢 Công bố kết quả
+                <Send className="h-4 w-4" />
+                📢 CÔNG BỐ KẾT QUẢ CHÍNH THỨC
+              </button>
+              <button
+                onClick={() => void lotteryApi.downloadMinutesBlob(projectId)}
+                className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer shadow-xs"
+              >
+                <FileText className="h-3.5 w-3.5 text-emerald-600" />
+                Tải Biên bản PDF
               </button>
             </div>
           </div>
         )}
-      </section>
+      </div>
     )
   }
 
+  // 3. Giao diện Chủ Đầu Tư (Housing Developer)
   if (isDev) {
-    const sxdCount = liveState?.sxdOnlineCount ?? session?.sxdOnlineCount ?? 0
-
-    const actions: { phase: LotteryPhase; content: Action | Action[] | null }[] = [
-      {
-        phase: 'not_scheduled',
-        content: {
-          label: '📅 Đề xuất lịch bốc thăm',
-          fn: () => import('@/api/lottery').then(m => m.lotteryApi.schedule(projectId, { lotteryDate: new Date().toISOString(), lotteryLocation: 'Hội trường / Zoom', totalUnits: 5 })),
-          variant: 'accent',
-        },
-      },
-      {
-        phase: 'awaiting_approval',
-        content: {
-          label: '⏳ Đang chờ Sở phê duyệt...',
-          fn: async () => {},
-          variant: 'outline',
-          disabled: true,
-        },
-      },
-      {
-        phase: 'ready_open_lobby',
-        content: {
-          label: '▶ Mở sảnh chờ',
-          fn: () => import('@/api/lottery').then(m => m.lotteryApi.openLobby(projectId)),
-          variant: 'accent',
-        },
-      },
-      {
-        phase: 'waiting_lobby',
-        content: sxdCount < 1
-          ? {
-              label: `⏳ Chờ SXD online (hiện: ${sxdCount})`,
-              fn: async () => {},
-              variant: 'outline',
-              disabled: true,
-            }
-          : {
-              label: '▶ Bắt đầu Live',
-              fn: () => import('@/api/lottery').then(m => m.lotteryApi.startLive(projectId)),
-              variant: 'accent',
-            },
-      },
-      {
-        phase: 'live',
-        content: [
-          {
-            label: '🎱 Bốc tiếp',
-            fn: () => import('@/api/lottery').then(m => m.lotteryApi.drawNext(projectId)),
-            variant: 'accent',
-            disabled: sxdCount < 1,
-          },
-          {
-            label: '⏸ Tạm dừng',
-            fn: () => import('@/api/lottery').then(m => m.lotteryApi.pauseSession(projectId)),
-            variant: 'outline',
-          },
-          {
-            label: '⏹ Kết thúc',
-            fn: () => import('@/api/lottery').then(m => m.lotteryApi.finishSession(projectId)),
-            variant: 'outline',
-            disabled: sxdCount < 1,
-          },
-        ],
-      },
-      {
-        phase: 'paused',
-        content: [
-          {
-            label: '▶ Tiếp tục Live',
-            fn: () => import('@/api/lottery').then(m => m.lotteryApi.resumeSession(projectId)),
-            variant: 'accent',
-            disabled: sxdCount < 1,
-          },
-          {
-            label: '⏹ Kết thúc',
-            fn: () => import('@/api/lottery').then(m => m.lotteryApi.finishSession(projectId)),
-            variant: 'outline',
-            disabled: sxdCount < 1,
-          },
-        ],
-      },
-      {
-        phase: 'finished',
-        content: {
-          label: '✓ Đã kết thúc — chờ Sở công bố',
-          fn: async () => {},
-          variant: 'outline',
-          disabled: true,
-        },
-      },
-      {
-        phase: 'published',
-        content: {
-          label: '✅ Đã công bố',
-          fn: async () => {},
-          variant: 'outline',
-          disabled: true,
-        },
-      },
-    ]
-
-    const matched = actions.find(a => a.phase === phase)
-
     return (
-      <section className="space-y-3 rounded-2xl border border-indigo-200 bg-indigo-50/60 p-4 dark:border-indigo-800 dark:bg-indigo-950/30">
-        <div className="flex items-center justify-between">
-          <h3 className="font-bold text-indigo-800 dark:text-indigo-200">🏗 Điều khiển Chủ đầu tư</h3>
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-slate-500">SXD online:</span>
-            <Badge variant={sxdCount > 0 ? 'success' : 'warning'}>{sxdCount}</Badge>
+      <div className="rounded-3xl border border-amber-200/80 bg-white p-5 shadow-sm">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🎮</span>
+            <h3 className="text-sm font-black uppercase tracking-wider text-slate-900">
+              Bàn Điều Khiển Chủ Đầu Tư
+            </h3>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-slate-500">SXD online:</span>
+            <Badge variant={sxdCount > 0 ? 'success' : 'warning'} className="font-bold text-xs">
+              {sxdCount > 0 ? `✓ ${sxdCount}` : '0 (Cần online)'}
+            </Badge>
           </div>
         </div>
-        {matched?.content && (
-          <div className="flex flex-wrap gap-2">
-            {(Array.isArray(matched.content) ? matched.content : [matched.content]).map((action, i) => (
-              <button
-                key={i}
-                className={`rounded-xl px-4 py-2.5 text-sm font-bold shadow transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed ${
-                  action.variant === 'accent'
-                    ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white'
-                    : 'border border-indigo-300 bg-white text-indigo-700 dark:border-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200'
-                }`}
-                disabled={!!busy || action.disabled}
-                onClick={() => !action.disabled && !busy && onAction(action.label, action.fn)}
-              >
-                {action.label}
-              </button>
-            ))}
+
+        {/* OTP Code for Lobby */}
+        {session?.joinCode && (
+          <div className="mt-3 flex items-center justify-between rounded-2xl border border-amber-200 bg-amber-50/70 p-3.5">
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900 block">
+                Mã OTP Sảnh Chờ (Cung cấp cho người dân)
+              </span>
+              <span className="font-mono text-xl font-black text-amber-700 tracking-widest">
+                {session.joinCode}
+              </span>
+            </div>
+            <button
+              onClick={() => copyCode(session.joinCode || '')}
+              className="flex items-center gap-1 rounded-xl bg-amber-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-700 shadow-xs"
+            >
+              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+              {copied ? 'Đã sao chép' : 'Sao chép OTP'}
+            </button>
           </div>
         )}
-      </section>
+
+        {/* Supervision warning if SXD offline */}
+        {sxdCount === 0 && (phase === 'waiting_lobby' || phase === 'live') && (
+          <div className="mt-3 flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+            <span>
+              Chưa có cán bộ Sở Xây dựng online. Vui lòng thông báo Sở tham gia giám sát trước khi bấm quay số.
+            </span>
+          </div>
+        )}
+
+        {/* FSM Actions */}
+        <div className="mt-4 flex flex-wrap gap-2.5">
+          {phase === 'ready_open_lobby' && (
+            <button
+              disabled={!!busy}
+              onClick={() => onAction('Mở sảnh chờ', () => lotteryApi.openLobby(projectId))}
+              className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-3 text-xs font-black text-white shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
+            >
+              <Play className="h-4 w-4" />
+              ▶ MỞ SẢNH CHỜ TRỰC TUYẾN
+            </button>
+          )}
+
+          {phase === 'waiting_lobby' && (
+            <button
+              disabled={!!busy || sxdCount === 0}
+              onClick={() => onAction('Bắt đầu quay số', () => lotteryApi.startLive(projectId))}
+              className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-600 to-green-600 px-5 py-3 text-xs font-black text-white shadow-md hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
+            >
+              <Sparkles className="h-4 w-4" />
+              🔴 BẮT ĐẦU QUAY SỐ TRỰC TIẾP
+            </button>
+          )}
+
+          {phase === 'live' && (
+            <>
+              {onRunBatch && (
+                <button
+                  disabled={!!busy || sxdCount === 0}
+                  onClick={onRunBatch}
+                  className="flex items-center gap-1.5 rounded-2xl border-2 border-indigo-200 bg-white px-4 py-2.5 text-xs font-bold text-indigo-700 hover:bg-indigo-50 transition-all cursor-pointer shadow-xs"
+                >
+                  <Zap className="h-3.5 w-3.5 text-amber-500" />
+                  Chạy tự động
+                </button>
+              )}
+              <button
+                disabled={!!busy}
+                onClick={() => onAction('Tạm dừng', () => lotteryApi.pauseSession(projectId))}
+                className="flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer shadow-xs"
+              >
+                <Pause className="h-3.5 w-3.5 text-amber-600" />
+                Tạm dừng phiên
+              </button>
+              <button
+                disabled={!!busy || sxdCount === 0}
+                onClick={() => onAction('Kết thúc phiên', () => lotteryApi.finishSession(projectId))}
+                className="flex items-center gap-1.5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition-all cursor-pointer shadow-xs"
+              >
+                <Square className="h-3.5 w-3.5 text-rose-600" />
+                ⏹ Kết thúc phiên
+              </button>
+            </>
+          )}
+
+          {phase === 'paused' && (
+            <>
+              <button
+                disabled={!!busy || sxdCount === 0}
+                onClick={() => onAction('Tiếp tục quay số', () => lotteryApi.resumeSession(projectId))}
+                className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-600 to-green-600 px-5 py-2.5 text-xs font-black text-white shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
+              >
+                <Play className="h-4 w-4" />
+                ▶ TIẾP TỤC TRỰC TIẾP
+              </button>
+              <button
+                disabled={!!busy}
+                onClick={() => onAction('Kết thúc phiên', () => lotteryApi.finishSession(projectId))}
+                className="flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer shadow-xs"
+              >
+                <Square className="h-3.5 w-3.5 text-rose-600" />
+                Kết thúc phiên
+              </button>
+            </>
+          )}
+
+          {phase === 'finished' && (
+            <div className="flex items-center gap-2 text-xs font-bold text-emerald-700">
+              ✓ Phiên đã hoàn tất. Đang chờ Sở Xây dựng công bố chính thức.
+            </div>
+          )}
+
+          {phase === 'published' && (
+            <div className="flex items-center gap-2 text-xs font-bold text-emerald-700">
+              ✅ Kết quả phiên bốc thăm đã được Sở Xây dựng công bố chính thức.
+            </div>
+          )}
+        </div>
+      </div>
     )
   }
 

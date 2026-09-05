@@ -4,9 +4,14 @@ import { Alert } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { housingProjectStatusesApi } from '@/api/housing-project-statuses'
+import {
+  housingProjectStatusesApi,
+  type PriorityGroupPointItemDto,
+  type PriorityPointsTableDto,
+} from '@/api/housing-project-statuses'
 import { issueReportsApi } from '@/api/issue-reports'
 import { formatError } from '@/lib/format-error'
+
 
 interface ProjectStatus {
   id: string
@@ -102,10 +107,25 @@ export function SystemLogsPage() {
   )
 }
 
+const DEFAULT_PRIORITY_POINTS: PriorityGroupPointItemDto[] = [
+
+  { groupCode: 'MERIT_PERSON', groupName: 'Người có công với cách mạng', points: 10, description: 'Điểm tối đa theo Luật Nhà ở 2023' },
+  { groupCode: 'URBAN_POOR', groupName: 'Hộ nghèo đô thị', points: 9, description: 'Hộ nghèo có xác nhận' },
+  { groupCode: 'RURAL_POOR', groupName: 'Hộ nghèo nông thôn', points: 8, description: 'Hộ nghèo khu vực nông thôn' },
+  { groupCode: 'DISABLED', groupName: 'Người khuyết tật', points: 8, description: 'Khuyết tật mức độ nặng hoặc đặc biệt nặng' },
+  { groupCode: 'WORKER', groupName: 'Công nhân KCN/KCX', points: 7, description: 'Người lao động trực tiếp trong khu công nghiệp' },
+  { groupCode: 'LOW_INCOME_URBAN', groupName: 'Người thu nhập thấp tại đô thị', points: 6, description: 'Thu nhập <= 15M/tháng' },
+  { groupCode: 'MILITARY_PERSONNEL', groupName: 'Lực lượng vũ trang / Công an / Quân đội', points: 6, description: 'Cán bộ chiến sĩ LLVT' },
+  { groupCode: 'CIVIL_SERVANT', groupName: 'Cán bộ, công chức, viên chức', points: 5, description: 'Công chức nhà nước' },
+  { groupCode: 'LAND_RECOVERY_AFFECTED', groupName: 'Hộ bị thu hồi đất / giải tỏa', points: 5, description: 'Bị thu hồi đất chưa được bồi thường bằng nhà' },
+]
+
 export function CategoriesPage() {
   const [statuses, setStatuses] = useState<ProjectStatus[]>([])
   const [policies, setPolicies] = useState<PolicyConfig[]>([])
+  const [priorityPoints, setPriorityPoints] = useState<PriorityGroupPointItemDto[]>(DEFAULT_PRIORITY_POINTS)
   const [loading, setLoading] = useState(true)
+  const [savingPoints, setSavingPoints] = useState(false)
   const [error, setError] = useState('')
   const [editPolicyName, setEditPolicyName] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
@@ -139,6 +159,16 @@ export function CategoriesPage() {
         }
       }
       setPolicies(loaded)
+
+      try {
+        const ptRes = await housingProjectStatusesApi.getPriorityPoints()
+        const ptData = (ptRes && typeof ptRes === 'object' && 'data' in ptRes ? (ptRes as any).data : ptRes) as PriorityPointsTableDto
+        if (ptData?.pointsTable && Array.isArray(ptData.pointsTable) && ptData.pointsTable.length > 0) {
+          setPriorityPoints(ptData.pointsTable)
+        }
+      } catch {
+        // use default fallback
+      }
     } catch (err) {
       setError(formatError(err))
     } finally {
@@ -160,6 +190,19 @@ export function CategoriesPage() {
     }
   }
 
+  const savePriorityPoints = async () => {
+    setSavingPoints(true)
+    setMsg(null)
+    try {
+      await housingProjectStatusesApi.updatePriorityPoints({ pointsTable: priorityPoints })
+      setMsg({ type: 'success', text: 'Đã cập nhật bảng điểm ưu tiên NOXH thành công.' })
+    } catch (err) {
+      setMsg({ type: 'error', text: formatError(err) })
+    } finally {
+      setSavingPoints(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader routeId="admin-categories" />
@@ -170,6 +213,60 @@ export function CategoriesPage() {
           <p className="text-sm text-slate-500 dark:text-slate-400">Đang tải...</p>
         ) : (
           <>
+            {/* Bảng điểm ưu tiên NOXH */}
+            <div className="mb-8">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                    🏆 Ma trận điểm ưu tiên NOXH (Điều 76 Luật Nhà ở 2023)
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Cấu hình trọng số điểm ưu tiên chấm tự động khi xét duyệt hồ sơ đăng ký.
+                  </p>
+                </div>
+                <Button variant="accent" size="sm" disabled={savingPoints} onClick={() => void savePriorityPoints()}>
+                  {savingPoints ? 'Đang lưu...' : '💾 Lưu bảng điểm ưu tiên'}
+                </Button>
+              </div>
+
+              <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 dark:bg-slate-800/80">
+                    <tr className="border-b border-slate-200 dark:border-slate-700">
+                      <th className="px-3 py-2.5 font-semibold text-slate-700 dark:text-slate-300">Mã nhóm</th>
+                      <th className="px-3 py-2.5 font-semibold text-slate-700 dark:text-slate-300">Nhóm đối tượng ưu tiên</th>
+                      <th className="px-3 py-2.5 font-semibold text-slate-700 dark:text-slate-300">Mô tả quy định</th>
+                      <th className="px-3 py-2.5 text-right font-semibold text-slate-700 dark:text-slate-300">Điểm số</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {priorityPoints.map((item, idx) => (
+                      <tr key={item.groupCode || idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                        <td className="px-3 py-2 font-mono font-medium text-slate-500">{item.groupCode}</td>
+                        <td className="px-3 py-2 font-semibold text-slate-900 dark:text-slate-100">{item.groupName}</td>
+                        <td className="px-3 py-2 text-slate-500 dark:text-slate-400">{item.description || '—'}</td>
+                        <td className="px-3 py-2 text-right">
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={item.points}
+                            onChange={(e) => {
+                              const val = Number(e.target.value) || 0
+                              setPriorityPoints((prev) =>
+                                prev.map((p, i) => (i === idx ? { ...p, points: val } : p)),
+                              )
+                            }}
+                            className="w-16 rounded-md border border-slate-200 bg-white px-2 py-1 text-right text-xs font-bold text-indigo-600 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-indigo-400"
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
             <h3 className="mb-2 font-semibold">Trạng thái dự án</h3>
             <div className="mb-6 space-y-2">
               {statuses.map((s) => (
@@ -221,3 +318,4 @@ export function CategoriesPage() {
     </div>
   )
 }
+
