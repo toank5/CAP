@@ -209,8 +209,20 @@ export function parseContractStatus(data: unknown): ContractStatusDto | null {
   if (!data || typeof data !== 'object') return null
   const o = data as Record<string, unknown>
   const nested = o.data ?? o.Data
-  if (nested && typeof nested === 'object') return nested as ContractStatusDto
-  return data as ContractStatusDto
+  const src = (nested && typeof nested === 'object' ? nested : o) as Record<string, unknown>
+  const applicationId = String(src.applicationId ?? src.ApplicationId ?? '')
+  const applicationStatus = String(src.applicationStatus ?? src.ApplicationStatus ?? '')
+  const isSignedRaw = src.isSigned ?? src.IsSigned
+  if (!applicationId && !applicationStatus && isSignedRaw == null) return null
+  const signedAt = src.signedAt ?? src.SignedAt
+  const pdfUrl = src.pdfUrl ?? src.PdfUrl
+  return {
+    applicationId,
+    isSigned: Boolean(isSignedRaw),
+    signedAt: typeof signedAt === 'string' ? signedAt : signedAt == null ? null : String(signedAt),
+    pdfUrl: typeof pdfUrl === 'string' ? pdfUrl : pdfUrl == null ? null : String(pdfUrl),
+    applicationStatus,
+  }
 }
 
 export const contractApi = {

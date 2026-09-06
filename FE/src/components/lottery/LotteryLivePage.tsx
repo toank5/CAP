@@ -20,6 +20,7 @@ import { LiveZone } from './LiveZone'
 import { WinnersZone } from './WinnersZone'
 import { ApartmentFundZone } from './ApartmentFundZone'
 import { ControlPanel } from './ControlPanel'
+import { LotteryStaffTabs } from './lottery-staff-tabs'
 import { lotteryAudio } from '@/lib/lottery-audio'
 import {
   RefreshCw,
@@ -368,6 +369,7 @@ export const LotteryLivePage: React.FC = () => {
 
   return (
     <div className="space-y-4">
+      <LotteryStaffTabs current="live" />
       {/* Top Studio Command Bar */}
       <div className="flex flex-col gap-4 rounded-3xl border border-slate-200/90 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -379,7 +381,7 @@ export const LotteryLivePage: React.FC = () => {
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-mono text-[11px] font-extrabold uppercase tracking-widest text-amber-700">
-                  TRƯỜNG QUAY XỔ SỐ KIẾN THIẾT SỐ - NOXH
+                  TRƯỜNG QUAY BỐC THĂM NHÀ Ở XÃ HỘI
                 </span>
                 <span
                   className={`flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider ${sessionStatus === 'Live'
@@ -415,7 +417,7 @@ export const LotteryLivePage: React.FC = () => {
 
             {/* SXD Supervisor Presence */}
             <span className="flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 font-bold text-emerald-800">
-              🏛 SXD Giám sát: {sxdOnline}
+              🏛 Sở giám sát: {sxdOnline}
             </span>
 
             {/* Lobby Viewers */}
@@ -481,7 +483,7 @@ export const LotteryLivePage: React.FC = () => {
               className="text-xs"
             >
               <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-              Về Trung tâm Bốc thăm
+              Về quản lý phiên
             </Button>
             <Button
               variant="outline"
@@ -550,12 +552,12 @@ export const LotteryLivePage: React.FC = () => {
                 <h3 className="text-base font-black text-slate-900 uppercase">
                   Chạy Bốc Thăm Tự Động Toàn Sảnh
                 </h3>
-                <p className="text-xs text-slate-500">Thuật toán xáo trộn Fisher-Yates chuẩn Đ38.2</p>
+                <p className="text-xs text-slate-500">Xáo trộn ngẫu nhiên theo khoản 2 Điều 38 Nghị định 100/2024</p>
               </div>
             </div>
 
             <p className="mt-4 text-xs leading-relaxed text-slate-600">
-              Hệ thống xáo trộn ngẫu nhiên công khai phần quỹ căn còn lại. Hồ sơ không trúng được xếp danh sách chờ theo hạng. Căn trả lại (hủy HĐ / không cọc) đôn người #1 — hạn xác nhận {WAITLIST_CONFIRM_HOURS} giờ, không mở lại đợt bốc thăm.
+              Hệ thống xáo trộn ngẫu nhiên công khai phần quỹ căn còn lại. Hồ sơ không trúng được xếp danh sách chờ theo hạng. Căn trả lại (hủy hợp đồng / không cọc) đôn người đứng đầu — hạn xác nhận {WAITLIST_CONFIRM_HOURS} giờ, không mở lại đợt bốc thăm.
             </p>
 
             <div className="mt-6 flex items-center justify-end gap-3">

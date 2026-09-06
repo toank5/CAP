@@ -56,7 +56,7 @@ export const LOTTERY_PHASE_STEPS: { id: LotteryPhase; label: string }[] = [
   { id: 'awaiting_approval', label: '2. Sở duyệt lịch' },
   { id: 'ready_open_lobby', label: '3. Mở sảnh' },
   { id: 'waiting_lobby', label: '4. Sảnh chờ' },
-  { id: 'live', label: '5. Live' },
+  { id: 'live', label: '5. Quay số' },
   { id: 'paused', label: '5b. Tạm dừng' },
   { id: 'finished', label: '6. Kết thúc' },
   { id: 'published', label: '7. Công bố' },
@@ -80,7 +80,7 @@ export function phaseChipLabel(phase: LotteryPhase): string {
     case 'waiting_lobby':
       return 'Sảnh chờ'
     case 'live':
-      return 'Đang Live'
+      return 'Đang quay số'
     case 'paused':
       return 'Tạm dừng'
     case 'finished':

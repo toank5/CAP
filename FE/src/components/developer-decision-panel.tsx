@@ -245,7 +245,7 @@ export function DeveloperDecisionPanel({ projectId }: { projectId: string }) {
           type: 'success',
           text: closeProject
             ? 'Đã cấp căn, chuyển ký hợp đồng và đóng dự án.'
-            : 'Đã cấp căn và chuyển sang ký hợp đồng mua bán NOXH.',
+            : 'Đã cấp căn và chuyển sang ký hợp đồng mua bán nhà ở xã hội.',
         })
       } else if (decisionType === 'KEEP_OPEN') {
         setMsg({
@@ -297,7 +297,7 @@ export function DeveloperDecisionPanel({ projectId }: { projectId: string }) {
         </h3>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           Căn ưu tiên cấp trực tiếp cho hồ sơ điểm cao nhất. Khi số hồ sơ hợp lệ vượt quỹ căn còn lại,
-          phần còn lại bốc thăm công khai. Không trúng được xếp waitlist theo hạng — suất trả lại
+          phần còn lại bốc thăm công khai. Không trúng được xếp danh sách chờ theo hạng — suất trả lại
           (hủy HĐ / không cọc) đôn người #1, hạn xác nhận {WAITLIST_CONFIRM_HOURS} giờ.
         </p>
       </div>
@@ -313,7 +313,7 @@ export function DeveloperDecisionPanel({ projectId }: { projectId: string }) {
 
       {!hasQualified ? (
         <Alert variant="info">
-          Chưa có hồ sơ nào ở trạng thái đã duyệt bởi Sở Xây dựng. Khi SXD phê duyệt, danh sách sẽ
+          Chưa có hồ sơ nào ở trạng thái đã duyệt bởi Sở Xây dựng. Khi Sở phê duyệt, danh sách sẽ
           hiện tại đây.
         </Alert>
       ) : isLessOrEqual ? (
@@ -387,7 +387,7 @@ export function DeveloperDecisionPanel({ projectId }: { projectId: string }) {
             </Alert>
           )}
 
-          <AppList title="Hồ sơ còn lại — bốc thăm; không trúng vào waitlist theo hạng" items={lotteryApps} />
+          <AppList title="Hồ sơ còn lại — bốc thăm; không trúng vào danh sách chờ theo hạng" items={lotteryApps} />
 
           <div className="flex flex-wrap gap-2">
             {priorityGrantApps.length > 0 && (

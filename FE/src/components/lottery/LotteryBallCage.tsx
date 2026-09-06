@@ -281,7 +281,7 @@ export const LotteryBallCage: React.FC<Props> = ({
               Lồng Cầu Bốc Thăm
             </h3>
             <p className="text-[11px] text-slate-500">
-              Quay số ngẫu nhiên minh bạch chuẩn Khoản 2 Điều 38 Nghị định 100/2024/NĐ-CP
+              Quay số ngẫu nhiên minh bạch theo khoản 2 Điều 38 Nghị định số 100 năm 2024 của Chính phủ
             </p>
           </div>
         </div>

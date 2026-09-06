@@ -72,6 +72,8 @@ function resolveIndex(status: string, depositPaid?: boolean): number {
     case 'WAITLIST':
       return 3
     case 'DEPOSIT_PENDING':
+      // Đã đóng Đợt 1 nhưng BE chưa kịp chuyển CONTRACT_PENDING → hiện bước ký.
+      if (depositPaid === true) return 5
       return 4
     case 'CONTRACT_PENDING':
     case 'CONTRACTING':

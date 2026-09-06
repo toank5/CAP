@@ -57,6 +57,7 @@ import {
   SignContractSection,
 } from '@/components/payment/payment-section'
 import { contractApi, parseContractStatus, parseInstallmentsEnvelope, summarizeInstallments } from '@/api/contracts'
+import { canSignAfterDeposit, isPhase1Paid } from '@/lib/deposit-pipeline'
 import { usersApi } from '@/api/users'
 import { PageCard, PageHeader } from '@/components/layout/page-header'
 import { StatusBadge } from '@/components/shared/status-badge'
@@ -1336,7 +1337,7 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
     app.applicationStatus === 'PENDING_SXD_REVIEW'
       ? formatSxdCountdown(app.submittedAt || app.createdAt)
       : null
-  const deposit1Paid = installments.some(i => i.ordinal === 1 && i.status === 'PAID')
+  const deposit1Paid = isPhase1Paid(installments, app.applicationStatus)
   const deposit2Paid = installments.some(i => i.ordinal === 2 && i.status === 'PAID')
   const depositCountdown = !deposit1Paid && !deposit2Paid ? formatDepositCountdown(app.applicationStatus, app.updatedAt) : null
 
@@ -1980,18 +1981,22 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
           <SignContractSection
             canSign={
               isApplicant &&
-              !!app.apartmentId &&
-              !contractStatus?.isSigned &&
-              (
-                contractStatus?.applicationStatus === 'CONTRACT_PENDING' ||
-                contractStatus?.applicationStatus === 'DEPOSIT_PENDING' ||
-                contractStatus?.applicationStatus === 'CONTRACTING'
-              )
+              canSignAfterDeposit({
+                applicationStatus: contractStatus?.applicationStatus || app.applicationStatus,
+                hasApartment: !!app.apartmentId,
+                depositPaid: deposit1Paid,
+              }) &&
+              !contractStatus?.isSigned
             }
             signing={signing}
             onSign={() => void handleSign()}
             applicationStatus={contractStatus?.applicationStatus ?? app.applicationStatus}
           />
+          {isApplicant && deposit1Paid && !app.apartmentId && !contractStatus?.isSigned && (
+            <Alert variant="info">
+              Đã đóng cọc Đợt 1. Chủ đầu tư cần gán căn hộ cụ thể trước khi bạn ký hợp đồng.
+            </Alert>
+          )}
 
           {/* Lịch thanh toán theo cấu hình chủ đầu tư */}
           <PaymentSection

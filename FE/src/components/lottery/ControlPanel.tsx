@@ -95,7 +95,7 @@ export const ControlPanel: React.FC<Props> = ({
         {session?.joinCode && (
           <div className="mt-3 flex items-center justify-between rounded-2xl border border-blue-100 bg-blue-50/60 p-3.5">
             <div>
-              <span className="text-[10px] uppercase text-blue-800 font-bold block">Mã OTP vào sảnh</span>
+              <span className="text-[10px] uppercase text-blue-800 font-bold block">Mã vào sảnh</span>
               <span className="font-mono text-xl font-black text-indigo-900">{session.joinCode}</span>
             </div>
             <button
@@ -125,14 +125,14 @@ export const ControlPanel: React.FC<Props> = ({
             </h3>
           </div>
           <Badge variant={sxdCount > 0 ? 'success' : 'warning'} className="font-bold text-xs">
-            {sxdCount > 0 ? `✓ Online (${sxdCount})` : 'Offline'}
+            {sxdCount > 0 ? `✓ Đang giám sát (${sxdCount})` : 'Chưa vào'}
           </Badge>
         </div>
 
         <p className="mt-3 text-xs text-slate-600 leading-relaxed">
           {sxdCount > 0
-            ? 'Bạn đang trực tuyến giám sát phiên bốc thăm này. CĐT chỉ được bấm Bốc tiếp khi có ít nhất 1 cán bộ Sở online.'
-            : 'Vui lòng giữ trang này mở để tính hiện diện giám sát của Sở Xây dựng theo Điều 36 NĐ 100/2024.'}
+            ? 'Bạn đang giám sát phiên bốc thăm này. Chủ đầu tư chỉ được bấm Bốc tiếp khi có ít nhất một cán bộ Sở đang kết nối.'
+            : 'Vui lòng giữ trang này mở để tính hiện diện giám sát của Sở Xây dựng theo Điều 36 Nghị định số 100 năm 2024 của Chính phủ.'}
         </p>
 
         {/* Action Publish Session */}
@@ -158,7 +158,7 @@ export const ControlPanel: React.FC<Props> = ({
                 className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer shadow-xs"
               >
                 <FileText className="h-3.5 w-3.5 text-emerald-600" />
-                Tải Biên bản PDF
+                Tải biên bản
               </button>
             </div>
           </div>
@@ -180,9 +180,9 @@ export const ControlPanel: React.FC<Props> = ({
             </h3>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-slate-500">SXD online:</span>
+            <span className="text-[11px] text-slate-500">Sở đang giám sát:</span>
             <Badge variant={sxdCount > 0 ? 'success' : 'warning'} className="font-bold text-xs">
-              {sxdCount > 0 ? `✓ ${sxdCount}` : '0 (Cần online)'}
+              {sxdCount > 0 ? `✓ ${sxdCount}` : '0 (cần giám sát)'}
             </Badge>
           </div>
         </div>
@@ -192,7 +192,7 @@ export const ControlPanel: React.FC<Props> = ({
           <div className="mt-3 flex items-center justify-between rounded-2xl border border-amber-200 bg-amber-50/70 p-3.5">
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900 block">
-                Mã OTP Sảnh Chờ (Cung cấp cho người dân)
+                Mã vào sảnh chờ (cung cấp cho người dân)
               </span>
               <span className="font-mono text-xl font-black text-amber-700 tracking-widest">
                 {session.joinCode}
@@ -203,7 +203,7 @@ export const ControlPanel: React.FC<Props> = ({
               className="flex items-center gap-1 rounded-xl bg-amber-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-700 shadow-xs"
             >
               {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-              {copied ? 'Đã sao chép' : 'Sao chép OTP'}
+              {copied ? 'Đã sao chép' : 'Sao chép mã'}
             </button>
           </div>
         )}

@@ -34,11 +34,11 @@ const ITEMS: NavItem[] = [
     route: 'lottery-sessions',
     label: 'Bốc thăm',
     icon: Gavel,
-    aliases: ['my-lottery'],
+    aliases: ['lottery-detail', 'lottery-create', 'my-lottery'],
   },
   {
     route: 'lottery-live',
-    label: 'Bốc thăm trực tiếp',
+    label: 'Quay số trực tiếp',
     icon: Radio,
   },
   {
@@ -58,6 +58,8 @@ export const DEVELOPER_SUB_NAV_ROUTES: RouteId[] = [
   'project-detail',
   'create-project',
   'lottery-sessions',
+  'lottery-detail',
+  'lottery-create',
   'lottery-live',
   'my-lottery',
   'contracts',

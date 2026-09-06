@@ -179,7 +179,7 @@ export function MyLotteryPage() {
           <div>
             <h2 className="text-xl font-bold">Bốc thăm của tôi</h2>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Hồ sơ đã được duyệt sẽ hiển thị ở đây. Bạn vào sảnh chờ bằng OTP và theo dõi kết quả do Chủ đầu tư công bố.
+              Hồ sơ đã được duyệt sẽ hiển thị ở đây. Bạn vào sảnh chờ bằng mã vào sảnh và theo dõi kết quả do chủ đầu tư công bố.
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={() => void load()}>
@@ -197,13 +197,13 @@ export function MyLotteryPage() {
             <div className="mb-3 flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-amber-600" />
               <h3 className="text-base font-bold text-amber-900 dark:text-amber-200">
-                Phiên đang Live — dự án mở công khai
+                Phiên đang quay số — dự án mở công khai
               </h3>
               <Badge variant="warning">{publicLive.length}</Badge>
             </div>
             <p className="mb-3 text-xs text-amber-800 dark:text-amber-300">
-              Theo NĐ 100/2024 Đ36, dân được theo dõi trực tiếp phiên bốc thăm công khai.
-              Bấm <strong>Vào sảnh</strong> để nhập OTP — hệ thống sẽ đưa bạn vào sảnh Live.
+              Theo Điều 36 Nghị định số 100 năm 2024 của Chính phủ, người dân được theo dõi trực tiếp phiên bốc thăm công khai.
+              Bấm <strong>Vào sảnh</strong> để nhập mã vào sảnh — hệ thống sẽ đưa bạn vào sảnh quay số.
             </p>
             <div className="grid gap-2">
               {publicLive.map((sd) => {
@@ -228,7 +228,7 @@ export function MyLotteryPage() {
                       )}
                       {sd.joinCode && (
                         <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                          OTP vào sảnh:{' '}
+                          Mã vào sảnh:{' '}
                           <strong className="font-mono text-blue-700 dark:text-blue-300">
                             {sd.joinCode}
                           </strong>
@@ -242,7 +242,7 @@ export function MyLotteryPage() {
                         onClick={() => enterLobby(sd.projectId)}
                       >
                         <ExternalLink className="mr-1.5 h-4 w-4" />
-                        Vào sảnh (nhập OTP)
+                        Vào sảnh (nhập mã)
                       </Button>
                     </div>
                   </div>
@@ -292,7 +292,7 @@ export function MyLotteryPage() {
                       )}
                       {row.schedule?.joinCode && (
                         <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                          Mã OTP vào sảnh:{' '}
+                          Mã vào sảnh:{' '}
                           <strong className="font-mono text-blue-700 dark:text-blue-300">{row.schedule.joinCode}</strong>
                         </p>
                       )}
@@ -305,7 +305,7 @@ export function MyLotteryPage() {
                         </Button>
                       )}
                       <Button variant="outline" size="sm" onClick={() => watchLive(row.application.projectId)}>
-                        Xem sảnh Live
+                        Xem sảnh quay số
                       </Button>
                     </div>
                   </div>
@@ -335,7 +335,7 @@ export function MyLotteryPage() {
                           </p>
                           {won && !hasSlot && (
                             <p className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">
-                              Chờ CĐT chọn căn
+                              Chờ chủ đầu tư chọn căn
                             </p>
                           )}
                           {won && hasSlot && (
@@ -347,7 +347,7 @@ export function MyLotteryPage() {
                         {isLive && (
                           <Badge variant="warning">
                             <Sparkles className="mr-1 inline h-3 w-3" />
-                            Đang Live
+                            Đang quay số
                           </Badge>
                         )}
                       </div>

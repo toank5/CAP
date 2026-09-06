@@ -46,6 +46,7 @@ import { FormField } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Modal } from '@/components/ui/modal'
 import { PageCard, PageHeader } from '@/components/layout/page-header'
+import { LotteryStaffTabs } from '@/components/lottery/lottery-staff-tabs'
 import { navigate } from '@/hooks/useHashRoute'
 import { formatError } from '@/lib/format-error'
 import {
@@ -85,10 +86,10 @@ function nextActionHint(schedule: LotteryScheduleDto | null, role: string, proje
     switch (phase) {
       case 'not_scheduled': return 'Dự án đã duyệt — Cần đề xuất lịch bốc thăm sau khi chốt danh sách hồ sơ'
       case 'awaiting_approval': return 'Đã gửi đề xuất lịch — Đang chờ Sở Xây dựng phê duyệt'
-      case 'ready_open_lobby': return 'Sở đã duyệt lịch — Mở sảnh chờ để người dân vào bằng OTP'
-      case 'waiting_lobby': return 'Sảnh chờ đang mở — Chờ cán bộ SXD online để bắt đầu Live'
-      case 'live': return 'Phiên đang phát trực tiếp — Theo dõi và kết thúc khi quay xong'
-      case 'paused': return 'Phiên đang tạm dừng — Bấm tiếp tục Live để bốc tiếp'
+      case 'ready_open_lobby': return 'Sở đã duyệt lịch — Mở sảnh chờ để người dân vào bằng mã vào sảnh'
+      case 'waiting_lobby': return 'Sảnh chờ đang mở — Chờ cán bộ Sở Xây dựng giám sát để bắt đầu quay số'
+      case 'live': return 'Phiên đang quay số trực tiếp — Theo dõi và kết thúc khi quay xong'
+      case 'paused': return 'Phiên đang tạm dừng — Bấm tiếp tục quay số để bốc tiếp'
       case 'finished': return 'Phiên đã kết thúc — Chờ Sở Xây dựng công bố kết quả'
       case 'published': return 'Đã công bố chính thức — Có thể tải biên bản pháp lý'
     }
@@ -97,9 +98,9 @@ function nextActionHint(schedule: LotteryScheduleDto | null, role: string, proje
     switch (phase) {
       case 'not_scheduled': return 'Chờ Chủ đầu tư gửi hồ sơ đề xuất lịch bốc thăm'
       case 'awaiting_approval': return 'Có lịch bốc thăm mới gửi lên — Cần phê duyệt'
-      case 'ready_open_lobby': return 'Đã duyệt lịch — Chờ CĐT mở sảnh chờ trực tuyến'
+      case 'ready_open_lobby': return 'Đã duyệt lịch — Chờ chủ đầu tư mở sảnh chờ trực tuyến'
       case 'waiting_lobby':
-      case 'live': return 'Giám sát trực tuyến (SignalR) — Giữ kết nối để đảm bảo tính pháp lý'
+      case 'live': return 'Giám sát trực tuyến — Giữ kết nối để đảm bảo tính pháp lý'
       case 'paused': return 'Phiên đang tạm dừng'
       case 'finished': return 'Phiên bốc xong — Cần thẩm tra và công bố kết quả công khai'
       case 'published': return 'Đã công bố kết quả chính thức — Có thể tải biên bản'
@@ -125,7 +126,7 @@ function ModernStatusBadge({ phase }: { phase: LotteryPhase }) {
             <span className="relative inline-flex h-2 w-2 rounded-full bg-rose-500"></span>
           </span>
           <Radio className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
-          ĐANG LIVE
+          ĐANG QUAY SỐ
         </span>
       )
     case 'waiting_lobby':
@@ -186,7 +187,7 @@ async function freezeIntakeForLottery(projectId: string) {
     await housingProjectsApi.changeLifecycleStatus(
       projectId,
       'CLOSED',
-      'Khóa nhận hồ sơ mới khi đề xuất lịch bốc thăm. Căn trả lại dùng waitlist, không mở đợt bốc lần 2.',
+      'Khóa nhận hồ sơ mới khi đề xuất lịch bốc thăm. Căn trả lại dùng danh sách dự bị, không mở đợt bốc lần 2.',
     )
   } catch {
     // Dự án có thể đã CLOSED — lịch vẫn được lưu.
@@ -212,7 +213,7 @@ export function LotterySessionsPage() {
   const [selectedProject, setSelectedProject] = useState<{ id: string; name: string; schedule: LotteryScheduleDto | null } | null>(null)
   const [schedForm, setSchedForm] = useState({
     lotteryDate: '',
-    lotteryLocation: 'Hội trường trực tuyến Zoom / Meet & Cổng DVC',
+    lotteryLocation: 'Hội trường trực tuyến & Cổng dịch vụ công',
     totalUnits: '0',
     notes: '',
   })
@@ -319,7 +320,7 @@ export function LotterySessionsPage() {
     }
     setSchedForm({
       lotteryDate: localDateStr,
-      lotteryLocation: schedule?.lotteryLocation || 'Hội trường trực tuyến Zoom / Meet & Cổng Dịch vụ công',
+      lotteryLocation: schedule?.lotteryLocation || 'Hội trường trực tuyến và Cổng dịch vụ công',
       totalUnits: String(schedule?.totalUnits || project.availableUnits || 0),
       notes: schedule?.notes || '',
     })
@@ -465,6 +466,7 @@ export function LotterySessionsPage() {
   return (
     <div className="space-y-6">
       <PageHeader routeId="lottery-sessions" />
+      <LotteryStaffTabs current="sessions" />
 
       {/* Hero Command Bar */}
       <div className="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-6 text-white shadow-xl dark:border-slate-800">
@@ -475,7 +477,7 @@ export function LotterySessionsPage() {
           <div className="max-w-3xl space-y-2">
             <div className="inline-flex items-center gap-2 rounded-full border border-blue-400/30 bg-blue-500/20 px-3 py-1 text-xs font-semibold text-blue-200 backdrop-blur-md">
               <Sparkles className="h-3.5 w-3.5 text-amber-300" />
-              <span>TRUNG TÂM ĐIỀU HÀNH BỐC THĂM QUYỀN MUA NOXH</span>
+              <span>TRUNG TÂM ĐIỀU HÀNH BỐC THĂM QUYỀN MUA NHÀ Ở XÃ HỘI</span>
               <span className="text-blue-300/60">·</span>
               <span className="text-blue-300">{isDev ? 'Dành cho Chủ đầu tư' : isSxd ? 'Dành cho Sở Xây dựng' : 'Hệ thống công khai'}</span>
             </div>
@@ -483,7 +485,7 @@ export function LotterySessionsPage() {
               Quản lý & Điều hành Phiên Bốc Thăm Công Khai
             </h1>
             <p className="text-sm leading-relaxed text-slate-300/90">
-              Phân bổ quyền mua: căn ưu tiên cấp trực tiếp cho hồ sơ điểm cao nhất; hồ sơ hợp lệ vượt quỹ căn thì bốc thăm công khai. Không trúng được xếp danh sách chờ theo hạng — suất trả lại (hủy HĐ / không cọc) đôn người #1, hạn xác nhận {WAITLIST_CONFIRM_HOURS} giờ.
+              Phân bổ quyền mua: căn ưu tiên cấp trực tiếp cho hồ sơ điểm cao nhất; hồ sơ hợp lệ vượt quỹ căn thì bốc thăm công khai. Không trúng được xếp danh sách chờ theo hạng — suất trả lại (hủy hợp đồng / không cọc) đôn người đứng đầu, hạn xác nhận {WAITLIST_CONFIRM_HOURS} giờ.
             </p>
           </div>
 
@@ -524,10 +526,10 @@ export function LotterySessionsPage() {
         >
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400">
-              🔴 Đang Live / Mở sảnh
+              🔴 Đang quay số / Mở sảnh
             </p>
             <p className="mt-1 text-2xl font-black text-slate-900 dark:text-white">{stats.liveCount}</p>
-            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Phát sóng trực tuyến SignalR</p>
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Phát trực tuyến công khai</p>
           </div>
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-300 group-hover:scale-105 transition-transform">
             <Radio className="h-6 w-6 animate-pulse" />
@@ -548,7 +550,7 @@ export function LotterySessionsPage() {
               ⏳ Chờ Sở duyệt lịch
             </p>
             <p className="mt-1 text-2xl font-black text-slate-900 dark:text-white">{stats.awaitingCount}</p>
-            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Đã gửi đề xuất lên Sở XD</p>
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Đã gửi đề xuất lên Sở Xây dựng</p>
           </div>
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300 group-hover:scale-105 transition-transform">
             <Clock className="h-6 w-6" />
@@ -614,7 +616,7 @@ export function LotterySessionsPage() {
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Tìm theo tên dự án, vị trí, mã OTP sảnh..."
+            placeholder="Tìm theo tên dự án, vị trí, mã vào sảnh..."
             className="pl-9 text-sm"
           />
         </div>
@@ -639,7 +641,7 @@ export function LotterySessionsPage() {
               : 'bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-300'
               }`}
           >
-            🔴 Đang Live ({stats.liveCount})
+            🔴 Đang quay số ({stats.liveCount})
           </button>
           <button
             type="button"
@@ -774,7 +776,7 @@ export function LotterySessionsPage() {
                   <div className="flex items-start justify-between gap-2">
                     <ModernStatusBadge phase={phase} />
                     <span className="text-[11px] font-semibold text-slate-400">
-                      Mã: {project.id ? project.id.slice(0, 8).toUpperCase() : 'NOXH'}
+                      Mã: {project.id ? project.id.slice(0, 8).toUpperCase() : '—'}
                     </span>
                   </div>
 
@@ -825,12 +827,12 @@ export function LotterySessionsPage() {
                       {joinOtp && (
                         <div className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50/80 px-2.5 py-1 text-xs text-indigo-900 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-200">
                           <KeyRound className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
-                          <span>OTP: <strong>{joinOtp}</strong></span>
+                          <span>Mã vào sảnh: <strong>{joinOtp}</strong></span>
                           <button
                             type="button"
                             onClick={() => copyToClipboard(joinOtp)}
                             className="ml-1 rounded p-0.5 hover:bg-indigo-200/60 dark:hover:bg-indigo-800"
-                            title="Sao chép OTP"
+                            title="Sao chép mã vào sảnh"
                           >
                             {copiedCode === joinOtp ? (
                               <Check className="h-3 w-3 text-emerald-600" />
@@ -847,7 +849,7 @@ export function LotterySessionsPage() {
                           : 'bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
                           }`}>
                           <ShieldCheck className="h-3.5 w-3.5" />
-                          <span>SXD Online: <strong>{sxdCount}</strong></span>
+                          <span>Sở đang giám sát: <strong>{sxdCount}</strong></span>
                         </div>
                       )}
                     </div>
@@ -875,7 +877,7 @@ export function LotterySessionsPage() {
                         }}
                       >
                         <Radio className="mr-1.5 h-3.5 w-3.5 animate-pulse" />
-                        Vào sảnh Live
+                        Vào sảnh quay số
                       </Button>
                     )}
 
@@ -982,7 +984,7 @@ export function LotterySessionsPage() {
                         onClick={() => void handleDownloadMinutes(project.id, project.projectName)}
                       >
                         <FileText className="mr-1.5 h-3.5 w-3.5" />
-                        Tải biên bản PDF
+                        Tải biên bản
                       </Button>
                     )}
 
@@ -1013,7 +1015,7 @@ export function LotterySessionsPage() {
                 <tr>
                   <th className="px-4 py-3">Dự án & Địa điểm</th>
                   <th className="px-4 py-3">Quy mô & Suất bốc</th>
-                  <th className="px-4 py-3">Lịch mở sảnh & OTP</th>
+                  <th className="px-4 py-3">Lịch mở sảnh và mã vào sảnh</th>
                   <th className="px-4 py-3">Trạng thái</th>
                   <th className="px-4 py-3">Hướng dẫn tiếp theo</th>
                   <th className="px-4 py-3 text-right">Thao tác</th>
@@ -1063,7 +1065,7 @@ export function LotterySessionsPage() {
                         </div>
                         {joinOtp && (
                           <div className="mt-0.5 flex items-center gap-1 text-[11px] text-indigo-600 dark:text-indigo-400">
-                            <span>OTP: <strong>{joinOtp}</strong></span>
+                            <span>Mã vào sảnh: <strong>{joinOtp}</strong></span>
                             <button
                               type="button"
                               onClick={() => copyToClipboard(joinOtp)}
@@ -1098,7 +1100,7 @@ export function LotterySessionsPage() {
                               }}
                             >
                               <Radio className="mr-1 h-3 w-3" />
-                              Live
+                              Quay số
                             </Button>
                           ) : phase === 'project_pending' && isDev ? (
                             <Button
@@ -1156,7 +1158,7 @@ export function LotterySessionsPage() {
                               size="sm"
                               onClick={() => void handleDownloadMinutes(project.id, project.projectName)}
                             >
-                              PDF
+                              Biên bản
                             </Button>
                           ) : null}
 
@@ -1202,7 +1204,7 @@ export function LotterySessionsPage() {
             <Input
               id="lotteryLocation"
               value={schedForm.lotteryLocation}
-              placeholder="VD: Hội trường Trực tuyến FECAPS / Zoom & Trung tâm Hành chính công"
+              placeholder="VD: Hội trường trực tuyến và Trung tâm hành chính công"
               onChange={(e) => setSchedForm((f) => ({ ...f, lotteryLocation: e.target.value }))}
             />
           </FormField>
@@ -1246,8 +1248,8 @@ export function LotterySessionsPage() {
       <Modal
         open={guideModalOpen}
         onClose={() => setGuideModalOpen(false)}
-        title="Quy trình Bốc thăm Quyền mua NOXH (NĐ 100/2024/NĐ-CP)"
-        description="Sơ đồ quy trình chuẩn pháp lý về tổ chức bốc thăm và quản lý danh sách dự bị (Waitlist)"
+        title="Quy trình bốc thăm quyền mua nhà ở xã hội (Nghị định 100/2024/NĐ-CP)"
+        description="Sơ đồ quy trình tổ chức bốc thăm và quản lý danh sách dự bị"
         size="lg"
       >
         <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
@@ -1257,7 +1259,7 @@ export function LotterySessionsPage() {
               <div>
                 <p className="font-bold text-slate-900 dark:text-white">Bước 1: Chốt danh sách hồ sơ hợp lệ vượt số căn</p>
                 <p className="text-slate-600 dark:text-slate-300">
-                  Khi tổng số hồ sơ đạt chuẩn (APPROVED) vượt quá tổng số căn hộ mở bán của dự án, hệ thống chuyển trạng thái dự án sang giai đoạn bốc thăm công khai bắt buộc.
+                  Khi tổng số hồ sơ đạt chuẩn (đã phê duyệt) vượt quá tổng số căn hộ mở bán của dự án, hệ thống chuyển sang giai đoạn bốc thăm công khai bắt buộc.
                 </p>
               </div>
             </div>
@@ -1267,7 +1269,7 @@ export function LotterySessionsPage() {
               <div>
                 <p className="font-bold text-slate-900 dark:text-white">Bước 2: Chủ đầu tư đề xuất lịch bốc thăm</p>
                 <p className="text-slate-600 dark:text-slate-300">
-                  Căn ưu tiên đã cấp cho hồ sơ điểm cao nhất. Khi số hồ sơ hợp lệ còn lại vượt quỹ căn thường, CĐT đề xuất ngày giờ bốc thăm công khai (không nhập tỷ lệ %).
+                  Căn ưu tiên đã cấp cho hồ sơ điểm cao nhất. Khi số hồ sơ hợp lệ còn lại vượt quỹ căn thường, chủ đầu tư đề xuất ngày giờ bốc thăm công khai.
                 </p>
               </div>
             </div>
@@ -1275,9 +1277,9 @@ export function LotterySessionsPage() {
             <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50/60 p-3 text-xs dark:border-amber-900 dark:bg-amber-950/40">
               <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-600 text-white font-bold">3</div>
               <div>
-                <p className="font-bold text-slate-900 dark:text-white">Bước 3: Sở Xây dựng thẩm tra & Phê duyệt lịch</p>
+                <p className="font-bold text-slate-900 dark:text-white">Bước 3: Sở Xây dựng thẩm tra và phê duyệt lịch</p>
                 <p className="text-slate-600 dark:text-slate-300">
-                  Sở Xây dựng kiểm tra phương án bốc thăm. Khi phê duyệt, hệ thống tự động sinh mã OTP 6 số bảo mật để gửi đến người dân đủ điều kiện.
+                  Sở Xây dựng kiểm tra phương án bốc thăm. Khi phê duyệt, hệ thống tự động sinh mã vào sảnh 6 số để gửi đến người dân đủ điều kiện.
                 </p>
               </div>
             </div>
@@ -1285,9 +1287,9 @@ export function LotterySessionsPage() {
             <div className="flex items-start gap-3 rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 text-xs dark:border-indigo-900 dark:bg-indigo-950/40">
               <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white font-bold">4</div>
               <div>
-                <p className="font-bold text-slate-900 dark:text-white">Bước 4: Mở sảnh chờ & Giám sát trực tuyến</p>
+                <p className="font-bold text-slate-900 dark:text-white">Bước 4: Mở sảnh chờ và giám sát trực tuyến</p>
                 <p className="text-slate-600 dark:text-slate-300">
-                  CĐT mở sảnh chờ (Waiting Lobby). Người dân đăng nhập bằng mã OTP. Cán bộ Sở Xây dựng đăng nhập trực tuyến để giám sát (SXD Online ≥ 1).
+                  Chủ đầu tư mở sảnh chờ. Người dân đăng nhập bằng mã vào sảnh. Cán bộ Sở Xây dựng vào trực tuyến để giám sát (cần ít nhất một người).
                 </p>
               </div>
             </div>
@@ -1295,9 +1297,9 @@ export function LotterySessionsPage() {
             <div className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50/60 p-3 text-xs dark:border-rose-900 dark:bg-rose-950/40">
               <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-rose-600 text-white font-bold">5</div>
               <div>
-                <p className="font-bold text-slate-900 dark:text-white">Bước 5: Bắt đầu Live & Quay số ngẫu nhiên</p>
+                <p className="font-bold text-slate-900 dark:text-white">Bước 5: Bắt đầu quay số ngẫu nhiên</p>
                 <p className="text-slate-600 dark:text-slate-300">
-                  Quay số ngẫu nhiên công khai. Hồ sơ không trúng được xếp danh sách chờ theo thứ hạng (#1, #2, #3…), không hủy hồ sơ.
+                  Quay số ngẫu nhiên công khai. Hồ sơ không trúng được xếp danh sách chờ theo thứ hạng (thứ 1, 2, 3…), không hủy hồ sơ.
                 </p>
               </div>
             </div>
@@ -1305,9 +1307,9 @@ export function LotterySessionsPage() {
             <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 text-xs dark:border-emerald-900 dark:bg-emerald-950/40">
               <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white font-bold">6</div>
               <div>
-                <p className="font-bold text-slate-900 dark:text-white">Bước 6: Công bố kết quả & Quản lý Danh sách dự bị (Waitlist)</p>
+                <p className="font-bold text-slate-900 dark:text-white">Bước 6: Công bố kết quả và quản lý danh sách dự bị</p>
                 <p className="text-slate-600 dark:text-slate-300">
-                  Công bố kết quả. Không trúng xếp waitlist #1, #2, #3… Khi căn trả lại (hủy HĐ / không nộp cọc), đôn người đứng đầu — hạn xác nhận {WAITLIST_CONFIRM_HOURS} giờ, không mở lại đợt bốc thăm.
+                  Công bố kết quả. Không trúng xếp danh sách dự bị thứ 1, 2, 3… Khi căn trả lại (hủy hợp đồng / không nộp cọc), đôn người đứng đầu — hạn xác nhận {WAITLIST_CONFIRM_HOURS} giờ, không mở lại đợt bốc thăm.
                 </p>
               </div>
             </div>
@@ -1326,8 +1328,9 @@ export function LotterySessionsPage() {
 
 export function LotteryCreatePage() {
   return (
-    <div>
+    <div className="space-y-4">
       <PageHeader routeId="lottery-create" />
+      <LotteryStaffTabs current="sessions" />
       <PageCard className="p-6">
         <Alert variant="info">
           <p className="font-semibold">Lên lịch bốc thăm theo dự án</p>
@@ -1366,7 +1369,7 @@ export function LotteryDetailPage() {
   const [scheduleOpen, setScheduleOpen] = useState(false)
   const [schedForm, setSchedForm] = useState({
     lotteryDate: '',
-    lotteryLocation: 'Hội trường / Zoom (demo)',
+    lotteryLocation: 'Hội trường trực tuyến (demo)',
     totalUnits: '0',
   })
   const [schedFund, setSchedFund] = useState({ priorityCount: 0, standardCount: 0, available: 0 })
@@ -1486,8 +1489,9 @@ export function LotteryDetailPage() {
 
   if (!projectId) {
     return (
-      <div>
+      <div className="space-y-4">
         <PageHeader routeId="lottery-detail" />
+        <LotteryStaffTabs current="steps" />
         <PageCard className="p-6">
           <Alert variant="error">Không tìm thấy dự án. Vui lòng chọn lại từ trang Bốc thăm.</Alert>
           <Button className="mt-3" variant="outline" onClick={() => navigate('lottery-sessions')}>
@@ -1500,8 +1504,9 @@ export function LotteryDetailPage() {
 
   if (loading) {
     return (
-      <div>
+      <div className="space-y-4">
         <PageHeader routeId="lottery-detail" />
+        <LotteryStaffTabs current="steps" />
         <PageCard className="p-6"><p className="text-sm text-slate-500 dark:text-slate-400">Đang tải...</p></PageCard>
       </div>
     )
@@ -1509,8 +1514,9 @@ export function LotteryDetailPage() {
 
   if (error) {
     return (
-      <div>
+      <div className="space-y-4">
         <PageHeader routeId="lottery-detail" />
+        <LotteryStaffTabs current="steps" />
         <PageCard className="p-6"><Alert variant="error">{error}</Alert></PageCard>
       </div>
     )
@@ -1530,7 +1536,7 @@ export function LotteryDetailPage() {
     setSchedModalError('')
     setSchedForm({
       lotteryDate: local,
-      lotteryLocation: schedule?.lotteryLocation || 'Hội trường / Zoom (demo)',
+      lotteryLocation: schedule?.lotteryLocation || 'Hội trường trực tuyến (demo)',
       totalUnits: String(schedFund.available),
     })
     setScheduleOpen(true)
@@ -1593,8 +1599,9 @@ export function LotteryDetailPage() {
   }
 
   return (
-    <div>
+    <div className="space-y-4">
       <PageHeader routeId="lottery-detail" />
+      <LotteryStaffTabs current="steps" />
       <PageCard className="space-y-6 p-6">
         <Button variant="ghost" className="mb-2" onClick={() => navigate('lottery-sessions')}>
           ← Danh sách dự án
@@ -1645,7 +1652,7 @@ export function LotteryDetailPage() {
         {schedule?.isLotteryApproved && !hubError && (
           <Alert variant={hubConnected ? 'success' : 'info'}>
             {hubConnected
-              ? `Đã kết nối trực tuyến · SXD online: ${sxdOnline}${isSxd ? ' (bạn đang giám sát — giữ trang này mở)' : ''}`
+              ? `Đã kết nối trực tuyến · Sở đang giám sát: ${sxdOnline}${isSxd ? ' (bạn đang giám sát — giữ trang này mở)' : ''}`
               : 'Đang kết nối sảnh trực tuyến…'}
           </Alert>
         )}
@@ -1660,7 +1667,7 @@ export function LotteryDetailPage() {
             {phase === 'not_scheduled' && (
               <>
                 <Alert variant="info">
-                  Chỉ đề xuất lịch <strong>sau khi CĐT chốt vượt số căn</strong>. Nhập ngày giờ ONLINE cụ thể;
+                  Chỉ đề xuất lịch <strong>sau khi chủ đầu tư chốt vượt số căn</strong>. Nhập ngày giờ trực tuyến cụ thể;
                   Sở phê duyệt rồi hệ thống mới thông báo cho người dân.
                 </Alert>
                 <Button variant="accent" disabled={!!busy} onClick={openScheduleModal}>
@@ -1683,8 +1690,8 @@ export function LotteryDetailPage() {
             {phase === 'ready_open_lobby' && (
               <>
                 <Alert variant="info">
-                  Sở đã duyệt. Bước tiếp theo: <strong>Mở sảnh chờ</strong> để dân vào bằng OTP.
-                  {schedule?.joinCode ? <> Mã OTP: <strong>{schedule.joinCode}</strong></> : null}
+                  Sở đã duyệt. Bước tiếp theo: <strong>Mở sảnh chờ</strong> để người dân vào bằng mã vào sảnh.
+                  {schedule?.joinCode ? <> Mã vào sảnh: <strong>{schedule.joinCode}</strong></> : null}
                 </Alert>
                 <div className="flex flex-wrap gap-2">
                   <Button variant="accent" disabled={!!busy} onClick={() => action('Mở sảnh', () => lotteryApi.openLobby(projectId))}>
@@ -1699,19 +1706,19 @@ export function LotteryDetailPage() {
               <>
                 <Alert variant={sxdOnline < 1 ? 'warning' : 'success'}>
                   {sxdOnline < 1
-                    ? 'Sảnh đã mở. Cần Sở vào trang này (hoặc màn Live) để SXD online ≥ 1 trước khi bắt đầu Live (NĐ 100/2024 Đ36.2.b).'
-                    : `SXD đang giám sát (${sxdOnline}). Có thể bắt đầu Live.`}
-                  {schedule?.joinCode ? <> · OTP dân: <strong>{schedule.joinCode}</strong></> : null}
+                    ? 'Sảnh đã mở. Cần Sở vào trang này (hoặc màn quay số) để có ít nhất một cán bộ giám sát trước khi bắt đầu quay số (khoản 2 Điều 36 Nghị định 100/2024).'
+                    : `Sở đang giám sát (${sxdOnline}). Có thể bắt đầu quay số.`}
+                  {schedule?.joinCode ? <> · Mã người dân: <strong>{schedule.joinCode}</strong></> : null}
                 </Alert>
                 <div className="flex flex-wrap gap-2">
                   <Button
                     variant="accent"
                     disabled={!!busy || sxdOnline < 1}
-                    onClick={() => action('Bắt đầu Live', () => lotteryApi.startLive(projectId))}
+                    onClick={() => action('Bắt đầu quay số', () => lotteryApi.startLive(projectId))}
                   >
-                    <Play className="mr-1.5 h-4 w-4" /> Bắt đầu Live
+                    <Play className="mr-1.5 h-4 w-4" /> Bắt đầu quay số
                   </Button>
-                  <Button variant="outline" onClick={() => navigate('lottery-live')}>Màn giám sát Live</Button>
+                  <Button variant="outline" onClick={() => navigate('lottery-live')}>Màn quay số trực tiếp</Button>
                 </div>
               </>
             )}
@@ -1719,15 +1726,15 @@ export function LotteryDetailPage() {
             {phase === 'live' && (
               <>
                 <Alert variant="warning">
-                  Phiên đang Live — dân theo dõi trên App/Web. Kết thúc khi đủ căn / hết thời gian.
-                  {sxdOnline < 1 ? ' Cảnh báo: SXD offline — không nên kết thúc phiên.' : ` SXD online: ${sxdOnline}.`}
+                  Phiên đang quay số — người dân theo dõi trên ứng dụng. Kết thúc khi đủ căn / hết thời gian.
+                  {sxdOnline < 1 ? ' Cảnh báo: Sở chưa giám sát — không nên kết thúc phiên.' : ` Sở đang giám sát: ${sxdOnline}.`}
                 </Alert>
                 <div className="flex flex-wrap gap-2">
                   <Button
                     variant="outline"
                     onClick={() => navigate('lottery-live')}
                   >
-                    🎯 Mở sảnh Live
+                    🎯 Mở sảnh quay số
                   </Button>
                   <Button
                     variant="outline"
@@ -1750,21 +1757,21 @@ export function LotteryDetailPage() {
             {phase === 'paused' && (
               <>
                 <Alert variant="info">
-                  Phiên đang tạm dừng — bấm <strong>Tiếp tục Live</strong> để bốc tiếp.
+                  Phiên đang tạm dừng — bấm <strong>Tiếp tục quay số</strong> để bốc tiếp.
                 </Alert>
                 <div className="flex flex-wrap gap-2">
                   <Button
                     variant="outline"
                     onClick={() => navigate('lottery-live')}
                   >
-                    🎯 Mở sảnh Live
+                    🎯 Mở sảnh quay số
                   </Button>
                   <Button
                     variant="accent"
                     disabled={!!busy || sxdOnline < 1}
-                    onClick={() => action('Tiếp tục Live', () => lotteryApi.resumeSession(projectId))}
+                    onClick={() => action('Tiếp tục quay số', () => lotteryApi.resumeSession(projectId))}
                   >
-                    ▶ Tiếp tục Live
+                    ▶ Tiếp tục quay số
                   </Button>
                   <Button
                     variant="outline"
@@ -1779,15 +1786,15 @@ export function LotteryDetailPage() {
 
             {phase === 'finished' && (
               <Alert variant="info">
-                Phiên đã kết thúc. Chờ <strong>Sở Xây dựng công bố</strong> kết quả / biên bản. CĐT không công bố được.
+                Phiên đã kết thúc. Chờ <strong>Sở Xây dựng công bố</strong> kết quả / biên bản. Chủ đầu tư không công bố được.
               </Alert>
             )}
 
             {phase === 'published' && (
               <>
-                <Alert variant="success">Đã công bố. Có thể tải biên bản PDF.</Alert>
+                <Alert variant="success">Đã công bố. Có thể tải biên bản.</Alert>
                 <div className="flex flex-wrap gap-2">
-                  <Button variant="accent" onClick={downloadMinutes}>Tải biên bản PDF</Button>
+                  <Button variant="accent" onClick={downloadMinutes}>Tải biên bản</Button>
                   <Button variant="outline" onClick={() => navigate('projects')}>Về dự án</Button>
                 </div>
               </>
@@ -1805,12 +1812,12 @@ export function LotteryDetailPage() {
             </p>
 
             {phase === 'not_scheduled' && (
-              <Alert variant="info">Chưa có lịch — chờ Chủ đầu tư đề xuất lịch ONLINE sau khi chốt vượt số căn.</Alert>
+              <Alert variant="info">Chưa có lịch — chờ chủ đầu tư đề xuất lịch trực tuyến sau khi chốt vượt số căn.</Alert>
             )}
 
             {phase === 'awaiting_approval' && (
               <>
-                <Alert variant="warning">Có lịch chờ phê duyệt. Sau khi duyệt, hệ thống sinh OTP vào sảnh.</Alert>
+                <Alert variant="warning">Có lịch chờ phê duyệt. Sau khi duyệt, hệ thống sinh mã vào sảnh.</Alert>
                 <Button variant="accent" disabled={!!busy} onClick={() => action('Phê duyệt lịch', () => lotteryApi.approveSchedule(projectId))}>
                   <Send className="mr-1.5 h-4 w-4" /> Phê duyệt lịch bốc thăm
                 </Button>
@@ -1821,9 +1828,9 @@ export function LotteryDetailPage() {
               <>
                 <Alert variant={hubConnected ? 'success' : 'warning'}>
                   {hubConnected
-                    ? `Bạn đang giám sát trực tuyến (SXD online = ${sxdOnline}). Giữ trang này hoặc mở trường quay — đừng đóng tab.`
-                    : 'Chưa kết nối sảnh trực tuyến — Vui lòng tải lại trang hoặc mở «Màn giám sát trực tiếp». Không giám sát thì CĐT không bắt đầu bốc thăm được.'}
-                  {schedule?.joinCode ? <> · Mã OTP người dân: <strong>{schedule.joinCode}</strong></> : null}
+                    ? `Bạn đang giám sát trực tuyến (Sở đang kết nối: ${sxdOnline}). Giữ trang này hoặc mở trường quay — đừng đóng tab.`
+                    : 'Chưa kết nối sảnh trực tuyến — Vui lòng tải lại trang hoặc mở «Màn quay số trực tiếp». Không giám sát thì chủ đầu tư không bắt đầu bốc thăm được.'}
+                  {schedule?.joinCode ? <> · Mã vào sảnh người dân: <strong>{schedule.joinCode}</strong></> : null}
                 </Alert>
                 <div className="flex flex-wrap gap-2">
                   <Button variant="outline" onClick={() => navigate('lottery-live')}>Màn giám sát trực tiếp</Button>
@@ -1840,7 +1847,7 @@ export function LotteryDetailPage() {
                   <Button variant="accent" disabled={!!busy} onClick={() => action('Công bố', () => lotteryApi.publishSession(projectId))}>
                     Công bố kết quả
                   </Button>
-                  <Button variant="outline" onClick={() => navigate('lottery-live')}>Xem log Live</Button>
+                  <Button variant="outline" onClick={() => navigate('lottery-live')}>Xem nhật ký quay số</Button>
                 </div>
               </>
             )}
@@ -1848,7 +1855,7 @@ export function LotteryDetailPage() {
             {phase === 'published' && (
               <>
                 <Alert variant="success">Đã công bố.</Alert>
-                <Button variant="accent" onClick={downloadMinutes}>Tải biên bản PDF</Button>
+                <Button variant="accent" onClick={downloadMinutes}>Tải biên bản</Button>
               </>
             )}
           </div>
@@ -1895,7 +1902,7 @@ export function LotteryDetailPage() {
                     <p className="font-medium">{w.applicantName}</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">CCCD: {w.citizenId}</p>
                   </div>
-                  <Badge variant="warning">Waitlist #{i + 1} — không hủy hồ sơ</Badge>
+                  <Badge variant="warning">Danh sách dự bị #{i + 1} — không hủy hồ sơ</Badge>
                 </div>
               ))}
             </div>
@@ -1908,7 +1915,7 @@ export function LotteryDetailPage() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className="font-bold text-indigo-950 dark:text-indigo-100">
-                  📋 Danh sách dự bị (Waitlist) ({waitlist.length} ứng viên)
+                  📋 Danh sách dự bị ({waitlist.length} ứng viên)
                 </h3>
                 <p className="text-xs text-indigo-800 dark:text-indigo-300">
                   Không trúng không bị hủy. Xếp hạng #1, #2, #3… Khi căn trả lại do hủy hợp đồng hoặc không nộp cọc, hệ thống đôn người đứng đầu — hạn xác nhận {WAITLIST_CONFIRM_HOURS} giờ, không mở lại đợt bốc thăm.
@@ -1921,7 +1928,7 @@ export function LotteryDetailPage() {
                   size="sm"
                   disabled={!!busy || waitlist.length === 0}
                   onClick={() => {
-                    void action('Đôn ứng viên Waitlist', () => lotteryApi.promoteWaitlist(projectId))
+                    void action('Đôn ứng viên danh sách dự bị', () => lotteryApi.promoteWaitlist(projectId))
                   }}
                 >
                   🚀 Đôn thủ công người #1 (BE cũng tự đôn khi trả căn)
@@ -2075,7 +2082,7 @@ export function LotteryLobbyPage() {
     try {
       if (isApplicant) {
         if (otp.length < 6) {
-          setMsg({ type: 'error', text: 'Vui lòng nhập đủ 6 số OTP.' })
+          setMsg({ type: 'error', text: 'Vui lòng nhập đủ 6 số mã vào sảnh.' })
           setBusy(false)
           return
         }
@@ -2116,8 +2123,8 @@ export function LotteryLobbyPage() {
       <PageHeader routeId="lottery-lobby" />
       <PageCard className="space-y-4 p-6">
         <Alert variant="info">
-          Nhập <strong>mã OTP 6 số</strong> từ thông báo sau khi Sở phê duyệt lịch để vào sảnh theo dõi.
-          Staff (CĐT/SXD) vào trực tiếp không cần OTP.
+          Nhập <strong>mã vào sảnh 6 số</strong> từ thông báo sau khi Sở phê duyệt lịch để vào sảnh theo dõi.
+          Cán bộ chủ đầu tư / Sở Xây dựng vào trực tiếp không cần mã.
           Bạn chỉ theo dõi — không tự bốc.
         </Alert>
         {msg && (
@@ -2129,7 +2136,7 @@ export function LotteryLobbyPage() {
           <div className="flex flex-wrap items-end gap-2">
             {isApplicant && (
               <div>
-                <label className="mb-1 block text-xs text-slate-500 dark:text-slate-400">Mã OTP 6 số (vào thông báo hoặc trang Bốc thăm của tôi)</label>
+                <label className="mb-1 block text-xs text-slate-500 dark:text-slate-400">Mã vào sảnh 6 số (trong thông báo hoặc trang Bốc thăm của tôi)</label>
                 <input
                   className="rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-lg tracking-widest text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500"
                   value={otp}
@@ -2140,7 +2147,7 @@ export function LotteryLobbyPage() {
               </div>
             )}
             <Button variant="accent" disabled={busy || (isApplicant && otp.length < 6)} onClick={() => void join()}>
-              {busy ? 'Đang xác thực…' : isApplicant ? 'Xác nhận OTP' : 'Vào sảnh (Staff)'}
+              {busy ? 'Đang xác thực…' : isApplicant ? 'Xác nhận mã vào sảnh' : 'Vào sảnh (cán bộ)'}
             </Button>
           </div>
         )}

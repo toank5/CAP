@@ -35,7 +35,7 @@ export const ApartmentFundZone: React.FC<Props> = ({ state }) => {
                 </span>
               )}
             </h2>
-            <p className="text-[11px] text-slate-500">Giám sát hạn ngạch căn hộ NOXH phân bổ theo thời gian thực</p>
+            <p className="text-[11px] text-slate-500">Giám sát hạn ngạch căn hộ nhà ở xã hội phân bổ theo thời gian thực</p>
           </div>
         </div>
 
@@ -55,7 +55,7 @@ export const ApartmentFundZone: React.FC<Props> = ({ state }) => {
           <div className="flex items-center justify-between text-xs font-bold">
             <span className="text-slate-700 flex items-center gap-1.5">
               <PieChart className="h-4 w-4 text-indigo-600" />
-              Tiến độ phân bổ quỹ căn NOXH
+              Tiến độ phân bổ quỹ căn nhà ở xã hội
             </span>
             <span className="font-mono font-black text-indigo-700">
               {assigned} / {total} căn ({assignedPct}%)
@@ -137,7 +137,7 @@ export const ApartmentFundZone: React.FC<Props> = ({ state }) => {
       <div className="mt-1 flex items-start gap-2 rounded-xl border border-emerald-100 bg-emerald-50/50 p-2.5 text-[11px] text-slate-600">
         <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
         <span>
-          <strong>Quỹ căn bốc thăm:</strong> Toàn bộ số lượng căn hộ được Sở Xây dựng cấp phép mở bốc theo <strong>Khoản 2 Điều 38 Nghị định 100/2024/NĐ-CP</strong>. Mỗi lượt bốc trúng sẽ được tự động gán vào 1 căn trong quỹ.
+          <strong>Quỹ căn bốc thăm:</strong> Toàn bộ số lượng căn hộ được Sở Xây dựng cấp phép mở bốc theo <strong>khoản 2 Điều 38 Nghị định số 100 năm 2024 của Chính phủ</strong>. Mỗi lượt bốc trúng sẽ được tự động gán vào một căn trong quỹ.
         </span>
       </div>
     </div>

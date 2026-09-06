@@ -19,6 +19,7 @@ import {
   SignContractSection,
 } from '@/components/payment/payment-section'
 import type { ApplicationSummaryDto } from '@/types'
+import { canSignAfterDeposit, isPhase1Paid, needsDepositBeforeContract } from '@/lib/deposit-pipeline'
 
 // ─── Status mapping ────────────────────────────────────────────────────────────
 
@@ -228,33 +229,40 @@ export function MyApartmentPage() {
   const hasApartment = !!(
     appDetail?.['apartmentId'] ||
     selectedApp?.applicationStatus === 'CONTRACT_SIGNED' ||
-    selectedApp?.applicationStatus === 'CONTRACTING' ||
-    selectedApp?.applicationStatus === 'DEPOSIT_PAID'
+    selectedApp?.applicationStatus === 'CONTRACTING'
   )
 
   const derivedStatus = mapStatus(contractStatus)
   const { remaining, progress } = summarizeInstallments(installments)
+  const deposit1Paid = isPhase1Paid(installments, appStatus)
+  const effectiveStatus = contractStatus?.applicationStatus || appStatus
 
-  // Xác định bước hiện tại trong flow
   const flowStep: FlowStep =
     derivedStatus === 'PAID' || appStatus === 'PAID' || appStatus === 'FULLY_PAID' || appStatus === 'FINALIZED'
       ? 'paid'
       : derivedStatus === 'SIGNED' || appStatus === 'CONTRACT_SIGNED' || appStatus === 'CONTRACTING'
         ? 'pay-installment'
-        : derivedStatus === 'PENDING_SIGNATURE' || appStatus === 'CONTRACT_PENDING' || appStatus === 'DEPOSIT_PENDING'
+        : canSignAfterDeposit({
+            applicationStatus: effectiveStatus,
+            hasApartment,
+            depositPaid: deposit1Paid,
+          })
           ? 'sign'
-          : ['APPROVED', 'APPROVED_BY_TIMEOUT'].includes(appStatus)
+          : needsDepositBeforeContract({
+              applicationStatus: effectiveStatus,
+              hasApartment,
+              depositPaid: deposit1Paid,
+            }) || ['APPROVED', 'APPROVED_BY_TIMEOUT', 'DEPOSIT_PENDING'].includes(appStatus)
             ? 'deposit'
             : 'none'
 
   const canSign =
     !contractStatus?.isSigned &&
-    (
-      contractStatus?.applicationStatus === 'CONTRACT_PENDING' ||
-      contractStatus?.applicationStatus === 'DEPOSIT_PENDING' ||
-      contractStatus?.applicationStatus === 'CONTRACTING'
-    ) &&
-    hasApartment
+    canSignAfterDeposit({
+      applicationStatus: effectiveStatus,
+      hasApartment,
+      depositPaid: deposit1Paid,
+    })
 
   return (
     <div>
@@ -358,6 +366,11 @@ export function MyApartmentPage() {
                   onSign={() => void signContract()}
                   applicationStatus={contractStatus?.applicationStatus ?? appStatus}
                 />
+                {deposit1Paid && !hasApartment && !contractStatus?.isSigned && (
+                  <Alert variant="info">
+                    Đã đóng cọc Đợt 1. Chủ đầu tư cần gán căn hộ cụ thể trước khi bạn ký hợp đồng.
+                  </Alert>
+                )}
 
                 {/* Lịch thanh toán + nút thanh toán + lịch sử GD */}
                 <PaymentSection
@@ -383,10 +396,7 @@ export function MyApartmentPage() {
         {/* Hint footer */}
         {selectedApp && !loadingDetail && (
           <p className="text-center text-xs text-slate-400 dark:text-slate-500">
-            Hạn đặt cọc: 7 ngày (168 giờ) kể từ khi ký hợp đồng.{' '}
-            {selectedApp.applicationStatus === 'CONTRACT_SIGNED'
-              ? 'Hãy đóng Đợt 1 (cọc) ngay để giữ căn.'
-              : 'Sau khi ký HĐ, hãy đóng Đợt 1 ngay để giữ căn.'}
+            Đóng cọc Đợt 1 trước khi ký hợp đồng. Sau khi ký, các đợt còn lại mở theo lịch chủ đầu tư.
           </p>
         )}
       </PageCard>

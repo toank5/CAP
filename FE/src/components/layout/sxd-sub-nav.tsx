@@ -36,7 +36,7 @@ const ITEMS: NavItem[] = [
     icon: Gavel,
     aliases: ['lottery-detail'],
   },
-  { route: 'lottery-live', label: 'Bốc thăm trực tiếp', icon: Radio },
+  { route: 'lottery-live', label: 'Quay số trực tiếp', icon: Radio },
   {
     route: 'contracts',
     label: 'Hợp đồng',

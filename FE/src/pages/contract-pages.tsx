@@ -26,6 +26,7 @@ import { PageCard, PageHeader } from '@/components/layout/page-header'
 import { navigate } from '@/hooks/useHashRoute'
 import { formatError } from '@/lib/format-error'
 import { getRole } from '@/router'
+import { canSignAfterDeposit, isPhase1Paid } from '@/lib/deposit-pipeline'
 import {
   emptyScheduleHasApartmentCopy,
   emptyScheduleNoApartmentCopy,
@@ -1049,18 +1050,16 @@ export function ContractDetailPage() {
   const derivedStatus = mapStatus(status)
   const { paid, remaining, progress } = summarizeInstallments(installments)
   const hasApartment = appDetail?.apartmentId != null
-  // Ký: Applicant && (CONTRACT_PENDING || DEPOSIT_PENDING || CONTRACTING) && chưa ký
-  // && căn đã gán (phases sẽ sinh sau khi gán căn).
-  // Nếu chưa gán căn → hiện banner thay vì nút.
+  const effectiveStatus = status?.applicationStatus || appDetail?.applicationStatus || ''
+  const deposit1Paid = isPhase1Paid(installments, effectiveStatus)
   const canSign =
     role === 'Applicant' &&
     !status?.isSigned &&
-    (
-      status?.applicationStatus === 'CONTRACT_PENDING' ||
-      status?.applicationStatus === 'DEPOSIT_PENDING' ||
-      status?.applicationStatus === 'CONTRACTING'
-    ) &&
-    hasApartment
+    canSignAfterDeposit({
+      applicationStatus: effectiveStatus,
+      hasApartment,
+      depositPaid: deposit1Paid,
+    })
   const projectId = readProjectId()
   const canDeveloperUnlock =
     role === 'Housing Developer' && !!projectId && !!status?.isSigned
@@ -1091,6 +1090,11 @@ export function ContractDetailPage() {
               <PenLine className="mr-1.5 h-4 w-4" />{busy ? 'Đang ký...' : 'Đồng ý điều khoản'}
             </Button>
           </div>
+        )}
+        {role === 'Applicant' && deposit1Paid && !hasApartment && !status?.isSigned && (
+          <Alert variant="info">
+            Đã đóng cọc Đợt 1. Chủ đầu tư cần gán căn hộ cụ thể trước khi bạn ký hợp đồng.
+          </Alert>
         )}
 
         {/* Tải PDF: hiện từ CONTRACT_PENDING trở đi, dùng fetch blob + JWT */}
