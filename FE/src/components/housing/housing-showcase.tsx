@@ -20,7 +20,20 @@ import { navigate } from '@/hooks/useHashRoute'
 import { useHousingProjects } from '@/hooks/useHousingProjects'
 import { useWishlist } from '@/hooks/useWishlist'
 import { getRole, isLoggedIn } from '@/router'
+import { ensureVerifiedForApplication } from '@/lib/ekyc-gate'
 import type { ProjectCard } from '@/lib/projects'
+
+function goToApply(house: ProjectCard) {
+  if (!isLoggedIn()) {
+    sessionStorage.setItem('createApplicationProjectId', house.id)
+    sessionStorage.setItem('projectId', house.id)
+    navigate('login')
+    return
+  }
+  void ensureVerifiedForApplication({ projectId: house.id }).then((ok) => {
+    if (ok) navigate('create-application')
+  })
+}
 
 function goToProjectDetail(house: ProjectCard) {
   sessionStorage.setItem('projectId', house.id)
@@ -238,10 +251,7 @@ const SpotlightProjectCard = memo(function SpotlightProjectCard({
                 <Button
                   size="sm"
                   className="rounded-xl bg-emerald-600 text-xs font-bold text-white hover:bg-emerald-700 shadow-sm shadow-emerald-600/20"
-                  onClick={() => {
-                    sessionStorage.setItem('projectId', house.id)
-                    navigate('create-application')
-                  }}
+                  onClick={() => goToApply(house)}
                 >
                   Nộp hồ sơ ngay
                 </Button>
@@ -353,10 +363,7 @@ const ProjectGridCard = memo(function ProjectGridCard({
               <Button
                 size="sm"
                 className="rounded-xl bg-emerald-600 text-xs font-semibold px-3 h-8 text-white hover:bg-emerald-700 shadow-sm shadow-emerald-600/20"
-                onClick={() => {
-                  sessionStorage.setItem('projectId', house.id)
-                  navigate('create-application')
-                }}
+                onClick={() => goToApply(house)}
               >
                 Nộp hồ sơ
               </Button>
@@ -477,7 +484,7 @@ function HomeHeroBanner() {
                 <Layers className="h-4 w-4" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-bold text-white truncate">Thanh toán theo tiến độ CĐT</p>
+                <p className="text-xs font-bold text-white truncate">Thanh toán theo tiến độ chủ đầu tư</p>
                 <p className="text-[11px] text-sky-100 truncate">Linh hoạt tài chính</p>
               </div>
             </div>

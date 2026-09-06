@@ -321,7 +321,7 @@ export const routes: RouteConfig[] = [
     auth: true,
     roles: ['Applicant'],
     title: 'Tạo hồ sơ đăng ký',
-    subtitle: 'Điền thông tin và tạo hồ sơ nháp để nộp sau.',
+    subtitle: 'Xác nhận thông tin kê khai và nộp hồ sơ cho dự án đã chọn.',
     cta: 'Tạo hồ sơ nháp',
   },
   {

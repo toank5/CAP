@@ -17,6 +17,7 @@ export async function ensureVerifiedForApplication(options?: {
 }): Promise<boolean> {
   if (options?.projectId) {
     sessionStorage.setItem('createApplicationProjectId', options.projectId)
+    sessionStorage.setItem('projectId', options.projectId)
   }
 
   const cached = getCachedVerified()

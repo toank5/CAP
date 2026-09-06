@@ -3,10 +3,12 @@ import { useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowRight,
+  Building2,
   CheckCircle2,
   FileCheck2,
   AlertTriangle,
   Loader2,
+  MapPin,
   Upload,
   UserCheck,
   X,
@@ -32,14 +34,26 @@ import {
 import {
   validateDocumentFile,
 } from '@/lib/ekyc-helpers'
-import { extractApplicationId, extractProjects } from '@/lib/parsers'
+import { extractApplicationId, extractSingleProject } from '@/lib/parsers'
+import { mapProjectToCard, type ProjectCard } from '@/lib/projects'
 import { formatError } from '@/lib/format-error'
+import { getHashQuery } from '@/router'
 import type { CreateApplicationDto } from '@/types'
 
 // Wizard 3 bước — dùng API prefill để tự fill thông tin đã kê khai
-// Bước 1: Chọn dự án + xem lại thông tin (prefilled) + chọn nhóm đối tượng
+// Bước 1: Xác nhận dự án đã chọn (từ tìm kiếm/chi tiết) + xem lại thông tin + nhóm đối tượng
 // Bước 2: Tài liệu (vault docs tự động check)
 // Bước 3: Rà soát & Nộp
+
+function applicationStatusLabel(status: string): string {
+  return APPLICATION_STATUS[status]?.label ?? status
+}
+
+function resolveChosenProjectId(): string {
+  const fromQuery = getHashQuery().projectId?.trim()
+  if (fromQuery) return fromQuery
+  return sessionStorage.getItem('createApplicationProjectId')?.trim() || ''
+}
 
 type Step = 1 | 2 | 3
 
@@ -212,7 +226,9 @@ export function CreateApplicationWizard() {
   const [hasPriorContract, setHasPriorContract] = useState(false)
   const [priorContractNote, setPriorContractNote] = useState('')
 
-  const [projects, setProjects] = useState<{ id: string; name: string; availableUnits?: number }[]>([])
+  const [selectedProject, setSelectedProject] = useState<ProjectCard | null>(null)
+  const [projectLoading, setProjectLoading] = useState(true)
+  const [projectLoadError, setProjectLoadError] = useState(false)
   const [draftId, setDraftId] = useState<string | null>(null)
   const [draftStatus, setDraftStatus] = useState<string>('DRAFT')
   const [docs, setDocs] = useState<Record<string, DocUpload | null>>({})
@@ -273,21 +289,39 @@ export function CreateApplicationWizard() {
       })
   }, [])
 
-  // Load danh sách dự án
+  // Dự án phải được chọn từ tìm kiếm / trang chi tiết — không chọn bằng dropdown tên.
   useEffect(() => {
-    void housingProjectsApi.list().then((data) => {
-      const items = extractProjects(data)
-        .filter((p) => p.id)
-        .map((p) => ({ id: p.id!, name: p.projectName || p.name || 'Dự án', availableUnits: p.availableUnits }))
-      setProjects(items)
-      const presetId = sessionStorage.getItem('createApplicationProjectId')
-      if (presetId && items.some((p) => p.id === presetId)) {
-        setSelectedProjectId(presetId)
-        sessionStorage.removeItem('createApplicationProjectId')
-      } else if (items.length === 1) {
-        setSelectedProjectId(items[0].id)
-      }
-    }).catch(() => setProjects([]))
+    let cancelled = false
+    const id = resolveChosenProjectId()
+    if (!id) {
+      setSelectedProjectId('')
+      setSelectedProject(null)
+      setProjectLoading(false)
+      setProjectLoadError(false)
+      return
+    }
+    sessionStorage.setItem('createApplicationProjectId', id)
+    sessionStorage.setItem('projectId', id)
+    setSelectedProjectId(id)
+    setProjectLoading(true)
+    setProjectLoadError(false)
+    void housingProjectsApi.getById(id)
+      .then((data) => {
+        if (cancelled) return
+        const dto = extractSingleProject(data)
+        if (!dto?.id) throw new Error('missing-project')
+        setSelectedProject(mapProjectToCard(dto))
+      })
+      .catch(() => {
+        if (cancelled) return
+        setSelectedProject(null)
+        setSelectedProjectId('')
+        setProjectLoadError(true)
+      })
+      .finally(() => {
+        if (!cancelled) setProjectLoading(false)
+      })
+    return () => { cancelled = true }
   }, [])
 
   // Cập nhật docs khi đổi nhóm đối tượng hoặc khi prefill load xong
@@ -457,7 +491,7 @@ export function CreateApplicationWizard() {
     if (!commitment) { setMsg({ type: 'error', text: 'Vui lòng tích cam kết thông tin chính xác trước khi nộp.' }); return }
     if (!allDocsReady) { setMsg({ type: 'error', text: `Vui lòng đảm bảo đủ ${requiredDocs.length} loại giấy tờ.` }); return }
     if (draftStatus !== 'DRAFT' && draftStatus !== 'NEED_MORE_DOCUMENTS') {
-      setMsg({ type: 'warning', text: `Hồ sơ đang ở trạng thái "${draftStatus}", không thể nộp lại.` }); return
+      setMsg({ type: 'warning', text: `Hồ sơ đang ở trạng thái "${applicationStatusLabel(draftStatus)}", không thể nộp lại.` }); return
     }
     setBusy('submit')
     setMsg(null)
@@ -468,7 +502,7 @@ export function CreateApplicationWizard() {
       setCompletedSteps((prev) => (prev.includes(3) ? prev : [...prev, 3]))
       await queryClient.invalidateQueries({ queryKey: ['dashboard-apps'] })
       await queryClient.invalidateQueries({ queryKey: ['housing-applications'] })
-      setMsg({ type: 'success', text: `Nộp hồ sơ thành công (${newStatus}). Đang chuyển trang...` })
+      setMsg({ type: 'success', text: `Nộp hồ sơ thành công (${applicationStatusLabel(newStatus)}). Đang chuyển trang...` })
       setTimeout(() => {
         sessionStorage.setItem('applicationId', draftId)
         navigate('application-detail')
@@ -481,7 +515,7 @@ export function CreateApplicationWizard() {
   }
 
   const goNextFromStep1 = async () => {
-    if (!selectedProjectId) { setMsg({ type: 'error', text: 'Vui lòng chọn dự án.' }); return }
+    if (!selectedProjectId) { setMsg({ type: 'error', text: 'Bạn chưa chọn dự án. Hãy tìm dự án đang mở đăng ký rồi nộp hồ sơ từ trang chi tiết.' }); return }
     if (!selectedPriorityGroup) { setMsg({ type: 'error', text: 'Vui lòng chọn nhóm đối tượng ưu tiên.' }); return }
     if (missingFields.length > 0) {
       setMsg({ type: 'error', text: `Hồ sơ còn thiếu: ${missingFields.join(', ')}. Vui lòng kê khai tại trang Hồ sơ cá nhân.` })
@@ -530,7 +564,7 @@ export function CreateApplicationWizard() {
               <div className="glass-card p-5 sm:p-6 space-y-5">
                 <div className="flex items-center gap-2">
                   <UserCheck className="h-5 w-5 text-primary" />
-                  <h2 className="text-base font-semibold">Bước 1 — Xác nhận thông tin & chọn dự án</h2>
+                  <h2 className="text-base font-semibold">Bước 1 — Xác nhận thông tin & dự án đã chọn</h2>
                 </div>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
                   Thông tin dưới đây được lấy từ hồ sơ kê khai của bạn. Nếu cần chỉnh sửa, vui lòng cập nhật tại trang{' '}
@@ -538,6 +572,82 @@ export function CreateApplicationWizard() {
                     Hồ sơ cá nhân <ExternalLink className="inline h-3 w-3" />
                   </button>
                 </p>
+
+                {projectLoading && (
+                  <div className="flex items-center gap-2 rounded-xl bg-slate-50 p-4 dark:bg-slate-800/40">
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                    <span className="text-sm text-slate-500">Đang tải dự án đã chọn...</span>
+                  </div>
+                )}
+
+                {!projectLoading && selectedProject && (
+                  <div className="overflow-hidden rounded-2xl border border-emerald-200 bg-white dark:border-emerald-900/50 dark:bg-slate-900">
+                    <div className="flex flex-col sm:flex-row">
+                      <div className="relative h-36 w-full shrink-0 sm:h-auto sm:w-44">
+                        <img
+                          src={selectedProject.imageUrl}
+                          alt={selectedProject.name}
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                      <div className="flex min-w-0 flex-1 flex-col gap-2 p-4">
+                        <p className="text-xs font-bold uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
+                          Dự án đăng ký
+                        </p>
+                        <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+                          {selectedProject.name}
+                        </h3>
+                        <p className="flex items-start gap-1.5 text-sm text-slate-600 dark:text-slate-300">
+                          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-rose-500" />
+                          <span>{selectedProject.address || selectedProject.location}</span>
+                        </p>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                          <span>Còn <strong>{selectedProject.availableUnits}</strong> căn</span>
+                          <span>Giá: <strong>{selectedProject.price}</strong></span>
+                          {selectedProject.area !== '—' && <span>Diện tích: <strong>{selectedProject.area}</strong></span>}
+                        </div>
+                        <div className="mt-1 flex flex-wrap gap-3">
+                          <button
+                            type="button"
+                            className="text-sm font-semibold text-primary underline"
+                            onClick={() => {
+                              sessionStorage.setItem('projectId', selectedProject.id)
+                              navigate('project-detail')
+                            }}
+                          >
+                            Xem chi tiết dự án
+                          </button>
+                          <button
+                            type="button"
+                            className="text-sm font-semibold text-slate-600 underline dark:text-slate-300"
+                            onClick={() => navigate('projects')}
+                          >
+                            Chọn dự án khác
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {!projectLoading && !selectedProject && (
+                  <div className="rounded-2xl border border-dashed border-amber-300 bg-amber-50 p-5 dark:border-amber-800/80 dark:bg-amber-950/30">
+                    <div className="flex items-start gap-3">
+                      <Building2 className="mt-0.5 h-5 w-5 shrink-0 text-amber-700 dark:text-amber-400" />
+                      <div className="space-y-2">
+                        <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                          {projectLoadError ? 'Không tải được dự án đã chọn' : 'Bạn chưa chọn dự án để đăng ký'}
+                        </p>
+                        <p className="text-sm text-amber-800 dark:text-amber-300">
+                          Hãy tìm dự án đang mở đăng ký, xem thông tin rồi bấm Nộp hồ sơ từ trang chi tiết — không chọn dự án bằng danh sách tên tại đây.
+                        </p>
+                        <Button type="button" size="sm" className="mt-1" onClick={() => navigate('projects')}>
+                          <Building2 className="mr-1.5 h-4 w-4" /> Tìm dự án đang mở đăng ký
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {prefillLoading && (
                   <div className="flex items-center gap-2 rounded-xl bg-slate-50 p-4 dark:bg-slate-800/40">
@@ -605,30 +715,17 @@ export function CreateApplicationWizard() {
                       )}
                     </div>
 
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <FormField label="Dự án nhà ở *" htmlFor="projectId">
-                        <Select id="projectId" value={selectedProjectId} onChange={(e) => setSelectedProjectId(e.target.value)} required>
-                          <option value="">{projects.length ? 'Chọn dự án' : 'Chưa có dự án'}</option>
-                          {projects.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.name}{p.availableUnits != null ? ` — còn ${p.availableUnits} căn` : ''}
-                            </option>
-                          ))}
-                        </Select>
-                      </FormField>
-
-                      <FormField label="Nhóm đối tượng ưu tiên *" htmlFor="priorityGroup">
-                        <Select id="priorityGroup" value={selectedPriorityGroup} onChange={(e) => setSelectedPriorityGroup(e.target.value)} required>
-                          <option value="">— Chọn nhóm đối tượng —</option>
-                          {PRIORITY_GROUPS.map((g) => (
-                            <option key={g.value} value={g.value}>{g.label}</option>
-                          ))}
-                        </Select>
-                        {prefill.priorityGroup && selectedPriorityGroup === prefill.priorityGroup && (
-                          <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400">✓ Đã điền từ hồ sơ kê khai</p>
-                        )}
-                      </FormField>
-                    </div>
+                    <FormField label="Nhóm đối tượng ưu tiên *" htmlFor="priorityGroup">
+                      <Select id="priorityGroup" value={selectedPriorityGroup} onChange={(e) => setSelectedPriorityGroup(e.target.value)} required>
+                        <option value="">— Chọn nhóm đối tượng —</option>
+                        {PRIORITY_GROUPS.map((g) => (
+                          <option key={g.value} value={g.value}>{g.label}</option>
+                        ))}
+                      </Select>
+                      {prefill.priorityGroup && selectedPriorityGroup === prefill.priorityGroup && (
+                        <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400">✓ Đã điền từ hồ sơ kê khai</p>
+                      )}
+                    </FormField>
 
                     <div className="grid gap-3 sm:grid-cols-2">
                       <label className="flex items-start gap-2 text-sm">
@@ -655,7 +752,7 @@ export function CreateApplicationWizard() {
                   <Button
                     type="button"
                     variant="accent"
-                    disabled={prefillLoading || isBusy || !selectedProjectId || !selectedPriorityGroup}
+                    disabled={prefillLoading || projectLoading || isBusy || !selectedProjectId || !selectedPriorityGroup}
                     onClick={() => void goNextFromStep1()}
                   >
                     Tiếp tục <ArrowRight className="ml-1 h-4 w-4" />
@@ -767,14 +864,14 @@ export function CreateApplicationWizard() {
                   <h2 className="text-base font-semibold">Bước 3 — Rà soát & Nộp hồ sơ</h2>
                 </div>
                 <Alert variant="info">
-                  <strong>Quy trình tiếp theo:</strong> Sau khi nộp, CĐT tiếp nhận &amp; thẩm định → có thể yêu cầu bổ sung hoặc chuyển Sở Xây dựng → Sở phê duyệt → chờ bốc thăm/ký hợp đồng (nếu trúng).
+                  <strong>Quy trình tiếp theo:</strong> Sau khi nộp, chủ đầu tư tiếp nhận và thẩm định → có thể yêu cầu bổ sung hoặc chuyển Sở Xây dựng → Sở phê duyệt → chờ bốc thăm/ký hợp đồng (nếu trúng).
                 </Alert>
 
                 <div className="grid gap-4 text-sm lg:grid-cols-2">
                   <section>
                     <p className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Thông tin cá nhân</p>
                     <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700 grid gap-2">
-                      <p><span className="text-slate-500">Dự án:</span> <strong>{projects.find(p => p.id === selectedProjectId)?.name ?? '—'}</strong></p>
+                      <p><span className="text-slate-500">Dự án:</span> <strong>{selectedProject?.name ?? '—'}</strong></p>
                       <p><span className="text-slate-500">Họ tên:</span> {prefill?.fullName || '—'}</p>
                       <p><span className="text-slate-500">CCCD:</span> {prefill?.citizenId || '—'}</p>
                       <p><span className="text-slate-500">Nghề nghiệp:</span> {prefill?.occupation || '—'}</p>
@@ -839,7 +936,7 @@ export function CreateApplicationWizard() {
 
                 {draftId && (
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Mã hồ sơ: <span className="font-mono">{draftId}</span> · Trạng thái: <strong>{draftStatus}</strong>
+                    Mã hồ sơ: <span className="font-mono">{draftId}</span> · Trạng thái: <strong>{applicationStatusLabel(draftStatus)}</strong>
                   </p>
                 )}
 

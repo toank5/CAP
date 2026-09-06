@@ -22,6 +22,28 @@ const MARITAL_STATUS_OPTIONS = [
   { value: 'WIDOWED', label: 'Góa' },
 ]
 
+const DEFAULT_HOUSEHOLD_RELATIONS: DocumentTypeDto[] = [
+  { code: 'SPOUSE', label: 'Vợ / Chồng' },
+  { code: 'CHILD', label: 'Con' },
+  { code: 'PARENT', label: 'Cha / Mẹ' },
+  { code: 'SIBLING', label: 'Anh / Chị / Em' },
+  { code: 'GRANDPARENT', label: 'Ông / Bà' },
+  { code: 'GRANDCHILD', label: 'Cháu' },
+  { code: 'OTHER', label: 'Khác' },
+]
+
+function maritalAllowsSpouse(status: string) {
+  return status === 'MARRIED'
+}
+
+function maritalHouseholdHint(status: string) {
+  if (status === 'MARRIED') return 'Đã kết hôn: bắt buộc khai vợ/chồng đang sống cùng. Chỉ một người vợ/chồng.'
+  if (status === 'SINGLE') return 'Độc thân: không khai vợ/chồng. Có thể khai cha mẹ, anh chị em; khai con nếu đang nuôi con.'
+  if (status === 'DIVORCED') return 'Đã ly hôn: không khai vợ/chồng cũ. Có thể khai con và người đang sống cùng.'
+  if (status === 'WIDOWED') return 'Góa: không khai vợ/chồng. Có thể khai con và người đang sống cùng.'
+  return 'Chọn tình trạng hôn nhân trước. Danh sách quan hệ sẽ khớp với tình trạng đó.'
+}
+
 const HOUSING_STATUS_OPTIONS = [
   { value: 'NO_HOUSE', label: 'Chưa có nhà ở thuộc sở hữu' },
   { value: 'SMALL_HOUSE', label: 'Nhà ở chật hẹp (dưới 10 m²/người)' },
@@ -79,6 +101,17 @@ const selectClassName = (invalid?: boolean) =>
     invalid ? 'border-red-400 dark:border-red-500' : 'border-slate-200 dark:border-slate-700'
   }`
 
+function sanitizeMoney(value: string) {
+  return value.replace(/[^\d]/g, '')
+}
+
+function sanitizeDecimal(value: string) {
+  const cleaned = value.replace(/[^\d.]/g, '')
+  const dot = cleaned.indexOf('.')
+  if (dot === -1) return cleaned
+  return `${cleaned.slice(0, dot)}.${cleaned.slice(dot + 1).replace(/\./g, '').slice(0, 2)}`
+}
+
 interface HouseholdMemberDraft {
   memberId?: string
   fullName: string
@@ -91,6 +124,21 @@ interface HouseholdMemberDraft {
   dependentReason: string
   note: string
   hasMeritService: boolean
+}
+
+function emptyHouseholdMember(relationship = ''): HouseholdMemberDraft {
+  return {
+    fullName: '',
+    citizenId: '',
+    dateOfBirth: '',
+    relationship,
+    occupation: '',
+    monthlyIncome: '',
+    isDependent: false,
+    dependentReason: '',
+    note: '',
+    hasMeritService: false,
+  }
 }
 
 interface CitizenDeclarationState {
@@ -352,6 +400,25 @@ export function ProfilePage() {
     ? 'Hộ khẩu / Giấy xác nhận thông tin cư trú'
     : profileDocumentTypes.find((document) => document.code === code)?.label ?? code
   const uploadedDocumentTypes = new Set(userDocuments.map((document) => document.documentType))
+  const allHouseholdRelations = householdRelationships.length > 0 ? householdRelationships : DEFAULT_HOUSEHOLD_RELATIONS
+  const spouseAlreadyListed = householdMembers.some((member) => member.relationship === 'SPOUSE')
+  const relationsForMember = (member: HouseholdMemberDraft) =>
+    allHouseholdRelations.filter((relation) => {
+      if (relation.code !== 'SPOUSE') return true
+      if (!maritalAllowsSpouse(citizenInfo.maritalStatus)) return false
+      return member.relationship === 'SPOUSE' || !spouseAlreadyListed
+    })
+
+  const applyMaritalStatus = (value: string) => {
+    setCitizenInfo((prev) => ({ ...prev, maritalStatus: value }))
+    setHouseholdMembers((current) => {
+      if (!maritalAllowsSpouse(value)) {
+        return current.filter((member) => member.relationship !== 'SPOUSE')
+      }
+      if (current.some((member) => member.relationship === 'SPOUSE')) return current
+      return [emptyHouseholdMember('SPOUSE'), ...current]
+    })
+  }
 
   const validateCitizenDeclaration = () => {
     const nextErrors: Record<string, string> = {}
@@ -382,8 +449,12 @@ export function ProfilePage() {
     if (missingDocuments.length > 0) nextErrors.documents = `Vui lòng tải đủ giấy tờ: ${missingDocuments.map(getDocumentLabel).join(', ')}.`
 
     if (citizenInfo.maritalStatus === 'MARRIED') {
-      const spouseMember = householdMembers.find((member) => member.relationship === 'SPOUSE')
-      if (!spouseMember) nextErrors.householdMembers = 'Đã kết hôn thì phải khai vợ/chồng trong hộ gia đình.'
+      const spouses = householdMembers.filter((member) => member.relationship === 'SPOUSE')
+      if (spouses.length === 0) nextErrors.householdMembers = 'Đã kết hôn thì phải khai vợ/chồng trong hộ gia đình.'
+      else if (spouses.length > 1) nextErrors.householdMembers = 'Chỉ được khai một người vợ/chồng.'
+    } else if (citizenInfo.maritalStatus && householdMembers.some((member) => member.relationship === 'SPOUSE')) {
+      const statusLabel = MARITAL_STATUS_OPTIONS.find((option) => option.value === citizenInfo.maritalStatus)?.label ?? 'tình trạng này'
+      nextErrors.householdMembers = `${statusLabel} không được khai vợ/chồng. Hãy xóa thành viên đó.`
     }
 
     return nextErrors
@@ -393,7 +464,8 @@ export function ProfilePage() {
     const invalidMember = householdMembers.find((member) =>
       !member.fullName.trim() || !member.relationship ||
       (member.citizenId.trim() && !/^\d{9}(\d{3})?$/.test(member.citizenId.trim())) ||
-      (member.isDependent && !member.dependentReason),
+      (member.isDependent && !member.dependentReason) ||
+      (!member.isDependent && member.monthlyIncome !== '' && Number(member.monthlyIncome) < 0),
     )
     if (invalidMember) {
       setMsg({ type: 'error', text: 'Vui lòng nhập đủ họ tên, quan hệ; CCCD phải có 9 hoặc 12 số và người phụ thuộc phải có lý do.' })
@@ -445,8 +517,8 @@ export function ProfilePage() {
           citizenId: member.citizenId.trim() || null,
           dateOfBirth: member.dateOfBirth ? new Date(member.dateOfBirth).toISOString() : null,
           relationship: member.relationship,
-          occupation: member.occupation.trim() || null,
-          monthlyIncome: member.monthlyIncome === '' ? null : Number(member.monthlyIncome),
+          occupation: member.isDependent ? null : member.occupation.trim() || null,
+          monthlyIncome: member.isDependent || member.monthlyIncome === '' ? null : Number(member.monthlyIncome),
           isDependent: member.isDependent,
           dependentReason: member.isDependent ? member.dependentReason : null,
           hasMeritService: Boolean(member.hasMeritService),
@@ -815,14 +887,42 @@ export function ProfilePage() {
                     <div className="order-2 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
                       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                         <div>
-                          <p className="text-sm font-semibold">5. Hộ gia đình và người phụ thuộc</p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400">Khai báo cha mẹ, vợ/chồng, con và người sống cùng. Người phụ thuộc được tính vào nhân khẩu để xét diện tích, không tính thu nhập.</p>
+                          <p className="text-sm font-semibold">5. Hôn nhân và hộ gia đình</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            Tình trạng hôn nhân quyết định được khai những ai. Người phụ thuộc tính vào nhân khẩu xét diện tích, không tính thu nhập.
+                          </p>
                         </div>
                         <div className="flex gap-2">
-                          <Button type="button" variant="outline" size="sm" onClick={() => setHouseholdMembers((current) => [...current, { fullName: '', citizenId: '', dateOfBirth: '', relationship: '', occupation: '', monthlyIncome: '', isDependent: false, dependentReason: '', note: '', hasMeritService: false }])}>Thêm thành viên</Button>
+                          <Button type="button" variant="outline" size="sm" onClick={() => setHouseholdMembers((current) => [...current, emptyHouseholdMember()])}>Thêm thành viên</Button>
                         </div>
                       </div>
-                      {householdMembers.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-400">Chưa khai báo thành viên sống cùng.</p>}
+                      <FormField
+                        label="Tình trạng hôn nhân"
+                        htmlFor="maritalStatus"
+                        required
+                        hint={maritalHouseholdHint(citizenInfo.maritalStatus)}
+                        error={validationErrors.maritalStatus}
+                      >
+                        <select
+                          id="maritalStatus"
+                          value={citizenInfo.maritalStatus}
+                          onChange={(e) => applyMaritalStatus(e.target.value)}
+                          aria-invalid={Boolean(validationErrors.maritalStatus)}
+                          className={selectClassName(Boolean(validationErrors.maritalStatus))}
+                        >
+                          <option value="">-- Chọn --</option>
+                          {MARITAL_STATUS_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                          ))}
+                        </select>
+                      </FormField>
+                      {householdMembers.length === 0 && (
+                        <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+                          {citizenInfo.maritalStatus === 'MARRIED'
+                            ? 'Cần khai vợ/chồng. Có thể thêm con và người sống cùng.'
+                            : 'Chưa khai thành viên sống cùng. Độc thân / ly hôn / góa không khai vợ/chồng.'}
+                        </p>
+                      )}
                       <div className="space-y-3">
                         {householdMembers.map((member, index) => (
                           <div key={member.memberId ?? `new-${index}`} className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
@@ -835,7 +935,7 @@ export function ProfilePage() {
                               <FormField label="Quan hệ *" htmlFor={`member-relation-${index}`}>
                                 <select id={`member-relation-${index}`} value={member.relationship} onChange={(event) => setHouseholdMembers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, relationship: event.target.value } : item))} className="flex h-11 w-full rounded-xl border border-slate-200 bg-white/80 px-4 text-sm dark:border-slate-700 dark:bg-slate-900/80">
                                   <option value="">-- Chọn --</option>
-                                  {(householdRelationships.length > 0 ? householdRelationships : [{ code: 'SPOUSE', label: 'Vợ / Chồng' }, { code: 'CHILD', label: 'Con' }, { code: 'PARENT', label: 'Cha / Mẹ' }, { code: 'SIBLING', label: 'Anh / Chị / Em' }, { code: 'GRANDPARENT', label: 'Ông / Bà' }, { code: 'GRANDCHILD', label: 'Cháu' }, { code: 'OTHER', label: 'Khác' }]).map((relation) => <option key={relation.code} value={relation.code}>{relation.label}</option>)}
+                                  {relationsForMember(member).map((relation) => <option key={relation.code} value={relation.code}>{relation.label}</option>)}
                                 </select>
                               </FormField>
                               <FormField label="CCCD" htmlFor={`member-citizen-id-${index}`}>
@@ -845,10 +945,14 @@ export function ProfilePage() {
                                 )}
                               </FormField>
                               <FormField label="Ngày sinh" htmlFor={`member-dob-${index}`}><Input id={`member-dob-${index}`} type="date" value={member.dateOfBirth} onChange={(event) => setHouseholdMembers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, dateOfBirth: event.target.value } : item))} /></FormField>
-                              <FormField label="Nghề nghiệp" htmlFor={`member-occupation-${index}`}><Input id={`member-occupation-${index}`} value={member.occupation} onChange={(event) => setHouseholdMembers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, occupation: event.target.value } : item))} /></FormField>
-                              <FormField label="Thu nhập hàng tháng (VNĐ)" htmlFor={`member-income-${index}`}><Input id={`member-income-${index}`} type="number" min={0} value={member.monthlyIncome} onChange={(event) => setHouseholdMembers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, monthlyIncome: event.target.value } : item))} /></FormField>
+                              {!member.isDependent && (
+                                <>
+                                  <FormField label="Nghề nghiệp" htmlFor={`member-occupation-${index}`}><Input id={`member-occupation-${index}`} value={member.occupation} onChange={(event) => setHouseholdMembers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, occupation: event.target.value } : item))} /></FormField>
+                                  <FormField label="Thu nhập hàng tháng (VNĐ)" htmlFor={`member-income-${index}`}><Input id={`member-income-${index}`} inputMode="numeric" min={0} value={member.monthlyIncome} onChange={(event) => setHouseholdMembers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, monthlyIncome: sanitizeMoney(event.target.value) } : item))} /></FormField>
+                                </>
+                              )}
                             </div>
-                            <label className="mt-3 flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={member.isDependent} onChange={(event) => setHouseholdMembers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, isDependent: event.target.checked, dependentReason: event.target.checked ? item.dependentReason : '' } : item))} />Là người phụ thuộc</label>
+                            <label className="mt-3 flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={member.isDependent} onChange={(event) => setHouseholdMembers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, isDependent: event.target.checked, dependentReason: event.target.checked ? item.dependentReason : '', occupation: event.target.checked ? '' : item.occupation, monthlyIncome: event.target.checked ? '' : item.monthlyIncome } : item))} />Là người phụ thuộc</label>
                             <label className="mt-2 flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={member.hasMeritService} onChange={(event) => setHouseholdMembers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, hasMeritService: event.target.checked } : item))} />Người có công với cách mạng (điểm ưu tiên thành viên)</label>
                             {member.isDependent && <div className="mt-3 max-w-xl"><FormField label="Lý do phụ thuộc *" htmlFor={`member-dependent-reason-${index}`}><select id={`member-dependent-reason-${index}`} value={member.dependentReason} onChange={(event) => setHouseholdMembers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, dependentReason: event.target.value } : item))} className="flex h-11 w-full rounded-xl border border-slate-200 bg-white/80 px-4 text-sm dark:border-slate-700 dark:bg-slate-900/80"><option value="">-- Chọn lý do --</option>{DEPENDENT_REASON_OPTIONS.map((reason) => <option key={reason.value} value={reason.value}>{reason.label}</option>)}</select></FormField><p className="mt-1 text-xs text-amber-700 dark:text-amber-400">Bắt buộc đính kèm giấy tờ chứng minh người phụ thuộc và giấy xác nhận thông tin cư trú/hộ khẩu.</p></div>}
                           </div>
@@ -883,20 +987,6 @@ export function ProfilePage() {
                       <section className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
                         <p className="mb-3 text-sm font-semibold">1. Nghề nghiệp và thu nhập</p>
                         <div className="grid gap-4 md:grid-cols-2">
-                          <FormField label="Tình trạng hôn nhân" htmlFor="maritalStatus" required error={validationErrors.maritalStatus}>
-                            <select
-                              id="maritalStatus"
-                              value={citizenInfo.maritalStatus}
-                              onChange={(e) => setCitizenInfo((prev) => ({ ...prev, maritalStatus: e.target.value }))}
-                              aria-invalid={Boolean(validationErrors.maritalStatus)}
-                              className={selectClassName(Boolean(validationErrors.maritalStatus))}
-                            >
-                              <option value="">-- Chọn --</option>
-                              {MARITAL_STATUS_OPTIONS.map((option) => (
-                                <option key={option.value} value={option.value}>{option.label}</option>
-                              ))}
-                            </select>
-                          </FormField>
                           <FormField label="Nghề nghiệp" htmlFor="occupation" required error={validationErrors.occupation}>
                             <Input
                               id="occupation"
@@ -924,12 +1014,12 @@ export function ProfilePage() {
                           >
                             <Input
                               id="monthlyIncome"
-                              type="number"
+                              inputMode="numeric"
                               min={0}
                               value={citizenInfo.monthlyIncome}
                               aria-invalid={Boolean(validationErrors.monthlyIncome)}
                               className={validationErrors.monthlyIncome ? 'border-red-400' : undefined}
-                              onChange={(e) => setCitizenInfo((prev) => ({ ...prev, monthlyIncome: e.target.value }))}
+                              onChange={(e) => setCitizenInfo((prev) => ({ ...prev, monthlyIncome: sanitizeMoney(e.target.value) }))}
                             />
                           </FormField>
                         </div>
@@ -1051,14 +1141,14 @@ export function ProfilePage() {
                             >
                               <Input
                                 id="averageHousingAreaPerPerson"
-                                type="number"
+                                inputMode="decimal"
                                 min={0.1}
                                 max={9.99}
                                 step="0.1"
                                 value={citizenInfo.averageHousingAreaPerPerson}
                                 aria-invalid={Boolean(validationErrors.averageHousingAreaPerPerson)}
                                 className={validationErrors.averageHousingAreaPerPerson ? 'border-red-400' : undefined}
-                                onChange={(e) => setCitizenInfo((prev) => ({ ...prev, averageHousingAreaPerPerson: e.target.value }))}
+                                onChange={(e) => setCitizenInfo((prev) => ({ ...prev, averageHousingAreaPerPerson: sanitizeDecimal(e.target.value) }))}
                               />
                             </FormField>
                           ) : null}

@@ -383,11 +383,11 @@ export function ApplicationsPage() {
                   className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl px-5 py-2.5 shadow-md shadow-emerald-600/20 flex items-center gap-2 text-xs sm:text-sm"
                   onClick={() => {
                     void ensureVerifiedForApplication().then((ok) => {
-                      if (ok) navigate('create-application')
+                      if (ok) navigate('projects')
                     })
                   }}
                 >
-                  <Plus className="h-4 w-4" /> Tạo hồ sơ mới
+                  <Plus className="h-4 w-4" /> Đăng ký dự án
                 </Button>
               ) : (
                 <div
@@ -1740,13 +1740,17 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
 
       {msg && <Alert variant={msg.type === 'error' ? 'error' : 'success'}>{msg.text}</Alert>}
 
-      {/* ===== TIẾN ĐỘ HỒ SƠ 10 BƯỚC (ĐẨY LÊN ĐẦU TRANG) ===== */}
+      {/* ===== TIẾN ĐỘ HỒ SƠ (KHỚP MOBILE / LUỒNG THỰC TẾ) ===== */}
       <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <h3 className="mb-4 flex items-center gap-2 font-bold text-slate-800 dark:text-slate-100">
           <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-          Tiến độ hồ sơ (10 bước chuẩn Luật Nhà ở)
+          Tiến độ hồ sơ
         </h3>
-        <ApplicationTimeline currentStatus={app.applicationStatus} depositPaid={deposit1Paid} histories={app.reviewHistories} />
+        <ApplicationTimeline
+          currentStatus={app.applicationStatus}
+          depositPaid={deposit1Paid}
+          needMoreNote={needMoreNote}
+        />
       </div>
 
       {/* ===== MAIN GRID LAYOUT (7 CỘT TRÁI - 5 CỘT PHẢI) ===== */}

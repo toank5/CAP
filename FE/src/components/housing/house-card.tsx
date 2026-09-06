@@ -3,6 +3,7 @@ import { Heart, MapPin, Ruler, Layers } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { navigate } from '@/hooks/useHashRoute'
 import { getRole, isLoggedIn } from '@/router'
+import { ensureVerifiedForApplication } from '@/lib/ekyc-gate'
 import type { ProjectCard } from '@/lib/projects'
 
 export const HouseCard = memo(function HouseCard({
@@ -26,8 +27,15 @@ export const HouseCard = memo(function HouseCard({
   }
 
   const goToApply = () => {
-    sessionStorage.setItem('projectId', house.id)
-    navigate('create-application')
+    if (!logged) {
+      sessionStorage.setItem('createApplicationProjectId', house.id)
+      sessionStorage.setItem('projectId', house.id)
+      navigate('login')
+      return
+    }
+    void ensureVerifiedForApplication({ projectId: house.id }).then((ok) => {
+      if (ok) navigate('create-application')
+    })
   }
 
   const handleFavorite: React.MouseEventHandler<HTMLButtonElement> = (e) => {
