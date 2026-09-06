@@ -1990,6 +1990,7 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
             }
             signing={signing}
             onSign={() => void handleSign()}
+            applicationId={appId}
             applicationStatus={contractStatus?.applicationStatus ?? app.applicationStatus}
           />
           {isApplicant && deposit1Paid && !app.apartmentId && !contractStatus?.isSigned && (

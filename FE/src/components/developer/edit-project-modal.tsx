@@ -27,15 +27,17 @@ import { formatError } from '@/lib/format-error'
 import { extractSingleProject } from '@/lib/parsers'
 import type { CreateApartmentDto, CreateHousingProjectRequestDto, MilestoneSetupItemDto } from '@/types'
 import {
-  VALID_TRIGGER_EVENTS,
   DIRECTION_OPTIONS,
-  MILESTONE_PRESETS,
   MIN_PAYMENT_PHASES,
   MAX_PAYMENT_PHASES,
   PHASE1_TRIGGER,
   PaymentProgressPolicyNote,
+  PaymentRatioMeter,
   validatePaymentMilestones,
   normalizeDirection,
+  createBlankPaymentMilestones,
+  insertNextPaymentMilestone,
+  allowedTriggersForPhase,
   type ApartmentFormRow,
 } from './create-project-modal'
 
@@ -67,7 +69,7 @@ const createDefaultApartment = (index: number): EditApartmentFormRow => ({
   unitGroup: 'STANDARD',
   saleType: 'FULL_OWNERSHIP',
   coOwnershipRatio: '',
-  price: '850000000',
+  price: '850000',
   description: '',
   isExpanded: false,
 })
@@ -102,11 +104,7 @@ export function EditProjectModal({
   const [decisionDocumentUrl, setDecisionDocumentUrl] = useState<string>('')
   const [uploadingDocument, setUploadingDocument] = useState(false)
 
-  const [milestones, setMilestones] = useState<MilestoneSetupItemDto[]>([
-    { phaseOrder: 1, phaseName: 'Đợt 1 (Tiền cọc khi được cấp nhà)', percentage: 0, triggerEvent: 'ON_LOTTERY_WON', dueDays: 0 },
-    { phaseOrder: 2, phaseName: 'Đợt 2 (Bàn giao nhà)', percentage: 0, triggerEvent: 'HANDOVER', dueDays: 0 },
-    { phaseOrder: 3, phaseName: 'Đợt 3 (Nhận sổ hồng)', percentage: 0, triggerEvent: 'RED_BOOK_ISSUED', dueDays: 0 },
-  ])
+  const [milestones, setMilestones] = useState<MilestoneSetupItemDto[]>(createBlankPaymentMilestones)
 
   const [apartments, setApartments] = useState<EditApartmentFormRow[]>([])
   const [originalApartmentIds, setOriginalApartmentIds] = useState<string[]>([])
@@ -182,11 +180,11 @@ export function EditProjectModal({
         setExistingImages(imgUrls)
 
         const rawMilestones = p?.milestones || raw?.milestones || raw?.Milestones
-        if (Array.isArray(rawMilestones) && rawMilestones.length >= 3) {
+        if (Array.isArray(rawMilestones) && rawMilestones.length > 0) {
           setMilestones(
             rawMilestones.map((m: any, idx: number) => ({
               phaseOrder: idx + 1,
-              phaseName: m.phaseName || m.PhaseName || `Đợt ${idx + 1}`,
+              phaseName: m.phaseName || m.PhaseName || '',
               percentage: Number(m.percentage ?? m.Percentage) || 0,
               triggerEvent: idx === 0 ? PHASE1_TRIGGER : (m.triggerEvent || m.TriggerEvent || PHASE1_TRIGGER),
               dueDays: Number(m.dueDays ?? m.DueDays) || 7,
@@ -272,8 +270,8 @@ export function EditProjectModal({
       if (isNaN(areaNum) || areaNum < 15 || areaNum > 300)
         return `Căn #${i + 1} (${r.unitName}): Diện tích thông thủy phải từ 15 đến 300 m².`
       const priceNum = parseFloat(r.price)
-      if (isNaN(priceNum) || priceNum < 1000000 || priceNum > 100000000000)
-        return `Căn #${i + 1} (${r.unitName}): Giá bán không hợp lệ (tối thiểu 1.000.000 VNĐ).`
+      if (isNaN(priceNum) || priceNum < 100000 || priceNum > 150000000)
+        return `Căn #${i + 1} (${r.unitName}): Giá bán không hợp lệ (100.000–150.000.000 VNĐ; giả lập thanh toán tối đa 150 triệu/lần).`
       if (r.saleType === 'CO_OWNERSHIP') {
         const ratio = Number(r.coOwnershipRatio)
         if (isNaN(ratio) || ratio < 1 || ratio > 99) {
@@ -361,9 +359,9 @@ export function EditProjectModal({
 
     const csvHeader = 'Mã căn,Tòa/Block,Tầng,Số PN,Số WC,Diện tích thông thủy (m2),Diện tích tim tường (m2),Giá bán (VNĐ),Nhóm căn (STANDARD/PRIORITY),Hình thức bán (FULL_OWNERSHIP/CO_OWNERSHIP),Tỷ lệ sở hữu (%),Hướng cửa chính (EAST/WEST/SOUTH/NORTH/SOUTH_EAST/NORTH_EAST/SOUTH_WEST/NORTH_WEST),Hướng ban công,Mô tả view,Sức chứa tối đa (người),Ghi chú\n'
     const sampleRows = [
-      'A-101,Block A,1,2,1,55,60,850000000,STANDARD,FULL_OWNERSHIP,100,SOUTH_EAST,EAST,View công viên nội khu,4,Căn mẫu tiêu chuẩn\n',
-      'A-102,Block A,1,1,1,40,45,620000000,PRIORITY,CO_OWNERSHIP,50,EAST,SOUTH,View hồ bơi,2,Căn ưu tiên đồng sở hữu\n',
-      'B-201,Block B,2,3,2,75,82,1200000000,STANDARD,FULL_OWNERSHIP,100,SOUTH,SOUTH_EAST,View thoáng nhìn ra sông,6,Căn góc 3 phòng ngủ\n',
+      'A-101,Block A,1,2,1,55,60,850000,STANDARD,FULL_OWNERSHIP,100,SOUTH_EAST,EAST,View công viên nội khu,4,Căn mẫu tiêu chuẩn\n',
+      'A-102,Block A,1,1,1,40,45,620000,PRIORITY,CO_OWNERSHIP,50,EAST,SOUTH,View hồ bơi,2,Căn ưu tiên đồng sở hữu\n',
+      'B-201,Block B,2,3,2,75,82,1200000,STANDARD,FULL_OWNERSHIP,100,SOUTH,SOUTH_EAST,View thoáng nhìn ra sông,6,Căn góc 3 phòng ngủ\n',
     ].join('')
 
     const blob = new Blob(['\uFEFF' + csvHeader + sampleRows], { type: 'text/csv;charset=utf-8;' })
@@ -886,7 +884,7 @@ export function EditProjectModal({
                         Chính sách thanh toán theo tiến độ
                       </span>
                       <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-bold text-teal-700 dark:bg-teal-950 dark:text-teal-300">
-                        {milestones.length} đợt · Đợt 1 là tiền cọc, tối đa 30%
+                        {milestones.length} đợt · số đợt do chủ đầu tư tự chia
                       </span>
                       {requiredDot}
                     </div>
@@ -895,18 +893,7 @@ export function EditProjectModal({
                       <button
                         type="button"
                         onClick={() => {
-                          if (milestones.length < MAX_PAYMENT_PHASES) {
-                            setMilestones([
-                              ...milestones,
-                              {
-                                phaseOrder: milestones.length + 1,
-                                phaseName: `Đợt ${milestones.length + 1}`,
-                                percentage: 0,
-                                triggerEvent: 'CONSTRUCTION_ROUGH_FLOOR',
-                                dueDays: 7,
-                              },
-                            ])
-                          }
+                          setMilestones(insertNextPaymentMilestone(milestones))
                         }}
                         disabled={milestones.length >= MAX_PAYMENT_PHASES || submitting}
                         className="flex items-center gap-1 rounded-md border border-dashed border-teal-400 bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-700 transition hover:bg-teal-100 disabled:opacity-40 dark:border-teal-700 dark:bg-teal-950/40 dark:text-teal-300"
@@ -918,75 +905,21 @@ export function EditProjectModal({
 
                 <PaymentProgressPolicyNote />
 
-                {/* Presets buttons */}
-                  <div className="mb-3 flex flex-wrap items-center gap-1.5">
-                    <span className="text-[11px] font-semibold text-slate-500">Mẫu tiến độ chuẩn:</span>
-                    {MILESTONE_PRESETS.map((preset, pIdx) => (
-                      <button
-                        key={pIdx}
-                        type="button"
-                        onClick={() => setMilestones(preset.milestones)}
-                        disabled={submitting}
-                        className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium transition ${milestones.length === preset.milestones.length &&
-                          milestones[0]?.percentage === preset.milestones[0]?.percentage
-                          ? 'border-teal-500 bg-teal-50 font-bold text-teal-700 shadow-sm dark:bg-teal-950/50 dark:text-teal-300'
-                          : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-teal-300 hover:bg-teal-50/50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
-                          }`}
-                        title={preset.description}
-                      >
-                        {preset.name}
-                      </button>
-                    ))}
-                  </div>
+                <PaymentRatioMeter milestones={milestones} />
 
-                  {/* Total percentage bar indicator */}
-                  {(() => {
-                    const total = milestones.reduce((s, m) => s + (Number(m.percentage) || 0), 0)
-                    const isValid = Math.abs(total - 100) < 0.01
-                    const isPhase1Valid = !milestones[0] || Number(milestones[0].percentage) <= 30
-                    return (
-                      <div className="mb-3 rounded-lg border border-slate-100 bg-slate-50/80 p-2.5 dark:border-slate-800 dark:bg-slate-800/50">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="font-semibold text-slate-700 dark:text-slate-300">
-                            Tổng tỷ lệ các đợt thanh toán:
-                          </span>
-                          <span
-                            className={`font-bold ${isValid
-                              ? 'text-emerald-600 dark:text-emerald-400'
-                              : 'text-rose-600 dark:text-rose-400'
-                              }`}
-                          >
-                            {total}% / 100% {isValid ? '✓ Đạt chuẩn' : `(Chênh lệch ${total - 100 > 0 ? `+${total - 100}` : total - 100}%)`}
-                          </span>
-                        </div>
-                        <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-                          <div
-                            className={`h-full transition-all duration-300 ${isValid
-                              ? 'bg-emerald-500'
-                              : total > 100
-                                ? 'bg-rose-500'
-                                : 'bg-amber-500'
-                              }`}
-                            style={{ width: `${Math.min(100, Math.max(0, total))}%` }}
-                          />
-                        </div>
-                        {!isPhase1Valid && (
-                          <div className="mt-2 flex items-center gap-1.5 rounded-lg border border-rose-300 bg-rose-50 px-2.5 py-1.5 text-[11px] font-semibold text-rose-700 dark:border-rose-800 dark:bg-rose-950/60 dark:text-rose-300">
-                            <span><strong>Chưa đạt:</strong> tỷ lệ Đợt 1 (tiền cọc) đang là <strong>{milestones[0].percentage}%</strong>. Luật Nhà ở năm 2023 quy định tiền cọc Đợt 1 không được vượt quá <strong>30%</strong> giá trị căn.</span>
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })()}
-
-                <p className="mb-2 text-[11px] text-slate-500 dark:text-slate-400">
-                  Mỗi dòng: tên đợt, tỷ lệ phần trăm, mốc mở đợt, số ngày hạn thanh toán. Đợt 1 khóa mốc cấp nhà vì đây là tiền cọc.
-                </p>
+                <div className="mb-1 hidden gap-2 px-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400 sm:grid sm:grid-cols-[1.75rem_minmax(0,1.4fr)_4.75rem_minmax(10rem,1.3fr)_4.75rem_1.75rem] dark:text-slate-500">
+                  <span />
+                  <span>Tên đợt</span>
+                  <span className="text-center">Tỷ lệ</span>
+                  <span>Mốc mở</span>
+                  <span className="text-center">Hạn</span>
+                  <span />
+                </div>
                 <div className="space-y-2">
                     {milestones.map((m, idx) => (
                       <div
                         key={idx}
-                        className={`flex flex-wrap items-center gap-2 rounded-xl border p-2.5 transition ${idx === 0 && Number(m.percentage) > 30
+                        className={`grid items-center gap-2 rounded-xl border p-2.5 transition sm:grid-cols-[1.75rem_minmax(0,1.4fr)_4.75rem_minmax(10rem,1.3fr)_4.75rem_1.75rem] ${idx === 0 && Number(m.percentage) > 30
                           ? 'border-rose-300 bg-rose-50/40 dark:border-rose-800/80 dark:bg-rose-950/20'
                           : 'border-slate-200/80 bg-slate-50/60 hover:border-teal-300 dark:border-slate-700 dark:bg-slate-800/40'
                           }`}
@@ -996,24 +929,22 @@ export function EditProjectModal({
                           {idx + 1}
                         </span>
 
-                        <div className="min-w-[160px] flex-1">
-                          <input
-                            className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
-                            value={m.phaseName}
-                            placeholder={`Tên đợt ${idx + 1}`}
-                            disabled={submitting}
-                            onChange={(e) => {
-                              const n = [...milestones]
-                              n[idx] = { ...n[idx], phaseName: e.target.value }
-                              setMilestones(n)
-                            }}
-                          />
-                        </div>
+                        <input
+                          className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                          value={m.phaseName}
+                          placeholder={`Tên đợt ${idx + 1}`}
+                          disabled={submitting}
+                          onChange={(e) => {
+                            const n = [...milestones]
+                            n[idx] = { ...n[idx], phaseName: e.target.value }
+                            setMilestones(n)
+                          }}
+                        />
 
-                        <div className="flex shrink-0 items-center rounded-lg border border-slate-200 bg-white pr-1.5 shadow-sm dark:border-slate-600 dark:bg-slate-800">
+                        <div className="flex items-center rounded-lg border border-slate-200 bg-white pr-1 shadow-sm dark:border-slate-600 dark:bg-slate-800">
                           <input
                             type="number"
-                            className="w-14 rounded-l-lg border-0 bg-transparent px-1.5 py-1.5 text-center text-xs font-bold text-teal-700 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:outline-none dark:text-teal-300"
+                            className="w-full rounded-l-lg border-0 bg-transparent px-1 py-1.5 text-center text-xs font-bold text-teal-700 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:outline-none dark:text-teal-300"
                             value={m.percentage === 0 ? '' : m.percentage}
                             placeholder="0"
                             min={0}
@@ -1031,33 +962,28 @@ export function EditProjectModal({
                           </span>
                         </div>
 
-                        <div className="min-w-[190px] flex-1">
-                          <select
-                            className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
-                            value={idx === 0 ? PHASE1_TRIGGER : m.triggerEvent}
-                            disabled={submitting || idx === 0}
-                            title={idx === 0 ? 'Đợt 1 là tiền cọc khi được cấp nhà — không gắn mốc ký hợp đồng.' : undefined}
-                            onChange={(e) => {
-                              const n = [...milestones]
-                              n[idx] = { ...n[idx], triggerEvent: idx === 0 ? PHASE1_TRIGGER : e.target.value }
-                              setMilestones(n)
-                            }}
-                          >
-                            {(idx === 0
-                              ? VALID_TRIGGER_EVENTS.filter((t) => t.code === PHASE1_TRIGGER)
-                              : VALID_TRIGGER_EVENTS.filter((t) => t.code !== PHASE1_TRIGGER)
-                            ).map((t) => (
-                              <option key={t.code} value={t.code}>
-                                {t.label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
+                        <select
+                          className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-800 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                          value={idx === 0 ? PHASE1_TRIGGER : m.triggerEvent}
+                          disabled={submitting || idx === 0}
+                          title={idx === 0 ? 'Đợt 1 là lần ứng trước đầu khi được cấp nhà — không gắn mốc ký hợp đồng.' : undefined}
+                          onChange={(e) => {
+                            const n = [...milestones]
+                            n[idx] = { ...n[idx], triggerEvent: idx === 0 ? PHASE1_TRIGGER : e.target.value }
+                            setMilestones(n)
+                          }}
+                        >
+                            {allowedTriggersForPhase(milestones, idx).map((t) => (
+                            <option key={t.code} value={t.code}>
+                              {t.label}
+                            </option>
+                          ))}
+                        </select>
 
-                        <div className="flex shrink-0 items-center rounded-lg border border-slate-200 bg-white pr-1.5 shadow-sm dark:border-slate-600 dark:bg-slate-800">
+                        <div className="flex items-center rounded-lg border border-slate-200 bg-white pr-1 shadow-sm dark:border-slate-600 dark:bg-slate-800">
                           <input
                             type="number"
-                            className="w-14 rounded-l-lg border-0 bg-transparent px-1.5 py-1.5 text-center text-xs font-medium text-amber-700 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:outline-none dark:text-amber-300"
+                            className="w-full rounded-l-lg border-0 bg-transparent px-1 py-1.5 text-center text-xs font-medium text-amber-700 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:outline-none dark:text-amber-300"
                             value={m.dueDays === 0 ? '' : (m.dueDays ?? '')}
                             placeholder="0"
                             min={0}
@@ -1078,8 +1004,8 @@ export function EditProjectModal({
                         <button
                           type="button"
                           disabled={idx === 0 || milestones.length <= MIN_PAYMENT_PHASES || submitting}
-                          className="shrink-0 rounded-lg p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:opacity-30 dark:hover:bg-rose-950/40"
-                          title={idx === 0 ? 'Không xóa Đợt 1 — đây là tiền cọc khi được cấp nhà.' : milestones.length <= MIN_PAYMENT_PHASES ? `Tối thiểu ${MIN_PAYMENT_PHASES} đợt thanh toán` : 'Xóa đợt này'}
+                          className="justify-self-center rounded-lg p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:opacity-30 dark:hover:bg-rose-950/40"
+                          title={idx === 0 ? 'Không xóa Đợt 1 — đây là lần ứng trước đầu khi được cấp nhà.' : milestones.length <= MIN_PAYMENT_PHASES ? `Cần ít nhất ${MIN_PAYMENT_PHASES} đợt` : 'Xóa đợt này'}
                           onClick={() => {
                             if (milestones.length > MIN_PAYMENT_PHASES) {
                               setMilestones(
@@ -1404,7 +1330,7 @@ export function EditProjectModal({
                             className={`${inputClass} py-1 text-xs`}
                             value={row.price}
                             onChange={(e) => updateAptRow(idx, 'price', e.target.value)}
-                            placeholder="850000000"
+                            placeholder="850000"
                             disabled={submitting}
                           />
                         </div>

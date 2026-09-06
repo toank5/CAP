@@ -238,7 +238,7 @@ export const paymentApi = {
 }
 
 /** Tải PDF hợp đồng — dùng fetch blob + Bearer (KHÔNG dùng request JSON vì endpoint trả file). */
-export async function downloadContractPdf(applicationId: string): Promise<void> {
+export async function fetchContractPdfBlob(applicationId: string): Promise<Blob> {
   const token = sessionStorage.getItem('accessToken')
   if (!token) throw new Error('Chưa đăng nhập.')
   const res = await fetch(
@@ -247,6 +247,12 @@ export async function downloadContractPdf(applicationId: string): Promise<void> 
   )
   if (!res.ok) throw new Error(`Không tải được PDF (HTTP ${res.status})`)
   const blob = await res.blob()
+  if (blob.type && blob.type.includes('pdf')) return blob
+  return new Blob([blob], { type: 'application/pdf' })
+}
+
+export async function downloadContractPdf(applicationId: string): Promise<void> {
+  const blob = await fetchContractPdfBlob(applicationId)
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url

@@ -275,7 +275,7 @@ export function MyApartmentPage() {
             Căn của tôi
           </h2>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Theo dõi căn hộ, đặt cọc, ký hợp đồng và thanh toán các đợt theo Luật Nhà ở xã hội.
+            Theo dõi căn hộ, đóng lần đầu, ký hợp đồng và thanh toán các đợt theo lịch chủ đầu tư.
           </p>
         </div>
 
@@ -364,6 +364,7 @@ export function MyApartmentPage() {
                   canSign={canSign}
                   signing={signing}
                   onSign={() => void signContract()}
+                  applicationId={selectedId ?? ''}
                   applicationStatus={contractStatus?.applicationStatus ?? appStatus}
                 />
                 {deposit1Paid && !hasApartment && !contractStatus?.isSigned && (

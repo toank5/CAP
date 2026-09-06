@@ -5,8 +5,9 @@ import {
   KeyRound,
   Loader2,
   ScrollText,
+  Unlock,
 } from 'lucide-react'
-import { contractApi, type UnlockPhaseTrigger } from '@/api/contracts'
+import { contractApi, isManualUnlockTrigger, UNLOCK_PHASE_LABEL, type UnlockPhaseTrigger } from '@/api/contracts'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { formatError } from '@/lib/format-error'
@@ -18,27 +19,27 @@ interface Props {
 }
 
 /**
- * Panel CĐT mở đợt thanh toán theo tiến độ xây dựng.
- * Số đợt và % do CĐT cấu hình; Đợt 1 là cọc (tối đa 30%).
- * Cột mốc thi công (xây thô / cất nóc / bàn giao / sổ hồng) kích hoạt các đợt tương ứng.
- *
- * Ứng dụng: Chỉ vai trò Housing Developer.
+ * Panel chủ đầu tư mở đợt thanh toán theo mốc đã cấu hình trên từng đợt.
  */
 export function PaymentPhaseControl({ project, onChanged }: Props) {
-  const [busy, setBusy] = useState<UnlockPhaseTrigger | null>(null)
+  const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
   const projectId = project.id ?? ''
+  const phases = (project.milestones ?? [])
+    .filter((m) => isManualUnlockTrigger(m.triggerEvent))
+    .slice()
+    .sort((a, b) => a.phaseOrder - b.phaseOrder)
 
-  const run = async (triggerEvent: UnlockPhaseTrigger) => {
+  const run = async (triggerEvent: string, phaseName: string) => {
     if (busy || !projectId) return
     setBusy(triggerEvent)
     setError('')
     setSuccess('')
     try {
       await contractApi.unlockPhase(projectId, triggerEvent)
-      setSuccess(SUCCESS_MESSAGES[triggerEvent])
+      setSuccess(`Đã mở ${phaseName || 'đợt thanh toán'}.`)
       onChanged?.(project)
       window.dispatchEvent(new CustomEvent('fecaps:project-status-changed'))
     } catch (err) {
@@ -47,6 +48,8 @@ export function PaymentPhaseControl({ project, onChanged }: Props) {
       setBusy(null)
     }
   }
+
+  if (phases.length === 0) return null
 
   return (
     <section className="mb-6 rounded-xl border-2 border-violet-200 bg-violet-50/60 p-4 dark:border-violet-800 dark:bg-violet-950/30">
@@ -58,8 +61,7 @@ export function PaymentPhaseControl({ project, onChanged }: Props) {
       </header>
 
       <p className="mb-4 text-[11px] text-slate-600 dark:text-slate-400">
-        Mỗi đợt thanh toán được kích hoạt khi dự án đạt mốc xây dựng tương ứng. Nhấn nút để mở
-        đợt cho người mua nhà.
+        Mỗi đợt mở theo mốc chủ đầu tư đã nhập khi tạo lịch. Nhấn nút để mở đợt cho người mua nhà.
       </p>
 
       {error && (
@@ -74,68 +76,49 @@ export function PaymentPhaseControl({ project, onChanged }: Props) {
       )}
 
       <div className="flex flex-wrap gap-2">
-        {PHASES.map((phase) => (
-          <Button
-            key={phase.trigger}
-            variant="outline"
-            disabled={!!busy}
-            onClick={() => run(phase.trigger)}
-            title={phase.hint}
-            className="gap-1.5 text-xs"
-          >
-            {busy === phase.trigger ? (
-              <>
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Đang mở...
-              </>
-            ) : (
-              <>
-                {phase.icon}
-                {phase.label}
-              </>
-            )}
-          </Button>
-        ))}
+        {phases.map((phase) => {
+          const trigger = phase.triggerEvent
+          const icon = iconForTrigger(trigger)
+          const hint = UNLOCK_PHASE_LABEL[trigger as UnlockPhaseTrigger] || trigger
+          return (
+            <Button
+              key={`${phase.phaseOrder}-${trigger}`}
+              variant="outline"
+              disabled={!!busy}
+              onClick={() => run(trigger, phase.phaseName)}
+              title={hint}
+              className="gap-1.5 text-xs"
+            >
+              {busy === trigger ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Đang mở...
+                </>
+              ) : (
+                <>
+                  {icon}
+                  Mở {phase.phaseName || `đợt ${phase.phaseOrder}`}
+                </>
+              )}
+            </Button>
+          )
+        })}
       </div>
     </section>
   )
 }
 
-const PHASES: {
-  trigger: UnlockPhaseTrigger
-  label: string
-  hint: string
-  icon: React.ReactNode
-}[] = [
-  {
-    trigger: 'CONSTRUCTION_ROUGH_FLOOR',
-    label: 'Mở Đợt 3 — Xây thô',
-    hint: 'Mở đợt thanh toán khi công trình hoàn thành phần xây thô',
-    icon: <Construction className="h-3 w-3" />,
-  },
-  {
-    trigger: 'ROOFING_COMPLETED',
-    label: 'Mở Đợt 4 — Cất nóc',
-    hint: 'Mở đợt 4 (20%) khi công trình hoàn thành cất nóc',
-    icon: <ScrollText className="h-3 w-3" />,
-  },
-  {
-    trigger: 'HANDOVER',
-    label: 'Mở Đợt 5 — Bàn giao',
-    hint: 'Mở đợt 5 (27%) khi bàn giao nhà cho người mua',
-    icon: <KeyRound className="h-3 w-3" />,
-  },
-  {
-    trigger: 'RED_BOOK_ISSUED',
-    label: 'Mở Đợt 6 — Sổ hồng',
-    hint: 'Mở đợt 6 (5%) khi sổ hồng được cấp cho người mua',
-    icon: <CheckCircle2 className="h-3 w-3" />,
-  },
-]
-
-const SUCCESS_MESSAGES: Record<UnlockPhaseTrigger, string> = {
-  CONSTRUCTION_ROUGH_FLOOR: 'Đã mở Đợt 3 — Xây thô (20%).',
-  ROOFING_COMPLETED: 'Đã mở Đợt 4 — Cất nóc (20%).',
-  HANDOVER: 'Đã mở Đợt 5 — Bàn giao (27%).',
-  RED_BOOK_ISSUED: 'Đã mở Đợt 6 — Sổ hồng (5%).',
+function iconForTrigger(trigger: string) {
+  switch (trigger) {
+    case 'CONSTRUCTION_ROUGH_FLOOR':
+      return <Construction className="h-3 w-3" />
+    case 'ROOFING_COMPLETED':
+      return <ScrollText className="h-3 w-3" />
+    case 'HANDOVER':
+      return <KeyRound className="h-3 w-3" />
+    case 'RED_BOOK_ISSUED':
+      return <CheckCircle2 className="h-3 w-3" />
+    default:
+      return <Unlock className="h-3 w-3" />
+  }
 }

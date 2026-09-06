@@ -38,6 +38,7 @@ export interface PaymentInstallment {
   applicationId: string
   ordinal: number
   label?: string | null
+  triggerEvent?: string | null
   amount: number
   dueDate: string
   status: InstallmentStatus        // FE display: PENDING → UNPAID
@@ -131,7 +132,7 @@ export function parseInstallments(data: unknown): PaymentInstallment[] {
       ''
     // ordinal: thử nhiều key; fall-back "Đợt N" trong label; cuối cùng lấy idx+1 (theo vị trí array).
     let ordRaw: unknown =
-      x.ordinal ?? x.Ordinal ?? x.phaseNo ?? x.PhaseNo ?? x.no ?? x.No ?? x.index ?? x.Index
+      x.ordinal ?? x.Ordinal ?? x.phaseOrder ?? x.PhaseOrder ?? x.phaseNo ?? x.PhaseNo ?? x.no ?? x.No ?? x.index ?? x.Index
     let ord = Number(ordRaw) || 0
     if (ord === 0) {
       const labelStr =
@@ -142,13 +143,19 @@ export function parseInstallments(data: unknown): PaymentInstallment[] {
         ''
       const m = /đợt\s*(\d+)/i.exec(labelStr)
       if (m) ord = parseInt(m[1], 10)
-      else if (arr.length <= 6) ord = idx + 1
+      else ord = idx + 1
     }
     const labelVal =
+      (x.phaseName as string | undefined) ??
+      (x.PhaseName as string | undefined) ??
       (x.label as string | undefined) ??
       (x.Label as string | undefined) ??
       (x.name as string | undefined) ??
       (x.Name as string | undefined) ??
+      null
+    const triggerEvent =
+      (x.triggerEvent as string | undefined) ??
+      (x.TriggerEvent as string | undefined) ??
       null
     const amount =
       x.amount ?? x.Amount ?? x.value ?? x.Value ?? 0
@@ -190,6 +197,7 @@ export function parseInstallments(data: unknown): PaymentInstallment[] {
       applicationId: appId,
       ordinal: ord,
       label: labelVal,
+      triggerEvent,
       amount: Number(amount) || 0,
       dueDate,
       // FE display: PENDING → UNPAID
@@ -259,11 +267,11 @@ export const contractApi = {
   },
 
   /**
-   * CĐT mở (unlock) đợt thanh toán theo tiến độ xây dựng.
+   * Chủ đầu tư mở đợt thanh toán theo mốc đã cấu hình trên đợt đó.
    * BE: POST /api/housing-developer/projects/{projectId}/unlock-phase
-   * body: { triggerEvent: 'CONSTRUCTION_ROUGH_FLOOR' | 'ROOFING_COMPLETED' | 'HANDOVER' | 'RED_BOOK_ISSUED' }
+   * body: { triggerEvent }
    */
-  unlockPhase(projectId: string, triggerEvent: UnlockPhaseTrigger) {
+  unlockPhase(projectId: string, triggerEvent: string) {
     return request<ApiResult>(
       `/api/housing-developer/projects/${projectId}/unlock-phase`,
       { method: 'POST', body: JSON.stringify({ triggerEvent }), auth: true },
@@ -272,24 +280,26 @@ export const contractApi = {
 }
 
 export type UnlockPhaseTrigger =
-  | 'CONSTRUCTION_ROUGH_FLOOR' // Đợt 3 (20%) — Xây thô
-  | 'ROOFING_COMPLETED'        // Đợt 4 (20%) — Cất nóc
-  | 'HANDOVER'                 // Đợt 5 (25% + 2% PBT) — Bàn giao
-  | 'RED_BOOK_ISSUED'          // Đợt 6 (5%) — Sổ hồng
+  | 'ON_LOTTERY_WON'
+  | 'ON_CONTRACT_SIGNED'
+  | 'CONSTRUCTION_ROUGH_FLOOR'
+  | 'ROOFING_COMPLETED'
+  | 'HANDOVER'
+  | 'RED_BOOK_ISSUED'
 
 export const UNLOCK_PHASE_LABEL: Record<UnlockPhaseTrigger, string> = {
-  CONSTRUCTION_ROUGH_FLOOR: 'Xây thô (mở Đợt 3)',
-  ROOFING_COMPLETED: 'Cất nóc (mở Đợt 4)',
-  HANDOVER: 'Bàn giao (mở Đợt 5)',
-  RED_BOOK_ISSUED: 'Cấp sổ hồng (mở Đợt 6)',
+  ON_LOTTERY_WON: 'Khi được cấp nhà',
+  ON_CONTRACT_SIGNED: 'Sau khi ký hợp đồng',
+  CONSTRUCTION_ROUGH_FLOOR: 'Hoàn thành phần thô',
+  ROOFING_COMPLETED: 'Cất nóc',
+  HANDOVER: 'Bàn giao nhà',
+  RED_BOOK_ISSUED: 'Cấp sổ hồng',
 }
 
-/** Mapping phase → ordinal của đợt được unlock */
-export const UNLOCK_PHASE_ORDINAL: Record<UnlockPhaseTrigger, number> = {
-  CONSTRUCTION_ROUGH_FLOOR: 3,
-  ROOFING_COMPLETED: 4,
-  HANDOVER: 5,
-  RED_BOOK_ISSUED: 6,
+export function isManualUnlockTrigger(trigger?: string | null): boolean {
+  if (!trigger) return false
+  const t = trigger.toUpperCase()
+  return t !== 'ON_LOTTERY_WON' && t !== 'ON_APPROVED'
 }
 
 export const CONTRACT_STATUS_LABEL: Record<ContractStatus, string> = {
@@ -318,7 +328,7 @@ export const CONTRACT_STATUS_TONE: Record<
 }
 
 export const INSTALLMENT_STATUS_LABEL: Record<InstallmentStatus, string> = {
-  LOCKED: 'Chờ mở',
+  LOCKED: 'Chờ chủ đầu tư mở',
   UNPAID: 'Chưa thanh toán',
   PAID: 'Đã thanh toán',
   OVERDUE: 'Quá hạn',

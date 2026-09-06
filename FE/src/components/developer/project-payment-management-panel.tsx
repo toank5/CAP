@@ -51,7 +51,7 @@ export function ProjectPaymentManagementPanel({
 
   // Phase Unlock Modal State
   const [unlockModalOpen, setUnlockModalOpen] = useState(false)
-  const [unlockTrigger, setUnlockTrigger] = useState('FOUNDATION_COMPLETED')
+  const [unlockTrigger, setUnlockTrigger] = useState('CONSTRUCTION_ROUGH_FLOOR')
 
   const loadRequests = async () => {
     setLoading(true)
@@ -631,11 +631,10 @@ export function ProjectPaymentManagementPanel({
               onChange={(e) => setUnlockTrigger(e.target.value)}
               className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
             >
-              <option value="FOUNDATION_COMPLETED">Hoàn thành móng (Đợt 2)</option>
-              <option value="TOPPING_OUT">Cất nóc công trình (Đợt 3 / Đợt 4)</option>
-              <option value="HANDOVER">Bàn giao căn hộ (Đợt áp chót)</option>
-              <option value="RED_BOOK_ISSUED">Bàn giao Sổ hồng (Đợt cuối 5%)</option>
-              <option value="CUSTOM">Cột mốc tiến độ đột xuất</option>
+              <option value="CONSTRUCTION_ROUGH_FLOOR">Hoàn thành phần thô</option>
+              <option value="ROOFING_COMPLETED">Cất nóc công trình</option>
+              <option value="HANDOVER">Bàn giao nhà</option>
+              <option value="RED_BOOK_ISSUED">Cấp giấy chứng nhận (sổ hồng)</option>
             </select>
           </div>
 

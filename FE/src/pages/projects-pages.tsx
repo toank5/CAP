@@ -189,7 +189,7 @@ export function ProjectsPage() {
               Danh mục Dự án Nhà ở Xã hội
             </h1>
             <p className="max-w-2xl text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-              Khám phá các dự án nhà ở xã hội quy hoạch chuẩn mực, thông tin minh bạch, lịch thanh toán do chủ đầu tư công bố (Đợt 1 là tiền cọc khi được cấp nhà, tối đa 30% giá trị căn, phải đóng trước khi ký hợp đồng mua bán) và nộp hồ sơ xét duyệt trực tuyến.
+              Khám phá các dự án nhà ở xã hội quy hoạch chuẩn mực, thông tin minh bạch, lịch thanh toán do chủ đầu tư công bố theo tiến độ (số đợt không cố định; lần đầu không quá 30% giá trị hợp đồng) và nộp hồ sơ xét duyệt trực tuyến.
             </p>
 
             {/* Quick Metrics Badges */}
@@ -582,7 +582,7 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
         </FormField>
       </div>
       <p className="text-xs text-slate-500">
-        Bắt buộc — công bố cho người dân tỷ lệ Đợt 1 (tiền cọc khi được cấp nhà, tối đa 30% giá trị căn). Người dân phải đóng cọc xong mới được ký hợp đồng mua bán. Các đợt sau do chủ đầu tư cấu hình, tổng 100%. Căn cứ: Luật Nhà ở năm 2023.
+        Công bố tỷ lệ lần ứng trước đầu (không quá 30% giá trị hợp đồng, gồm tiền đặt cọc nếu có). Số đợt do chủ đầu tư tự chia theo tiến độ, tổng 100%. Căn cứ: Điều 89 Luật Nhà ở năm 2023.
       </p>
 
       <div className="space-y-2 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
@@ -842,7 +842,7 @@ export function ProjectDetailPage() {
                         </span>
                       </div>
                       <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
-                        Dự án đang ở trạng thái chờ duyệt. Bạn có thể chỉnh sửa thông tin dự án, tiến độ thanh toán (Đợt 1 là tiền cọc khi được cấp nhà, tối đa 30% giá trị căn, phải đóng trước khi ký hợp đồng mua bán) và cơ cấu quỹ căn hộ.
+                        Dự án đang ở trạng thái chờ duyệt. Bạn có thể chỉnh sửa thông tin dự án, lịch thanh toán (số đợt do chủ đầu tư tự chia, lần đầu không quá 30%) và cơ cấu quỹ căn hộ.
                       </p>
                     </div>
                   </div>
@@ -1479,7 +1479,7 @@ function ProjectDetailView({
               Tiến độ thanh toán ({milestonesList.length} đợt)
             </h2>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              Lịch đóng tiền do chủ đầu tư công bố. Đợt 1 là tiền cọc khi được cấp nhà (tối đa 30% giá trị căn), phải đóng trước khi ký hợp đồng mua bán. Các đợt sau mở theo tiến độ sau khi đã ký. Căn cứ: Luật Nhà ở năm 2023.
+              Lịch do chủ đầu tư công bố theo tiến độ (số đợt không cố định). Lần đầu ≤ 30% · trước bàn giao ≤ 70% · trước sổ hồng ≤ 95%.
             </p>
           </div>
           {milestonesList.length > 0 && (
