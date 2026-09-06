@@ -127,6 +127,8 @@ function mapAppItem(x: Record<string, unknown>): ApplicationSummaryItemDto {
   }
 }
 
+import { sortByHighestScore } from '@/lib/lottery-allocation'
+
 export function parseProjectEvaluation(data: unknown): ProjectApplicationEvaluationDto | null {
   const o = asRecord(data)
   if (!o) return null
@@ -141,10 +143,10 @@ export function parseProjectEvaluation(data: unknown): ProjectApplicationEvaluat
     nonPriorityCount: Number(o.nonPriorityCount ?? o.NonPriorityCount ?? 0),
     recommendedScenario: String(o.recommendedScenario ?? o.RecommendedScenario ?? ''),
     priorityApplications: Array.isArray(priorityRaw)
-      ? priorityRaw.map((it) => mapAppItem((it ?? {}) as Record<string, unknown>))
+      ? sortByHighestScore(priorityRaw.map((it) => mapAppItem((it ?? {}) as Record<string, unknown>)))
       : [],
     nonPriorityApplications: Array.isArray(nonPriorityRaw)
-      ? nonPriorityRaw.map((it) => mapAppItem((it ?? {}) as Record<string, unknown>))
+      ? sortByHighestScore(nonPriorityRaw.map((it) => mapAppItem((it ?? {}) as Record<string, unknown>)))
       : [],
   }
 }

@@ -57,58 +57,105 @@ export interface ApartmentFormRow {
 }
 
 export const VALID_TRIGGER_EVENTS = [
-  { code: 'ON_LOTTERY_WON', label: 'Cọc / Trúng bốc thăm / Cấp nhà' },
-  { code: 'ON_CONTRACT_SIGNED', label: 'Ký Hợp đồng mua bán (HĐMB)' },
-  { code: 'CONSTRUCTION_ROUGH_FLOOR', label: 'Hoàn thành xây dựng phần thô' },
-  { code: 'ROOFING_COMPLETED', label: 'Cất nóc công trình' },
-  { code: 'HANDOVER', label: 'Bàn giao nhà & Chìa khóa' },
-  { code: 'RED_BOOK_ISSUED', label: 'Nhận Giấy chứng nhận (Sổ hồng)' },
+  { code: 'ON_LOTTERY_WON', label: 'Khi được cấp nhà hoặc trúng bốc thăm (mở Đợt 1 — tiền cọc)' },
+  { code: 'ON_CONTRACT_SIGNED', label: 'Sau khi đã ký hợp đồng mua bán' },
+  { code: 'CONSTRUCTION_ROUGH_FLOOR', label: 'Khi hoàn thành xây dựng phần thô' },
+  { code: 'ROOFING_COMPLETED', label: 'Khi cất nóc công trình' },
+  { code: 'HANDOVER', label: 'Khi bàn giao nhà' },
+  { code: 'RED_BOOK_ISSUED', label: 'Khi cấp giấy chứng nhận quyền sử dụng đất, quyền sở hữu nhà ở (sổ hồng)' },
 ]
 
 export const MIN_PAYMENT_PHASES = 2
 export const MAX_PAYMENT_PHASES = 20
 
+/** Đợt 1 luôn là tiền cọc khi được cấp nhà — không gắn mốc ký hợp đồng. */
+export const PHASE1_TRIGGER = 'ON_LOTTERY_WON'
+
+export function PaymentProgressPolicyNote() {
+  return (
+    <div className="mb-3 space-y-1.5 rounded-lg border border-teal-100 bg-teal-50/80 px-3 py-2.5 text-[11px] leading-relaxed text-teal-950 dark:border-teal-900/50 dark:bg-teal-950/30 dark:text-teal-100">
+      <p>
+        <strong>Thứ tự bắt buộc:</strong> người dân đóng Đợt 1 (tiền cọc) khi được cấp nhà, rồi mới được ký hợp đồng mua bán. Các đợt sau chỉ mở sau khi đã ký hợp đồng, theo mốc chủ đầu tư công bố.
+      </p>
+      <p>
+        <strong>Căn cứ:</strong> Luật Nhà ở năm 2023 — thanh toán nhà ở xã hội theo tiến độ; Đợt 1 là tiền đặt cọc, không vượt quá 30% giá trị căn. Hệ thống chỉ cho ký hợp đồng mua bán sau khi Đợt 1 đã thanh toán thành công.
+      </p>
+    </div>
+  )
+}
+
+export function validatePaymentMilestones(
+  milestones: Array<{ phaseName: string; percentage: number; triggerEvent: string; dueDays?: number }>,
+): string | null {
+  if (milestones.length < MIN_PAYMENT_PHASES) {
+    return `Cần ít nhất ${MIN_PAYMENT_PHASES} đợt thanh toán. Đợt 1 là tiền cọc khi được cấp nhà (tối đa 30% giá trị căn), phải đóng trước khi ký hợp đồng mua bán.`
+  }
+  if (milestones.length > MAX_PAYMENT_PHASES) {
+    return `Tối đa ${MAX_PAYMENT_PHASES} đợt thanh toán.`
+  }
+  const phase1Pct = Number(milestones[0]?.percentage) || 0
+  if (phase1Pct > 30) {
+    return `Đợt 1 đang là ${phase1Pct}% giá trị căn. Luật Nhà ở năm 2023 quy định tiền cọc Đợt 1 không được vượt quá 30%.`
+  }
+  if ((milestones[0]?.triggerEvent || '') !== PHASE1_TRIGGER) {
+    return 'Đợt 1 phải gắn mốc khi được cấp nhà hoặc trúng bốc thăm. Đây là tiền cọc — người dân đóng Đợt 1 xong mới được ký hợp đồng mua bán.'
+  }
+  const totalPercentage = milestones.reduce((sum, m) => sum + (Number(m.percentage) || 0), 0)
+  if (Math.abs(totalPercentage - 100) > 0.01) {
+    return `Tổng tỷ lệ thanh toán phải là 100% (hiện tại: ${totalPercentage}%).`
+  }
+  for (let i = 0; i < milestones.length; i++) {
+    if (!milestones[i].phaseName.trim()) return `Đợt ${i + 1}: vui lòng nhập tên đợt thanh toán.`
+    if (!milestones[i].triggerEvent.trim()) return `Đợt ${i + 1}: vui lòng chọn mốc mở đợt.`
+    const pct = Number(milestones[i].percentage)
+    if (pct <= 0) return `Đợt ${i + 1}: tỷ lệ thanh toán phải lớn hơn 0%.`
+    const days = Number(milestones[i].dueDays)
+    if (days <= 0) return `Đợt ${i + 1}: thời hạn thanh toán phải lớn hơn 0 ngày.`
+  }
+  return null
+}
+
 export const MILESTONE_PRESETS = [
   {
-    name: '3 đợt (Tiêu chuẩn)',
-    description: 'Cọc 30% · Bàn giao 65% · Sổ hồng 5%',
+    name: '3 đợt (tiêu chuẩn)',
+    description: 'Cọc 30% khi cấp nhà · Bàn giao 65% · Sổ hồng 5%',
     milestones: [
-      { phaseOrder: 1, phaseName: 'Đợt 1 (Cọc / Cấp nhà)', percentage: 30, triggerEvent: 'ON_LOTTERY_WON', dueDays: 7 },
-      { phaseOrder: 2, phaseName: 'Đợt 2 (Bàn giao nhà)', percentage: 65, triggerEvent: 'HANDOVER', dueDays: 14 },
-      { phaseOrder: 3, phaseName: 'Đợt 3 (Sổ hồng)', percentage: 5, triggerEvent: 'RED_BOOK_ISSUED', dueDays: 7 },
+      { phaseOrder: 1, phaseName: 'Đợt 1 (Tiền cọc khi được cấp nhà)', percentage: 30, triggerEvent: 'ON_LOTTERY_WON', dueDays: 7 },
+      { phaseOrder: 2, phaseName: 'Đợt 2 (Khi bàn giao nhà)', percentage: 65, triggerEvent: 'HANDOVER', dueDays: 14 },
+      { phaseOrder: 3, phaseName: 'Đợt 3 (Khi cấp sổ hồng)', percentage: 5, triggerEvent: 'RED_BOOK_ISSUED', dueDays: 7 },
     ],
   },
   {
-    name: '4 đợt (Theo tiến độ thô)',
-    description: 'Cọc 20% · Xây thô 30% · Bàn giao 45% · Sổ hồng 5%',
+    name: '4 đợt (theo tiến độ thô)',
+    description: 'Cọc 20% khi cấp nhà · Xây thô 30% · Bàn giao 45% · Sổ hồng 5%',
     milestones: [
-      { phaseOrder: 1, phaseName: 'Đợt 1 (Cọc / Ký HĐMB)', percentage: 20, triggerEvent: 'ON_LOTTERY_WON', dueDays: 7 },
-      { phaseOrder: 2, phaseName: 'Đợt 2 (Hoàn thành phần thô)', percentage: 30, triggerEvent: 'CONSTRUCTION_ROUGH_FLOOR', dueDays: 14 },
-      { phaseOrder: 3, phaseName: 'Đợt 3 (Bàn giao nhà)', percentage: 45, triggerEvent: 'HANDOVER', dueDays: 14 },
-      { phaseOrder: 4, phaseName: 'Đợt 4 (Sổ hồng)', percentage: 5, triggerEvent: 'RED_BOOK_ISSUED', dueDays: 7 },
+      { phaseOrder: 1, phaseName: 'Đợt 1 (Tiền cọc khi được cấp nhà)', percentage: 20, triggerEvent: 'ON_LOTTERY_WON', dueDays: 7 },
+      { phaseOrder: 2, phaseName: 'Đợt 2 (Khi hoàn thành phần thô)', percentage: 30, triggerEvent: 'CONSTRUCTION_ROUGH_FLOOR', dueDays: 14 },
+      { phaseOrder: 3, phaseName: 'Đợt 3 (Khi bàn giao nhà)', percentage: 45, triggerEvent: 'HANDOVER', dueDays: 14 },
+      { phaseOrder: 4, phaseName: 'Đợt 4 (Khi cấp sổ hồng)', percentage: 5, triggerEvent: 'RED_BOOK_ISSUED', dueDays: 7 },
     ],
   },
   {
-    name: '5 đợt (Chuẩn NOXH)',
-    description: 'Cọc 20% · Xây thô 20% · Cất nóc 30% · Bàn giao 25% · Sổ hồng 5%',
+    name: '5 đợt (nhà ở xã hội)',
+    description: 'Cọc 20% khi cấp nhà · Xây thô 20% · Cất nóc 30% · Bàn giao 25% · Sổ hồng 5%',
     milestones: [
-      { phaseOrder: 1, phaseName: 'Đợt 1 (Cọc / Ký HĐMB)', percentage: 20, triggerEvent: 'ON_LOTTERY_WON', dueDays: 7 },
-      { phaseOrder: 2, phaseName: 'Đợt 2 (Xây dựng phần thô)', percentage: 20, triggerEvent: 'CONSTRUCTION_ROUGH_FLOOR', dueDays: 14 },
-      { phaseOrder: 3, phaseName: 'Đợt 3 (Cất nóc công trình)', percentage: 30, triggerEvent: 'ROOFING_COMPLETED', dueDays: 14 },
-      { phaseOrder: 4, phaseName: 'Đợt 4 (Bàn giao căn hộ)', percentage: 25, triggerEvent: 'HANDOVER', dueDays: 14 },
-      { phaseOrder: 5, phaseName: 'Đợt 5 (Cấp sổ hồng)', percentage: 5, triggerEvent: 'RED_BOOK_ISSUED', dueDays: 7 },
+      { phaseOrder: 1, phaseName: 'Đợt 1 (Tiền cọc khi được cấp nhà)', percentage: 20, triggerEvent: 'ON_LOTTERY_WON', dueDays: 7 },
+      { phaseOrder: 2, phaseName: 'Đợt 2 (Khi hoàn thành phần thô)', percentage: 20, triggerEvent: 'CONSTRUCTION_ROUGH_FLOOR', dueDays: 14 },
+      { phaseOrder: 3, phaseName: 'Đợt 3 (Khi cất nóc công trình)', percentage: 30, triggerEvent: 'ROOFING_COMPLETED', dueDays: 14 },
+      { phaseOrder: 4, phaseName: 'Đợt 4 (Khi bàn giao căn hộ)', percentage: 25, triggerEvent: 'HANDOVER', dueDays: 14 },
+      { phaseOrder: 5, phaseName: 'Đợt 5 (Khi cấp sổ hồng)', percentage: 5, triggerEvent: 'RED_BOOK_ISSUED', dueDays: 7 },
     ],
   },
   {
-    name: '6 đợt (Chia nhỏ tài chính)',
-    description: 'Cọc 15% · Ký HĐ 15% · Xây thô 20% · Cất nóc 20% · Bàn giao 25% · Sổ 5%',
+    name: '6 đợt (chia nhỏ khoản)',
+    description: 'Cọc 15% khi cấp nhà · Sau ký hợp đồng 15% · Xây thô 20% · Cất nóc 20% · Bàn giao 25% · Sổ hồng 5%',
     milestones: [
-      { phaseOrder: 1, phaseName: 'Đợt 1 (Đặt cọc giữ chỗ)', percentage: 15, triggerEvent: 'ON_LOTTERY_WON', dueDays: 7 },
-      { phaseOrder: 2, phaseName: 'Đợt 2 (Ký hợp đồng mua bán)', percentage: 15, triggerEvent: 'ON_CONTRACT_SIGNED', dueDays: 14 },
-      { phaseOrder: 3, phaseName: 'Đợt 3 (Hoàn thành phần thô)', percentage: 20, triggerEvent: 'CONSTRUCTION_ROUGH_FLOOR', dueDays: 14 },
-      { phaseOrder: 4, phaseName: 'Đợt 4 (Cất nóc công trình)', percentage: 20, triggerEvent: 'ROOFING_COMPLETED', dueDays: 14 },
-      { phaseOrder: 5, phaseName: 'Đợt 5 (Bàn giao nhà)', percentage: 25, triggerEvent: 'HANDOVER', dueDays: 14 },
-      { phaseOrder: 6, phaseName: 'Đợt 6 (Nhận sổ hồng)', percentage: 5, triggerEvent: 'RED_BOOK_ISSUED', dueDays: 7 },
+      { phaseOrder: 1, phaseName: 'Đợt 1 (Tiền cọc khi được cấp nhà)', percentage: 15, triggerEvent: 'ON_LOTTERY_WON', dueDays: 7 },
+      { phaseOrder: 2, phaseName: 'Đợt 2 (Sau khi ký hợp đồng mua bán)', percentage: 15, triggerEvent: 'ON_CONTRACT_SIGNED', dueDays: 14 },
+      { phaseOrder: 3, phaseName: 'Đợt 3 (Khi hoàn thành phần thô)', percentage: 20, triggerEvent: 'CONSTRUCTION_ROUGH_FLOOR', dueDays: 14 },
+      { phaseOrder: 4, phaseName: 'Đợt 4 (Khi cất nóc công trình)', percentage: 20, triggerEvent: 'ROOFING_COMPLETED', dueDays: 14 },
+      { phaseOrder: 5, phaseName: 'Đợt 5 (Khi bàn giao nhà)', percentage: 25, triggerEvent: 'HANDOVER', dueDays: 14 },
+      { phaseOrder: 6, phaseName: 'Đợt 6 (Khi cấp sổ hồng)', percentage: 5, triggerEvent: 'RED_BOOK_ISSUED', dueDays: 7 },
     ],
   },
 ]
@@ -205,7 +252,7 @@ export function CreateProjectModal({
   const [uploadingDocument, setUploadingDocument] = useState(false)
 
   const [milestones, setMilestones] = useState<MilestoneSetupItemDto[]>([
-    { phaseOrder: 1, phaseName: 'Đợt 1 (Đặt cọc / Cấp nhà)', percentage: 0, triggerEvent: 'ON_LOTTERY_WON', dueDays: 0 },
+    { phaseOrder: 1, phaseName: 'Đợt 1 (Tiền cọc khi được cấp nhà)', percentage: 0, triggerEvent: 'ON_LOTTERY_WON', dueDays: 0 },
     { phaseOrder: 2, phaseName: 'Đợt 2 (Bàn giao nhà)', percentage: 0, triggerEvent: 'HANDOVER', dueDays: 0 },
     { phaseOrder: 3, phaseName: 'Đợt 3 (Nhận sổ hồng)', percentage: 0, triggerEvent: 'RED_BOOK_ISSUED', dueDays: 0 },
   ])
@@ -233,7 +280,7 @@ export function CreateProjectModal({
     setThumbnailFile(null)
     setImagesFiles([])
     setMilestones([
-      { phaseOrder: 1, phaseName: 'Đợt 1 (Đặt cọc / Cấp nhà)', percentage: 0, triggerEvent: 'ON_LOTTERY_WON', dueDays: 0 },
+      { phaseOrder: 1, phaseName: 'Đợt 1 (Tiền cọc khi được cấp nhà)', percentage: 0, triggerEvent: 'ON_LOTTERY_WON', dueDays: 0 },
       { phaseOrder: 2, phaseName: 'Đợt 2 (Bàn giao nhà)', percentage: 0, triggerEvent: 'HANDOVER', dueDays: 0 },
       { phaseOrder: 3, phaseName: 'Đợt 3 (Nhận sổ hồng)', percentage: 0, triggerEvent: 'RED_BOOK_ISSUED', dueDays: 0 },
     ])
@@ -291,32 +338,8 @@ export function CreateProjectModal({
     if (!street.trim()) return 'Vui lòng nhập địa chỉ đường / số nhà (Bắt buộc).'
     if (!decisionNumber.trim()) return 'Vui lòng nhập số quyết định phê duyệt.'
 
-    if (milestones.length < MIN_PAYMENT_PHASES) {
-      return `Cần ít nhất ${MIN_PAYMENT_PHASES} đợt thanh toán (Đợt 1 là cọc, tối đa 30%).`
-    }
-    if (milestones.length > MAX_PAYMENT_PHASES) {
-      return `Tối đa ${MAX_PAYMENT_PHASES} đợt thanh toán.`
-    }
-
-    // Kiểm tra tỷ lệ Đợt 1 <= 30% theo Luật Nhà ở Xã hội
-    const phase1Pct = Number(milestones[0]?.percentage) || 0
-    if (phase1Pct > 30) {
-      return `Đợt 1 đang là ${phase1Pct}% — Theo quy định Luật Nhà ở Xã hội, tỷ lệ thanh toán Đợt 1 tối đa chỉ được 30%.`
-    }
-
-    const totalPercentage = milestones.reduce((sum, m) => sum + (Number(m.percentage) || 0), 0)
-    if (Math.abs(totalPercentage - 100) > 0.01) {
-      return `Tổng tỷ lệ thanh toán phải là 100% (hiện tại: ${totalPercentage}%).`
-    }
-
-    for (let i = 0; i < milestones.length; i++) {
-      if (!milestones[i].phaseName.trim()) return `Đợt ${i + 1}: Vui lòng nhập tên đợt thanh toán.`
-      if (!milestones[i].triggerEvent.trim()) return `Đợt ${i + 1}: Vui lòng chọn sự kiện kích hoạt.`
-      const pct = Number(milestones[i].percentage)
-      if (pct <= 0) return `Đợt ${i + 1}: Vui lòng nhập tỷ lệ % thanh toán lớn hơn 0%.`
-      const days = Number(milestones[i].dueDays)
-      if (days <= 0) return `Đợt ${i + 1}: Thời hạn thanh toán phải lớn hơn 0 ngày.`
-    }
+    const milestoneError = validatePaymentMilestones(milestones)
+    if (milestoneError) return milestoneError
     return null
   }
 
@@ -554,6 +577,7 @@ export function CreateProjectModal({
           ...m,
           phaseOrder: i + 1,
           percentage: Number(m.percentage),
+          triggerEvent: i === 0 ? PHASE1_TRIGGER : m.triggerEvent,
           dueDays: Number(m.dueDays) || undefined,
         })),
       }
@@ -636,7 +660,7 @@ export function CreateProjectModal({
             <div className="min-w-0 flex-1">
               <h2 className="text-base font-bold text-white">Tạo dự án nhà ở mới</h2>
               <p className="text-[11px] text-teal-100">
-                Thiết lập thông tin dự án, tiến độ thanh toán và quỹ căn hộ theo chuẩn Sở Xây dựng
+                Thiết lập thông tin dự án, tiến độ thanh toán (Đợt 1 là tiền cọc trước khi ký hợp đồng mua bán) và quỹ căn hộ theo chuẩn Sở Xây dựng
               </p>
             </div>
             {aptSummary && (
@@ -882,12 +906,12 @@ export function CreateProjectModal({
               <div className="md:col-span-12 mt-2 rounded-xl border border-teal-200/80 bg-white p-3.5 shadow-sm dark:border-teal-800/40 dark:bg-slate-900/60">
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2 dark:border-slate-800">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-teal-800 dark:text-teal-300">
-                      Chính sách thanh toán theo tiến độ
-                    </span>
-                    <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-bold text-teal-700 dark:bg-teal-950 dark:text-teal-300">
-                      {milestones.length} đợt · Đợt 1 (cọc) ≤ 30%
-                    </span>
+                      <span className="text-sm font-bold text-teal-800 dark:text-teal-300">
+                        Chính sách thanh toán theo tiến độ
+                      </span>
+                      <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-bold text-teal-700 dark:bg-teal-950 dark:text-teal-300">
+                        {milestones.length} đợt · Đợt 1 là tiền cọc, tối đa 30%
+                      </span>
                     {requiredDot}
                   </div>
 
@@ -916,6 +940,8 @@ export function CreateProjectModal({
                   </div>
                 </div>
 
+                <PaymentProgressPolicyNote />
+
                 {/* Presets buttons */}
                 <div className="mb-3 flex flex-wrap items-center gap-1.5">
                   <span className="text-[11px] font-semibold text-slate-500">Mẫu tiến độ chuẩn:</span>
@@ -932,7 +958,7 @@ export function CreateProjectModal({
                         }`}
                       title={preset.description}
                     >
-                      🎯 {preset.name}
+                        {preset.name}
                     </button>
                   ))}
                 </div>
@@ -970,13 +996,16 @@ export function CreateProjectModal({
                       </div>
                       {!isPhase1Valid && (
                         <div className="mt-2 flex items-center gap-1.5 rounded-lg border border-rose-300 bg-rose-50 px-2.5 py-1.5 text-[11px] font-semibold text-rose-700 dark:border-rose-800 dark:bg-rose-950/60 dark:text-rose-300">
-                          <span>⚠️ <strong>Lỗi vi phạm:</strong> Tỷ lệ thanh toán Đợt 1 đang là <strong>{milestones[0].percentage}%</strong> (Luật Nhà ở Xã hội quy định Đợt 1 không được vượt quá <strong>30%</strong>).</span>
+                          <span><strong>Chưa đạt:</strong> tỷ lệ Đợt 1 (tiền cọc) đang là <strong>{milestones[0].percentage}%</strong>. Luật Nhà ở năm 2023 quy định tiền cọc Đợt 1 không được vượt quá <strong>30%</strong> giá trị căn.</span>
                         </div>
                       )}
                     </div>
                   )
                 })()}
 
+                <p className="mb-2 text-[11px] text-slate-500 dark:text-slate-400">
+                  Mỗi dòng: tên đợt, tỷ lệ phần trăm, mốc mở đợt, số ngày hạn thanh toán. Đợt 1 khóa mốc cấp nhà vì đây là tiền cọc.
+                </p>
                 <div className="space-y-2">
                   {milestones.map((m, idx) => (
                     <div
@@ -1029,15 +1058,19 @@ export function CreateProjectModal({
                       <div className="min-w-[190px] flex-1">
                         <select
                           className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
-                          value={m.triggerEvent}
-                          disabled={submitting}
+                          value={idx === 0 ? PHASE1_TRIGGER : m.triggerEvent}
+                          disabled={submitting || idx === 0}
+                          title={idx === 0 ? 'Đợt 1 là tiền cọc khi được cấp nhà — không gắn mốc ký hợp đồng.' : undefined}
                           onChange={(e) => {
                             const n = [...milestones]
-                            n[idx] = { ...n[idx], triggerEvent: e.target.value }
+                            n[idx] = { ...n[idx], triggerEvent: idx === 0 ? PHASE1_TRIGGER : e.target.value }
                             setMilestones(n)
                           }}
                         >
-                          {VALID_TRIGGER_EVENTS.map((t) => (
+                          {(idx === 0
+                            ? VALID_TRIGGER_EVENTS.filter((t) => t.code === PHASE1_TRIGGER)
+                            : VALID_TRIGGER_EVENTS.filter((t) => t.code !== PHASE1_TRIGGER)
+                          ).map((t) => (
                             <option key={t.code} value={t.code}>
                               {t.label}
                             </option>
@@ -1068,9 +1101,9 @@ export function CreateProjectModal({
 
                       <button
                         type="button"
-                        disabled={milestones.length <= MIN_PAYMENT_PHASES || submitting}
+                        disabled={idx === 0 || milestones.length <= MIN_PAYMENT_PHASES || submitting}
                         className="shrink-0 rounded-lg p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:opacity-30 dark:hover:bg-rose-950/40"
-                        title={milestones.length <= MIN_PAYMENT_PHASES ? `Tối thiểu ${MIN_PAYMENT_PHASES} đợt thanh toán` : 'Xóa đợt này'}
+                        title={idx === 0 ? 'Không xóa Đợt 1 — đây là tiền cọc khi được cấp nhà.' : milestones.length <= MIN_PAYMENT_PHASES ? `Tối thiểu ${MIN_PAYMENT_PHASES} đợt thanh toán` : 'Xóa đợt này'}
                         onClick={() => {
                           if (milestones.length > MIN_PAYMENT_PHASES) {
                             setMilestones(

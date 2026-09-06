@@ -12,7 +12,7 @@ import {
 } from '@/api/lottery'
 import { housingProjectsApi } from '@/api/housing-projects'
 import type { HousingProjectSummaryDto } from '@/types'
-import { normalizeStatus } from '@/lib/project-status-flow'
+import { WAITLIST_CONFIRM_HOURS } from '@/lib/lottery-allocation'
 import { connectLotteryHub, stopLotteryHub } from '@/api/lotteryHub'
 import { getRole } from '@/router'
 import { getLotteryPhase } from '@/lib/lottery-phase'
@@ -555,7 +555,7 @@ export const LotteryLivePage: React.FC = () => {
             </div>
 
             <p className="mt-4 text-xs leading-relaxed text-slate-600">
-              Hệ thống sẽ tự động xáo trộn và phân bổ toàn bộ quỹ căn hộ cho tất cả hồ sơ đủ điều kiện theo đúng <strong>tỷ lệ ưu tiên 30%</strong> quy định tại Nghị định 100/2024/NĐ-CP.
+              Hệ thống xáo trộn ngẫu nhiên công khai phần quỹ căn còn lại. Hồ sơ không trúng được xếp danh sách chờ theo hạng. Căn trả lại (hủy HĐ / không cọc) đôn người #1 — hạn xác nhận {WAITLIST_CONFIRM_HOURS} giờ, không mở lại đợt bốc thăm.
             </p>
 
             <div className="mt-6 flex items-center justify-end gap-3">

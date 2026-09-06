@@ -13,6 +13,12 @@ import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/input'
 import { navigate } from '@/hooks/useHashRoute'
 import { formatError } from '@/lib/format-error'
+import {
+  WAITLIST_CONFIRM_HOURS,
+  apartmentOptionLabel,
+  sortByHighestScore,
+  splitAvailableUnits,
+} from '@/lib/lottery-allocation'
 import type { ApartmentDto } from '@/types'
 
 const PRIORITY_LABELS: Record<string, string> = {
@@ -24,9 +30,10 @@ const PRIORITY_LABELS: Record<string, string> = {
 }
 
 /**
- * CĐT quyết định sau khi SXD duyệt hồ sơ:
- * - ≤ số căn: chốt + chọn căn → ký HĐ
- * - > số căn: duyệt ưu tiên + chọn căn trước; phần còn lại bốc thăm
+ * CĐT sau khi SXD duyệt:
+ * - Hồ sơ ≤ căn trống → cấp căn, không bốc thăm
+ * - Vượt căn → căn ưu tiên cấp trực tiếp cho điểm cao nhất; phần còn lại bốc thăm công khai
+ * - Không trúng → waitlist theo hạng; suất trả lại đôn #1 (hạn xác nhận 48 giờ — BE)
  */
 export function DeveloperDecisionPanel({ projectId }: { projectId: string }) {
   const [evaluation, setEvaluation] = useState<ProjectApplicationEvaluationDto | null>(null)
@@ -36,7 +43,6 @@ export function DeveloperDecisionPanel({ projectId }: { projectId: string }) {
   const [busy, setBusy] = useState('')
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [closeProject, setCloseProject] = useState(false)
-  const [selectedPriority, setSelectedPriority] = useState<Set<string>>(new Set())
   /** applicationId → apartmentId */
   const [aptByApp, setAptByApp] = useState<Record<string, string>>({})
 
@@ -54,11 +60,31 @@ export function DeveloperDecisionPanel({ projectId }: { projectId: string }) {
         (a) => String(a.status).toUpperCase() === 'AVAILABLE',
       )
       setAvailableApts(apts)
+      const fund = splitAvailableUnits(apts)
       if (e) {
-        const auto = e.priorityApplications.slice(0, e.availableUnits).map((a) => a.applicationId)
-        setSelectedPriority(new Set(auto))
+        const pool = sortByHighestScore(e.priorityApplications)
+        const all = sortByHighestScore([
+          ...e.priorityApplications,
+          ...e.nonPriorityApplications,
+        ])
+        const over = all.length > apts.length
+        const usesSelection = pool.length > apts.length
+        const nDirect = over
+          ? usesSelection
+            ? Math.min(fund.priorityCount > 0 ? fund.priorityCount : 0, apts.length, pool.length)
+            : pool.length
+          : all.length
+        const grant = over ? pool.slice(0, nDirect) : all
+        const rankedApts = [...fund.priority, ...fund.standard]
+        const nextApts: Record<string, string> = {}
+        grant.forEach((app, i) => {
+          const apt = rankedApts[i] as ApartmentDto | undefined
+          if (apt?.id) nextApts[app.applicationId] = apt.id
+        })
+        setAptByApp(nextApts)
+      } else {
+        setAptByApp({})
       }
-      setAptByApp({})
     } catch (err) {
       setError(formatError(err))
       setEvaluation(null)
@@ -72,25 +98,51 @@ export function DeveloperDecisionPanel({ projectId }: { projectId: string }) {
     void load()
   }, [projectId])
 
-  const excessPriority = useMemo(() => {
-    if (!evaluation) return false
-    return evaluation.priorityCount > evaluation.availableUnits
+  const fund = useMemo(() => splitAvailableUnits(availableApts), [availableApts])
+
+  const bePriorityPool = useMemo(
+    () => (evaluation ? sortByHighestScore(evaluation.priorityApplications) : []),
+    [evaluation],
+  )
+
+  const allQualified = useMemo(() => {
+    if (!evaluation) return [] as ApplicationSummaryItemDto[]
+    return sortByHighestScore([
+      ...evaluation.priorityApplications,
+      ...evaluation.nonPriorityApplications,
+    ])
   }, [evaluation])
 
-  const closeAndSignApps = useMemo(() => {
-    if (!evaluation) return [] as ApplicationSummaryItemDto[]
-    return [...evaluation.priorityApplications, ...evaluation.nonPriorityApplications]
-  }, [evaluation])
+  /** BE chỉ cấp trực tiếp các hồ sơ có nhóm đối tượng; khi vượt số căn thì nhận danh sách id FE gửi. */
+  const beUsesSelection = bePriorityPool.length > availableApts.length
 
-  const priorityGrantApps = useMemo(() => {
-    if (!evaluation) return [] as ApplicationSummaryItemDto[]
-    if (excessPriority) {
-      return evaluation.priorityApplications.filter((a) => selectedPriority.has(a.applicationId))
+  const nDirect = useMemo(() => {
+    if (bePriorityPool.length === 0) return 0
+    if (beUsesSelection) {
+      const cap = fund.priorityCount > 0 ? fund.priorityCount : 0
+      return Math.min(cap, availableApts.length, bePriorityPool.length)
     }
-    return evaluation.priorityApplications
-  }, [evaluation, excessPriority, selectedPriority])
+    return bePriorityPool.length
+  }, [bePriorityPool.length, beUsesSelection, fund.priorityCount, availableApts.length])
+
+  const closeAndSignApps = allQualified
+
+  const priorityGrantApps = useMemo(
+    () => bePriorityPool.slice(0, nDirect),
+    [bePriorityPool, nDirect],
+  )
+
+  const lotteryApps = useMemo(() => {
+    const granted = new Set(priorityGrantApps.map((a) => a.applicationId))
+    return allQualified.filter((a) => !granted.has(a.applicationId))
+  }, [allQualified, priorityGrantApps])
 
   const usedAptIds = useMemo(() => new Set(Object.values(aptByApp).filter(Boolean)), [aptByApp])
+
+  const rankedAvailableApts = useMemo(
+    () => [...fund.priority, ...fund.standard] as ApartmentDto[],
+    [fund],
+  )
 
   const setAppApartment = (applicationId: string, apartmentId: string) => {
     setAptByApp((prev) => {
@@ -134,15 +186,11 @@ export function DeveloperDecisionPanel({ projectId }: { projectId: string }) {
   const execute = async (decisionType: DeveloperDecisionType) => {
     if (!evaluation || busy) return
 
-    if (decisionType === 'PROCESS_PRIORITY_AND_LOTTERY' && excessPriority) {
-      if (selectedPriority.size === 0) {
-        setMsg({ type: 'error', text: 'Chọn ít nhất một hồ sơ ưu tiên để duyệt trước.' })
-        return
-      }
-      if (selectedPriority.size > evaluation.availableUnits) {
+    if (decisionType === 'PROCESS_PRIORITY_AND_LOTTERY' && beUsesSelection) {
+      if (priorityGrantApps.length === 0) {
         setMsg({
           type: 'error',
-          text: `Chỉ được chọn tối đa ${evaluation.availableUnits} hồ sơ ưu tiên (bằng số căn còn lại).`,
+          text: 'Không còn căn ưu tiên để cấp trực tiếp. Hồ sơ vượt quỹ sẽ vào bốc thăm công khai.',
         })
         return
       }
@@ -166,10 +214,10 @@ export function DeveloperDecisionPanel({ projectId }: { projectId: string }) {
     }
 
     const labels: Record<DeveloperDecisionType, string> = {
-      CLOSE_AND_SIGN: 'Chốt danh sách, cấp căn và chuyển sang ký hợp đồng?',
+      CLOSE_AND_SIGN: 'Chốt danh sách, cấp căn (điểm cao nhận căn ưu tiên trước) và chuyển sang ký hợp đồng?',
       KEEP_OPEN: 'Giữ danh sách đạt yêu cầu và tiếp tục nhận thêm hồ sơ?',
       PROCESS_PRIORITY_AND_LOTTERY:
-        'Cấp căn cho đối tượng ưu tiên đã chọn, phần còn lại sẽ tổ chức bốc thăm?',
+        'Cấp căn ưu tiên cho hồ sơ điểm cao nhất, phần còn lại bốc thăm công khai? Hồ sơ không trúng sẽ vào danh sách chờ theo hạng.',
     }
     if (!window.confirm(labels[decisionType])) return
 
@@ -180,8 +228,8 @@ export function DeveloperDecisionPanel({ projectId }: { projectId: string }) {
         decisionType,
         closeProject: decisionType === 'CLOSE_AND_SIGN' ? closeProject : false,
         selectedPriorityApplicationIds:
-          decisionType === 'PROCESS_PRIORITY_AND_LOTTERY' && excessPriority
-            ? Array.from(selectedPriority)
+          decisionType === 'PROCESS_PRIORITY_AND_LOTTERY' && beUsesSelection
+            ? priorityGrantApps.map((a) => a.applicationId)
             : undefined,
         apartmentAssignments:
           decisionType === 'KEEP_OPEN'
@@ -207,7 +255,7 @@ export function DeveloperDecisionPanel({ projectId }: { projectId: string }) {
       } else {
         setMsg({
           type: 'success',
-          text: 'Đã cấp căn cho hồ sơ ưu tiên. Hồ sơ còn lại sẵn sàng bốc thăm — chuyển sang đề xuất lịch.',
+          text: `Đã cấp căn ưu tiên cho ${priorityGrantApps.length} hồ sơ điểm cao nhất. Phần còn lại bốc thăm công khai; không trúng sẽ vào danh sách chờ (hạn xác nhận ${WAITLIST_CONFIRM_HOURS} giờ khi được đôn).`,
         })
         sessionStorage.setItem('lotteryProjectId', projectId)
         sessionStorage.setItem('projectId', projectId)
@@ -220,25 +268,6 @@ export function DeveloperDecisionPanel({ projectId }: { projectId: string }) {
     } finally {
       setBusy('')
     }
-  }
-
-  const togglePriority = (id: string) => {
-    if (!evaluation) return
-    setSelectedPriority((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) {
-        next.delete(id)
-        setAptByApp((m) => {
-          const copy = { ...m }
-          delete copy[id]
-          return copy
-        })
-        return next
-      }
-      if (next.size >= evaluation.availableUnits) return prev
-      next.add(id)
-      return next
-    })
   }
 
   if (loading) {
@@ -264,11 +293,12 @@ export function DeveloperDecisionPanel({ projectId }: { projectId: string }) {
     <div className="space-y-5">
       <div>
         <h3 className="font-semibold text-slate-900 dark:text-white">
-          Cấp căn &amp; chuyển ký hợp đồng
+          Cấp căn, bốc thăm &amp; danh sách chờ
         </h3>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Sau khi Sở duyệt: nếu số hồ sơ ≤ số căn → chọn căn rồi chốt thẳng; nếu vượt căn → cấp căn
-          cho ưu tiên, phần còn lại đề xuất lịch bốc thăm.
+          Căn ưu tiên cấp trực tiếp cho hồ sơ điểm cao nhất. Khi số hồ sơ hợp lệ vượt quỹ căn còn lại,
+          phần còn lại bốc thăm công khai. Không trúng được xếp waitlist theo hạng — suất trả lại
+          (hủy HĐ / không cọc) đôn người #1, hạn xác nhận {WAITLIST_CONFIRM_HOURS} giờ.
         </p>
       </div>
 
@@ -276,9 +306,9 @@ export function DeveloperDecisionPanel({ projectId }: { projectId: string }) {
 
       <div className="grid gap-3 sm:grid-cols-4">
         <Stat label="Căn còn trống" value={availableApts.length} />
+        <Stat label="Căn ưu tiên" value={fund.priorityCount} tone="warning" />
+        <Stat label="Căn thường" value={fund.standardCount} tone="success" />
         <Stat label="Đã duyệt (SXD)" value={evaluation.totalQualifiedApplications} tone="primary" />
-        <Stat label="Ưu tiên" value={evaluation.priorityCount} tone="warning" />
-        <Stat label="Không ưu tiên" value={evaluation.nonPriorityCount} tone="success" />
       </div>
 
       {!hasQualified ? (
@@ -289,14 +319,14 @@ export function DeveloperDecisionPanel({ projectId }: { projectId: string }) {
       ) : isLessOrEqual ? (
         <div className="space-y-4">
           <Alert variant="info">
-            Số hồ sơ đủ điều kiện ({evaluation.totalQualifiedApplications}) ≤ số căn trống (
-            {availableApts.length}). Chọn căn cho từng hồ sơ rồi chốt → ký hợp đồng.
+            Số hồ sơ đủ điều kiện ({evaluation.totalQualifiedApplications}) không vượt số căn trống (
+            {availableApts.length}). Cấp căn theo điểm (căn ưu tiên cho điểm cao nhất), không bốc thăm.
           </Alert>
 
           <ApartmentAssignList
-            title="Cấp căn cho hồ sơ đủ điều kiện"
+            title="Cấp căn cho hồ sơ đủ điều kiện (điểm cao → căn ưu tiên)"
             items={closeAndSignApps}
-            availableApts={availableApts}
+            availableApts={rankedAvailableApts}
             aptByApp={aptByApp}
             usedAptIds={usedAptIds}
             onChange={setAppApartment}
@@ -323,97 +353,66 @@ export function DeveloperDecisionPanel({ projectId }: { projectId: string }) {
             </Button>
             <Button variant="outline" disabled={!!busy} onClick={() => void execute('KEEP_OPEN')}>
               <Inbox className="mr-1.5 h-4 w-4" />
-              {busy === 'KEEP_OPEN' ? 'Đang lưu…' : 'Giữ &amp; nhận thêm hồ sơ'}
+              {busy === 'KEEP_OPEN' ? 'Đang lưu…' : 'Giữ & nhận thêm hồ sơ'}
             </Button>
           </div>
         </div>
       ) : (
         <div className="space-y-4">
           <Alert variant="warning">
-            Số hồ sơ đủ điều kiện ({evaluation.totalQualifiedApplications}) &gt; số căn trống (
-            {availableApts.length}). Duyệt ưu tiên + cấp căn trước; phần còn lại tổ chức bốc thăm.
+            Số hồ sơ hợp lệ ({evaluation.totalQualifiedApplications}) vượt quỹ căn còn lại (
+            {availableApts.length}: {fund.priorityCount} ưu tiên + {fund.standardCount} thường).
+            Căn ưu tiên cấp trực tiếp theo thang điểm; phần còn lại bốc thăm công khai. Không trúng
+            vào danh sách chờ #1, #2, #3… — không hủy hồ sơ.
           </Alert>
 
-          {excessPriority ? (
-            <div className="space-y-3">
-              <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
-                Số ưu tiên ({evaluation.priorityCount}) vượt số căn — chọn tối đa{' '}
-                {evaluation.availableUnits} hồ sơ ({selectedPriority.size}/
-                {evaluation.availableUnits}):
+          {priorityGrantApps.length > 0 ? (
+            <>
+              <p className="text-sm text-slate-600 dark:text-slate-300">
+                {priorityGrantApps.length} hồ sơ điểm cao nhất được cấp căn ưu tiên (không bốc thăm),
+                xếp theo điểm giảm dần.
               </p>
-              <div className="max-h-64 space-y-2 overflow-y-auto rounded-lg border border-slate-200 p-3 dark:border-slate-700">
-                {evaluation.priorityApplications.map((app) => (
-                  <label
-                    key={app.applicationId}
-                    className="flex cursor-pointer items-start gap-3 rounded-lg p-2 hover:bg-slate-50 dark:hover:bg-slate-800/60"
-                  >
-                    <input
-                      type="checkbox"
-                      className="mt-1 h-4 w-4 accent-blue-600"
-                      checked={selectedPriority.has(app.applicationId)}
-                      onChange={() => togglePriority(app.applicationId)}
-                    />
-                    <span className="min-w-0 flex-1 text-sm">
-                      <span className="font-medium">{app.fullName}</span>
-                      <span className="mt-0.5 block text-xs text-slate-500">
-                        {PRIORITY_LABELS[app.priorityGroup ?? ''] ?? app.priorityGroup ?? 'Ưu tiên'}{' '}
-                        · Điểm {app.priorityScore} · CCCD {app.citizenId}
-                      </span>
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </div>
+              <ApartmentAssignList
+                title="Cấp trực tiếp — điểm cao nhất"
+                items={priorityGrantApps}
+                availableApts={rankedAvailableApts}
+                aptByApp={aptByApp}
+                usedAptIds={usedAptIds}
+                onChange={setAppApartment}
+              />
+            </>
           ) : (
-            <p className="text-sm text-slate-600 dark:text-slate-300">
-              Tất cả {evaluation.priorityCount} hồ sơ ưu tiên sẽ được cấp căn (không vượt số căn trống).
-            </p>
+            <Alert variant="info">
+              Dự án không còn căn gắn suất ưu tiên. Toàn bộ hồ sơ vượt quỹ sẽ vào bốc thăm công khai.
+            </Alert>
           )}
 
-          <ApartmentAssignList
-            title="Cấp căn cho hồ sơ ưu tiên được chọn"
-            items={priorityGrantApps}
-            availableApts={availableApts}
-            aptByApp={aptByApp}
-            usedAptIds={usedAptIds}
-            onChange={setAppApartment}
-          />
-
-          <AppList
-            title="Hồ sơ còn lại (sẽ bốc thăm — cấp căn sau khi trúng)"
-            items={
-              excessPriority
-                ? [
-                    ...evaluation.priorityApplications.filter(
-                      (a) => !selectedPriority.has(a.applicationId),
-                    ),
-                    ...evaluation.nonPriorityApplications,
-                  ]
-                : evaluation.nonPriorityApplications
-            }
-          />
+          <AppList title="Hồ sơ còn lại — bốc thăm; không trúng vào waitlist theo hạng" items={lotteryApps} />
 
           <div className="flex flex-wrap gap-2">
+            {priorityGrantApps.length > 0 && (
+              <Button
+                variant="accent"
+                disabled={!!busy || availableApts.length === 0}
+                onClick={() => void execute('PROCESS_PRIORITY_AND_LOTTERY')}
+              >
+                <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                {busy === 'PROCESS_PRIORITY_AND_LOTTERY'
+                  ? 'Đang xử lý…'
+                  : 'Cấp căn điểm cao → chuẩn bị bốc thăm'}
+              </Button>
+            )}
             <Button
-              variant="accent"
-              disabled={!!busy || priorityGrantApps.length === 0 || availableApts.length === 0}
-              onClick={() => void execute('PROCESS_PRIORITY_AND_LOTTERY')}
-            >
-              <CheckCircle2 className="mr-1.5 h-4 w-4" />
-              {busy === 'PROCESS_PRIORITY_AND_LOTTERY'
-                ? 'Đang xử lý…'
-                : 'Cấp căn ưu tiên → chuẩn bị bốc thăm'}
-            </Button>
-            <Button
-              variant="outline"
+              variant={priorityGrantApps.length > 0 ? 'outline' : 'accent'}
               disabled={!!busy}
               onClick={() => {
                 sessionStorage.setItem('lotteryProjectId', projectId)
-                navigate('lottery-sessions')
+                sessionStorage.setItem('projectId', projectId)
+                navigate('lottery-detail')
               }}
             >
               <Sparkles className="mr-1.5 h-4 w-4" />
-              Mở quản lý bốc thăm
+              Bốc thăm
             </Button>
           </div>
         </div>
@@ -473,7 +472,7 @@ function ApartmentAssignList({
                   {app.priorityGroup
                     ? PRIORITY_LABELS[app.priorityGroup] ?? app.priorityGroup
                     : 'Không ưu tiên'}{' '}
-                  · {app.citizenId}
+                  · Điểm {app.priorityScore} · {app.citizenId}
                 </p>
               </div>
               <Select
@@ -486,8 +485,7 @@ function ApartmentAssignList({
                   const taken = usedAptIds.has(apt.id) && selected !== apt.id
                   return (
                     <option key={apt.id} value={apt.id} disabled={taken}>
-                      {apt.unitName} · {apt.area}m² · {Number(apt.price).toLocaleString('vi-VN')}đ
-                      {taken ? ' (đã chọn)' : ''}
+                      {apartmentOptionLabel(apt, taken)}
                     </option>
                   )
                 })}
@@ -521,7 +519,7 @@ function AppList({ title, items }: { title: string; items: ApplicationSummaryIte
           >
             <span className="font-medium">{a.fullName}</span>
             <span className="text-xs text-slate-500">
-              {a.priorityGroup
+              Điểm {a.priorityScore} · {a.priorityGroup
                 ? PRIORITY_LABELS[a.priorityGroup] ?? a.priorityGroup
                 : 'Không ưu tiên'}{' '}
               · {a.citizenId}

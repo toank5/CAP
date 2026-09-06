@@ -19,6 +19,7 @@ import {
   Compass,
   Eye,
   ShieldCheck,
+  Sparkles,
   Bed,
   Maximize2,
   Box,
@@ -57,7 +58,13 @@ import { matchesOpenStatus } from '@/lib/housing-search'
 import { FLASH_CREATE_PROJECT_KEY, FLASH_DELETE_PROJECT_KEY } from '@/lib/constants'
 import { ensureVerifiedForApplication } from '@/lib/ekyc-gate'
 import { getRole, isLoggedIn } from '@/router'
-import { isPending, isUpcoming, isOpenForRegistration } from '@/lib/project-status-flow'
+import {
+  isPending,
+  isUpcoming,
+  isOpenForRegistration,
+  isRejected,
+  isApplicationIntakeOpen,
+} from '@/lib/project-status-flow'
 import {
   applyClientFilters,
   EMPTY_HOUSING_SEARCH,
@@ -182,7 +189,7 @@ export function ProjectsPage() {
               Danh mục Dự án Nhà ở Xã hội
             </h1>
             <p className="max-w-2xl text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-              Khám phá các dự án nhà ở xã hội quy hoạch chuẩn mực, thông tin minh bạch, lịch thanh toán do chủ đầu tư công bố (Đợt 1 là cọc, tối đa 30%) và nộp hồ sơ xét duyệt trực tuyến.
+              Khám phá các dự án nhà ở xã hội quy hoạch chuẩn mực, thông tin minh bạch, lịch thanh toán do chủ đầu tư công bố (Đợt 1 là tiền cọc khi được cấp nhà, tối đa 30% giá trị căn, phải đóng trước khi ký hợp đồng mua bán) và nộp hồ sơ xét duyệt trực tuyến.
             </p>
 
             {/* Quick Metrics Badges */}
@@ -561,7 +568,7 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <FormField label="Số căn còn trống" htmlFor="availableUnits"><Input id="availableUnits" name="availableUnits" type="number" /></FormField>
-        <FormField label="Trả trước Đợt 1 (%)" htmlFor="phase1Percentage">
+        <FormField label="Tỷ lệ Đợt 1 — tiền cọc (%)" htmlFor="phase1Percentage">
           <Input
             id="phase1Percentage"
             name="phase1Percentage"
@@ -575,7 +582,7 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
         </FormField>
       </div>
       <p className="text-xs text-slate-500">
-        Bắt buộc — công bố cho người dân tỉ lệ trả trước sau ký HĐ (Đợt 1 là cọc, tối đa 30%). Các đợt sau do CĐT cấu hình, tổng 100%.
+        Bắt buộc — công bố cho người dân tỷ lệ Đợt 1 (tiền cọc khi được cấp nhà, tối đa 30% giá trị căn). Người dân phải đóng cọc xong mới được ký hợp đồng mua bán. Các đợt sau do chủ đầu tư cấu hình, tổng 100%. Căn cứ: Luật Nhà ở năm 2023.
       </p>
 
       <div className="space-y-2 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
@@ -777,7 +784,22 @@ export function ProjectDetailPage() {
           <ProjectDetailView projectId={projectId} onLoaded={setProject} />
         ) : (
           <>
-            {Boolean(project) && (isDeveloper || isAdmin) && !isPending(project) && !isUpcoming(project) && !isOpenForRegistration(project) && (
+            {Boolean(project) && (isDeveloper || isAdmin) && !isPending(project) && !isUpcoming(project) && !isRejected(project) && (
+              <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
+                <Button
+                  variant="accent"
+                  onClick={() => {
+                    sessionStorage.setItem('lotteryProjectId', projectId)
+                    sessionStorage.setItem('projectId', projectId)
+                    navigate('lottery-detail')
+                  }}
+                >
+                  <Sparkles className="mr-1.5 h-4 w-4" />
+                  Bốc thăm
+                </Button>
+              </div>
+            )}
+            {Boolean(project) && (isDeveloper || isAdmin) && !isPending(project) && !isUpcoming(project) && !isRejected(project) && (
               <section
                 id="developer-decision"
                 className="mb-8 rounded-xl border-2 border-blue-200 bg-blue-50/60 p-4 dark:border-blue-800 dark:bg-blue-950/30"
@@ -820,7 +842,7 @@ export function ProjectDetailPage() {
                         </span>
                       </div>
                       <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
-                        Dự án đang ở trạng thái chờ duyệt. Bạn có thể chỉnh sửa thông tin dự án, tiến độ thanh toán (Đợt 1 là cọc ≤ 30%) và cơ cấu quỹ căn hộ theo chuẩn mới.
+                        Dự án đang ở trạng thái chờ duyệt. Bạn có thể chỉnh sửa thông tin dự án, tiến độ thanh toán (Đợt 1 là tiền cọc khi được cấp nhà, tối đa 30% giá trị căn, phải đóng trước khi ký hợp đồng mua bán) và cơ cấu quỹ căn hộ.
                       </p>
                     </div>
                   </div>
@@ -894,11 +916,14 @@ const DIRECTION_LABELS: Record<string, string> = {
 }
 
 const TRIGGER_EVENT_LABELS: Record<string, string> = {
-  ON_LOTTERY_WON: 'Cọc / Cấp nhà / Trúng bốc thăm',
-  FOUNDATION_COMPLETED: 'Hoàn thành móng',
-  TOPPING_OUT: 'Cất nóc công trình',
-  HANDOVER: 'Bàn giao căn hộ',
-  RED_BOOK_ISSUED: 'Cấp Giấy chứng nhận (Sổ hồng)',
+  ON_LOTTERY_WON: 'Khi được cấp nhà hoặc trúng bốc thăm (tiền cọc Đợt 1)',
+  ON_CONTRACT_SIGNED: 'Sau khi đã ký hợp đồng mua bán',
+  CONSTRUCTION_ROUGH_FLOOR: 'Khi hoàn thành xây dựng phần thô',
+  FOUNDATION_COMPLETED: 'Khi hoàn thành móng',
+  ROOFING_COMPLETED: 'Khi cất nóc công trình',
+  TOPPING_OUT: 'Khi cất nóc công trình',
+  HANDOVER: 'Khi bàn giao căn hộ',
+  RED_BOOK_ISSUED: 'Khi cấp giấy chứng nhận quyền sử dụng đất, quyền sở hữu nhà ở (sổ hồng)',
   CUSTOM: 'Theo tiến độ thực tế',
 }
 
@@ -984,7 +1009,7 @@ function ProjectDetailView({
   const inOpenWindow =
     (!openAt || Number.isNaN(openAt.getTime()) || now >= openAt) &&
     (!closeAt || Number.isNaN(closeAt.getTime()) || now <= closeAt)
-  const canApply = matchesOpenStatus(statusLabel) && inOpenWindow
+  const canApply = isApplicationIntakeOpen(project) && matchesOpenStatus(statusLabel) && inOpenWindow
 
   const handleWishlist = async () => {
     if (!logged) {
@@ -1313,7 +1338,13 @@ function ProjectDetailView({
                 <button
                   type="button"
                   disabled={(!canApply && logged && isApplicant) || blockedByExisting}
-                  title={blockedByExisting ? applicantBlockMessage || undefined : undefined}
+                  title={
+                    blockedByExisting
+                      ? applicantBlockMessage || undefined
+                      : !canApply && logged && isApplicant
+                        ? 'Dự án đã khóa nhận hồ sơ mới (đã đóng đăng ký hoặc đã mở lịch bốc thăm).'
+                        : undefined
+                  }
                   onClick={() => void handleApply()}
                   className="flex-1 rounded-xl bg-gradient-to-r from-teal-600 to-teal-700 py-3 text-center text-sm font-bold text-white shadow-lg shadow-teal-700/20 transition hover:from-teal-700 hover:to-teal-800 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none sm:px-8"
                 >
@@ -1321,7 +1352,9 @@ function ProjectDetailView({
                     ? 'Đăng nhập để nộp hồ sơ'
                     : blockedByExisting
                       ? '⛔ Bạn đã có hồ sơ đang xử lý'
-                      : '📝 Nộp hồ sơ đăng ký'}
+                      : !canApply
+                        ? 'Đã khóa nhận hồ sơ'
+                        : '📝 Nộp hồ sơ đăng ký'}
                 </button>
               )}
             </div>
@@ -1413,7 +1446,7 @@ function ProjectDetailView({
           <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-800/40">
             <div className="flex items-center gap-2 text-slate-500">
               <DollarSign className="h-4 w-4 text-teal-600" />
-              <span className="text-xs font-semibold uppercase">Tỷ lệ thanh toán Đợt 1 (Cọc)</span>
+              <span className="text-xs font-semibold uppercase">Tỷ lệ Đợt 1 (tiền cọc)</span>
             </div>
             <p className="mt-2 text-sm font-bold text-teal-700 dark:text-teal-400">
               {project.phase1Percentage ?? 30}% giá trị căn hộ
@@ -1446,7 +1479,7 @@ function ProjectDetailView({
               Tiến độ thanh toán ({milestonesList.length} đợt)
             </h2>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              Lịch đóng tiền do chủ đầu tư công bố. Đợt 1 là tiền cọc, tối đa 30% giá trị căn.
+              Lịch đóng tiền do chủ đầu tư công bố. Đợt 1 là tiền cọc khi được cấp nhà (tối đa 30% giá trị căn), phải đóng trước khi ký hợp đồng mua bán. Các đợt sau mở theo tiến độ sau khi đã ký. Căn cứ: Luật Nhà ở năm 2023.
             </p>
           </div>
           {milestonesList.length > 0 && (

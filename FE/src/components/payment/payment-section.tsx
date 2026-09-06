@@ -25,6 +25,15 @@ import { FormField } from '@/components/ui/label'
 import { Input, Textarea } from '@/components/ui/input'
 import { Modal } from '@/components/ui/modal'
 import { LOTTERY_RESULT_LABELS } from '@/lib/constants'
+import {
+  emptyScheduleHasApartmentCopy,
+  emptyScheduleNoApartmentCopy,
+  payScheduleMissingError,
+  payStatusNotReadyError,
+  scheduleLoadErrorCopy,
+  scheduleMismatchHint,
+} from '@/lib/payment-schedule-copy'
+import { getRole } from '@/router'
 import type { PaymentInfoDto } from '@/types'
 
 
@@ -231,12 +240,12 @@ export function InstallmentRow({
       if (isNotFound) {
         setMsg({
           type: 'error',
-          text: 'Lỗi đồng bộ: hệ thống chưa tạo lịch thanh toán. Liên hệ CĐT hoặc thử lại sau.',
+          text: payScheduleMissingError(role),
         })
       } else if (/trạng thái thích hợp|status.*not\s*suitable|invalid.*status|400\b/i.test(errMsg)) {
         setMsg({
           type: 'error',
-          text: 'Hồ sơ chưa ở trạng thái cho phép thanh toán. Kiểm tra: đã được CĐT gán căn và phê duyệt chưa?',
+          text: payStatusNotReadyError(role),
         })
       } else {
         setMsg({ type: 'error', text: errMsg })
@@ -661,16 +670,17 @@ export function PaymentSection({
   projectId,
 }: PaymentSectionProps) {
   const [withdrawModalOpen, setWithdrawModalOpen] = useState(false)
+  const viewerRole = role || getRole()
 
   if (hasError) {
-
+    const errCopy = scheduleLoadErrorCopy(viewerRole)
     return (
       <div className="rounded-md border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-700 dark:bg-yellow-900/20">
         <p className="text-sm font-medium text-yellow-800 dark:text-yellow-300">
-          Chưa tải được lịch thanh toán chính thức.
+          {errCopy.title}
         </p>
         <p className="mt-1 text-xs text-yellow-700 dark:text-yellow-400">
-          Hồ sơ có thể chưa được tạo đợt thanh toán. Liên hệ CĐT hoặc thử lại sau.
+          {errCopy.body}
         </p>
         <button
           onClick={() => void onReload()}
@@ -683,20 +693,20 @@ export function PaymentSection({
   }
 
   if (installments.length === 0 && hasApartment) {
+    const copy = emptyScheduleHasApartmentCopy(viewerRole)
     return (
       <Alert variant="warning">
-        <p className="font-medium">Hợp đồng đã ký nhưng hệ thống chưa sinh lịch thanh toán.</p>
-        <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
-          Liên hệ CĐT / Ban quản lý dự án để được tạo lịch thanh toán theo cấu hình dự án.
-        </p>
+        <p className="font-medium">{copy.title}</p>
+        <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">{copy.body}</p>
       </Alert>
     )
   }
 
   if (installments.length === 0) {
+    const copy = emptyScheduleNoApartmentCopy(viewerRole)
     return (
       <Alert variant="info">
-        <strong>Chưa có lịch thanh toán.</strong> Hệ thống sẽ sinh lịch thanh toán theo cấu hình của CĐT sau khi CĐT gán căn hộ cho bạn.
+        <strong>{copy.title}.</strong> {copy.body}
       </Alert>
     )
   }
@@ -722,7 +732,7 @@ export function PaymentSection({
         <div className="mb-3 flex items-baseline justify-between">
           <h4 className="text-base font-semibold">Lịch thanh toán</h4>
           <span className="text-xs text-slate-500 dark:text-slate-400">
-            {installments.length} đợt · Đợt 1 là cọc (tối đa 30%)
+            {installments.length} đợt · Đợt 1 là tiền cọc (tối đa 30%)
           </span>
         </div>
 
@@ -732,7 +742,7 @@ export function PaymentSection({
             <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
               Tổng {installments.length > 0 ? `${installments.length} đợt` : 'các đợt'}: <b>{sumPhases.toLocaleString('vi-VN')}</b> VNĐ —
               Giá nhà: <b>{ref!.toLocaleString('vi-VN')}</b> VNĐ.
-              Vui lòng báo CĐT/ban quản lý đối soát.
+              Vui lòng {scheduleMismatchHint(viewerRole)}
             </p>
           </Alert>
         )}

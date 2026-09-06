@@ -127,6 +127,17 @@ function readProjectRow(p: Record<string, unknown>): HousingProjectDto {
     })(),
     publicAnnounceAt: p.publicAnnounceAt ? String(p.publicAnnounceAt ?? p.PublicAnnounceAt) : undefined,
     rejectReason: p.rejectReason ? String(p.rejectReason ?? p.RejectReason) : undefined,
+    applicationOpenDate: p.applicationOpenDate
+      ? String(p.applicationOpenDate ?? p.ApplicationOpenDate)
+      : undefined,
+    applicationCloseDate: p.applicationCloseDate
+      ? String(p.applicationCloseDate ?? p.ApplicationCloseDate)
+      : undefined,
+    lotteryDate: p.lotteryDate ? String(p.lotteryDate ?? p.LotteryDate) : undefined,
+    isLotteryApproved:
+      p.isLotteryApproved != null || p.IsLotteryApproved != null
+        ? Boolean(p.isLotteryApproved ?? p.IsLotteryApproved)
+        : undefined,
     createdAt: p.createdAt ? String(p.createdAt ?? p.CreatedAt) : undefined,
     updatedAt: p.updatedAt ? String(p.updatedAt ?? p.UpdatedAt) : undefined,
     images: (() => {

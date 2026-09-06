@@ -468,29 +468,30 @@ export interface WaitlistEntryDto {
 }
 
 export function parseWaitlist(data: unknown): WaitlistEntryDto[] {
-  if (Array.isArray(data)) return data as WaitlistEntryDto[]
-  if (data && typeof data === 'object') {
-    const o = data as Record<string, unknown>
-    const items = o.items ?? o.Items ?? o.data ?? o.Data ?? o.waitlist ?? o.Waitlist
-    if (Array.isArray(items)) {
-      return items.map((it, idx) => {
-        const x = it as Record<string, unknown>
-        return {
-          applicationId: String(x.applicationId ?? x.ApplicationId ?? ''),
-          applicantName: String(x.applicantName ?? x.ApplicantName ?? x.fullName ?? x.FullName ?? ''),
-          citizenId: String(x.citizenId ?? x.CitizenId ?? ''),
-          phoneNumber: (x.phoneNumber ?? x.PhoneNumber) as string | undefined,
-          waitlistRank: Number(x.waitlistRank ?? x.WaitlistRank ?? x.rank ?? x.Rank ?? idx + 1),
-          score: x.score != null ? Number(x.score ?? x.Score) : undefined,
-          apartmentTypeName: (x.apartmentTypeName ?? x.ApartmentTypeName ?? x.unitType ?? x.UnitType) as string | undefined,
-          desiredApartmentTypeId: (x.desiredApartmentTypeId ?? x.DesiredApartmentTypeId) as string | undefined,
-          depositDeadline: (x.depositDeadline ?? x.DepositDeadline) as string | null | undefined,
-          status: (x.status ?? x.Status ?? 'WAITLIST') as string | undefined,
-        }
-      })
+  const mapItem = (it: unknown, idx: number): WaitlistEntryDto => {
+    const x = (it && typeof it === 'object' ? it : {}) as Record<string, unknown>
+    return {
+      applicationId: String(x.applicationId ?? x.ApplicationId ?? ''),
+      applicantName: String(x.applicantName ?? x.ApplicantName ?? x.fullName ?? x.FullName ?? ''),
+      citizenId: String(x.citizenId ?? x.CitizenId ?? ''),
+      phoneNumber: (x.phoneNumber ?? x.PhoneNumber) as string | undefined,
+      waitlistRank: Number(x.waitlistRank ?? x.WaitlistRank ?? x.rank ?? x.Rank ?? idx + 1),
+      score: x.score != null ? Number(x.score ?? x.Score) : undefined,
+      apartmentTypeName: (x.apartmentTypeName ?? x.ApartmentTypeName ?? x.unitType ?? x.UnitType) as string | undefined,
+      desiredApartmentTypeId: (x.desiredApartmentTypeId ?? x.DesiredApartmentTypeId) as string | undefined,
+      depositDeadline: (x.depositDeadline ?? x.DepositDeadline) as string | null | undefined,
+      status: (x.status ?? x.Status ?? 'WAITLIST') as string | undefined,
     }
   }
-  return []
+  let list: WaitlistEntryDto[] = []
+  if (Array.isArray(data)) {
+    list = data.map(mapItem)
+  } else if (data && typeof data === 'object') {
+    const o = data as Record<string, unknown>
+    const items = o.items ?? o.Items ?? o.data ?? o.Data ?? o.waitlist ?? o.Waitlist
+    if (Array.isArray(items)) list = items.map(mapItem)
+  }
+  return list.sort((a, b) => a.waitlistRank - b.waitlistRank)
 }
 
 

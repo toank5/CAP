@@ -26,6 +26,14 @@ import { PageCard, PageHeader } from '@/components/layout/page-header'
 import { navigate } from '@/hooks/useHashRoute'
 import { formatError } from '@/lib/format-error'
 import { getRole } from '@/router'
+import {
+  emptyScheduleHasApartmentCopy,
+  emptyScheduleNoApartmentCopy,
+  payScheduleMissingError,
+  payStatusNotReadyError,
+  scheduleLoadErrorCopy,
+  scheduleMismatchHint,
+} from '@/lib/payment-schedule-copy'
 import { extractOrderId, extractPaymentUrl, paymentApi, downloadContractPdf } from '@/api/payment'
 import { housingApplicationsApi } from '@/api/housing-applications'
 import { openVnPayPopupAndWait, vnPayResultMessage } from '@/lib/vnpay-popup'
@@ -138,8 +146,11 @@ export function ContractsPage() {
         {error && <Alert variant="error">{error}</Alert>}
         {!loading && applications.length === 0 && (
           <Alert variant="info">
-            Chưa có hồ sơ nào ở bước hợp đồng. Hồ sơ xuất hiện khi CĐT chốt suất hoặc trúng bốc thăm
-            (<strong> chờ ký</strong> → ký → thanh toán Đợt 1).
+            {isDev
+              ? 'Chưa có hồ sơ nào ở bước hợp đồng. Hồ sơ xuất hiện khi bạn chốt suất hoặc người dân trúng bốc thăm (chờ ký → ký → thanh toán Đợt 1 là tiền cọc).'
+              : isApplicant
+                ? 'Chưa có hồ sơ nào ở bước hợp đồng. Hồ sơ xuất hiện khi chủ đầu tư chốt suất hoặc bạn trúng bốc thăm (chờ ký → ký → thanh toán Đợt 1 là tiền cọc).'
+                : 'Chưa có hồ sơ nào ở bước hợp đồng. Hồ sơ xuất hiện khi chủ đầu tư chốt suất hoặc người dân trúng bốc thăm (chờ ký → ký → thanh toán Đợt 1 là tiền cọc).'}
           </Alert>
         )}
         <div className="grid gap-3">
@@ -462,14 +473,13 @@ function InstallmentRow({
       if (isNotFound) {
         setMsg({
           type: 'error',
-          text: 'Lỗi đồng bộ: hệ thống chưa tạo lịch thanh toán cho hồ sơ này. Vui lòng liên hệ CĐT hoặc thử lại sau.',
+          text: payScheduleMissingError(role),
         })
       } else if (/trạng thái thích hợp|status.*not\s*suitable|invalid.*status|400\b/i.test(msg)) {
         // BE trả 400 → application chưa ở status phù hợp để thanh toán.
-        // Theo flow: cần DEPOSIT_PENDING / CONTRACT_PENDING / CONTRACTING.
         setMsg({
           type: 'error',
-          text: 'Hồ sơ chưa ở trạng thái cho phép thanh toán. Vui lòng kiểm tra: đã được CĐT gán căn và phê duyệt chưa?',
+          text: payStatusNotReadyError(role),
         })
       } else {
         setMsg({ type: 'error', text: msg })
@@ -1113,11 +1123,10 @@ export function ContractDetailPage() {
           <section>
             <div className="rounded-md border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-700 dark:bg-yellow-900/20">
               <p className="text-sm font-medium text-yellow-800 dark:text-yellow-300">
-                Chưa tải được lịch thanh toán chính thức từ hệ thống.
+                {scheduleLoadErrorCopy(role).title}
               </p>
               <p className="mt-1 text-xs text-yellow-700 dark:text-yellow-400">
-                Hồ sơ có thể chưa được tạo đợt thanh toán hoặc backend đang gặp sự cố.
-                Vui lòng liên hệ CĐT hoặc thử lại sau.
+                {scheduleLoadErrorCopy(role).body}
               </p>
               <button
                 onClick={() => void reload()}
@@ -1171,8 +1180,8 @@ export function ContractDetailPage() {
                       <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
                         Tổng {installments.length > 0 ? `${installments.length} đợt` : 'các đợt'}: <b>{sumPhases.toLocaleString('vi-VN')}</b> VNĐ —
                         Giá nhà: <b>{ref.toLocaleString('vi-VN')}</b> VNĐ
-                        (chênh {(sumPhases - ref > 0 ? '+' : '') + (sumPhases - ref).toLocaleString('vi-VN')} VNĐ).
-                        Vui lòng báo CĐT/ban quản lý đối soát.
+                        {(sumPhases - ref > 0 ? '+' : '') + (sumPhases - ref).toLocaleString('vi-VN')} VNĐ).
+                        {scheduleMismatchHint(role)}
                       </p>
                     </div>
                   </Alert>
@@ -1203,10 +1212,10 @@ export function ContractDetailPage() {
           <Alert variant="warning">
             <div className="space-y-2">
               <p className="font-medium">
-                Hợp đồng đã ký nhưng hệ thống chưa sinh lịch thanh toán.
+                {emptyScheduleHasApartmentCopy(role).title}
               </p>
               <p className="text-xs text-slate-600 dark:text-slate-400">
-                Vui lòng liên hệ CĐT / Ban quản lý dự án để được tạo lịch thanh toán theo cấu hình dự án.
+                {emptyScheduleHasApartmentCopy(role).body}{' '}
                 (Mã hồ sơ: <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">{id.slice(0, 8)}…</code>)
               </p>
               <Button size="sm" variant="outline" onClick={() => void reload()}>
@@ -1218,7 +1227,8 @@ export function ContractDetailPage() {
 
         {!installmentsError && installments.length === 0 && !hasApartment && (
           <Alert variant="info">
-            <strong>Chưa có lịch thanh toán.</strong> Hệ thống sẽ sinh lịch thanh toán theo cấu hình của CĐT sau khi CĐT gán căn hộ cho bạn.
+            <strong>{emptyScheduleNoApartmentCopy(role).title}.</strong>{' '}
+            {emptyScheduleNoApartmentCopy(role).body}
           </Alert>
         )}
       </PageCard>

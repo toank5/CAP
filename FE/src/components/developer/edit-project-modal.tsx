@@ -32,6 +32,9 @@ import {
   MILESTONE_PRESETS,
   MIN_PAYMENT_PHASES,
   MAX_PAYMENT_PHASES,
+  PHASE1_TRIGGER,
+  PaymentProgressPolicyNote,
+  validatePaymentMilestones,
   normalizeDirection,
   type ApartmentFormRow,
 } from './create-project-modal'
@@ -100,7 +103,7 @@ export function EditProjectModal({
   const [uploadingDocument, setUploadingDocument] = useState(false)
 
   const [milestones, setMilestones] = useState<MilestoneSetupItemDto[]>([
-    { phaseOrder: 1, phaseName: 'Đợt 1 (Đặt cọc / Cấp nhà)', percentage: 0, triggerEvent: 'ON_LOTTERY_WON', dueDays: 0 },
+    { phaseOrder: 1, phaseName: 'Đợt 1 (Tiền cọc khi được cấp nhà)', percentage: 0, triggerEvent: 'ON_LOTTERY_WON', dueDays: 0 },
     { phaseOrder: 2, phaseName: 'Đợt 2 (Bàn giao nhà)', percentage: 0, triggerEvent: 'HANDOVER', dueDays: 0 },
     { phaseOrder: 3, phaseName: 'Đợt 3 (Nhận sổ hồng)', percentage: 0, triggerEvent: 'RED_BOOK_ISSUED', dueDays: 0 },
   ])
@@ -185,7 +188,7 @@ export function EditProjectModal({
               phaseOrder: idx + 1,
               phaseName: m.phaseName || m.PhaseName || `Đợt ${idx + 1}`,
               percentage: Number(m.percentage ?? m.Percentage) || 0,
-              triggerEvent: m.triggerEvent || m.TriggerEvent || 'ON_LOTTERY_WON',
+              triggerEvent: idx === 0 ? PHASE1_TRIGGER : (m.triggerEvent || m.TriggerEvent || PHASE1_TRIGGER),
               dueDays: Number(m.dueDays ?? m.DueDays) || 7,
             }))
           )
@@ -250,32 +253,8 @@ export function EditProjectModal({
     if (!street.trim()) return 'Vui lòng nhập địa chỉ đường / số nhà (Bắt buộc).'
     if (!decisionNumber.trim()) return 'Vui lòng nhập số quyết định phê duyệt.'
 
-    if (milestones.length < MIN_PAYMENT_PHASES) {
-      return `Cần ít nhất ${MIN_PAYMENT_PHASES} đợt thanh toán (Đợt 1 là cọc, tối đa 30%).`
-    }
-    if (milestones.length > MAX_PAYMENT_PHASES) {
-      return `Tối đa ${MAX_PAYMENT_PHASES} đợt thanh toán.`
-    }
-
-    // Kiểm tra tỷ lệ Đợt 1 <= 30% theo Luật Nhà ở Xã hội
-    const phase1Pct = Number(milestones[0]?.percentage) || 0
-    if (phase1Pct > 30) {
-      return `Đợt 1 đang là ${phase1Pct}% — Theo quy định Luật Nhà ở Xã hội, tỷ lệ thanh toán Đợt 1 tối đa chỉ được 30%.`
-    }
-
-    const totalPercentage = milestones.reduce((sum, m) => sum + (Number(m.percentage) || 0), 0)
-    if (Math.abs(totalPercentage - 100) > 0.01) {
-      return `Tổng tỷ lệ thanh toán phải là 100% (hiện tại: ${totalPercentage}%).`
-    }
-
-    for (let i = 0; i < milestones.length; i++) {
-      if (!milestones[i].phaseName.trim()) return `Đợt ${i + 1}: Vui lòng nhập tên đợt thanh toán.`
-      if (!milestones[i].triggerEvent.trim()) return `Đợt ${i + 1}: Vui lòng chọn sự kiện kích hoạt.`
-      const pct = Number(milestones[i].percentage)
-      if (pct <= 0) return `Đợt ${i + 1}: Vui lòng nhập tỷ lệ % thanh toán lớn hơn 0%.`
-      const days = Number(milestones[i].dueDays)
-      if (days <= 0) return `Đợt ${i + 1}: Thời hạn thanh toán phải lớn hơn 0 ngày.`
-    }
+    const milestoneError = validatePaymentMilestones(milestones)
+    if (milestoneError) return milestoneError
     return null
   }
 
@@ -574,7 +553,7 @@ export function EditProjectModal({
         phaseOrder: i + 1,
         phaseName: m.phaseName.trim(),
         percentage: Number(m.percentage),
-        triggerEvent: m.triggerEvent,
+        triggerEvent: i === 0 ? PHASE1_TRIGGER : m.triggerEvent,
         dueDays: Number(m.dueDays) || 7,
       }))
       await housingProjectsApi.updateMilestones(projectId, milestonesPayload)
@@ -907,7 +886,7 @@ export function EditProjectModal({
                         Chính sách thanh toán theo tiến độ
                       </span>
                       <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-bold text-teal-700 dark:bg-teal-950 dark:text-teal-300">
-                        {milestones.length} đợt · Đợt 1 (cọc) ≤ 30%
+                        {milestones.length} đợt · Đợt 1 là tiền cọc, tối đa 30%
                       </span>
                       {requiredDot}
                     </div>
@@ -934,10 +913,12 @@ export function EditProjectModal({
                       >
                         <Plus className="h-3.5 w-3.5" /> Thêm đợt
                       </button>
-                    </div>
                   </div>
+                </div>
 
-                  {/* Presets buttons */}
+                <PaymentProgressPolicyNote />
+
+                {/* Presets buttons */}
                   <div className="mb-3 flex flex-wrap items-center gap-1.5">
                     <span className="text-[11px] font-semibold text-slate-500">Mẫu tiến độ chuẩn:</span>
                     {MILESTONE_PRESETS.map((preset, pIdx) => (
@@ -953,7 +934,7 @@ export function EditProjectModal({
                           }`}
                         title={preset.description}
                       >
-                        🎯 {preset.name}
+                        {preset.name}
                       </button>
                     ))}
                   </div>
@@ -991,14 +972,17 @@ export function EditProjectModal({
                         </div>
                         {!isPhase1Valid && (
                           <div className="mt-2 flex items-center gap-1.5 rounded-lg border border-rose-300 bg-rose-50 px-2.5 py-1.5 text-[11px] font-semibold text-rose-700 dark:border-rose-800 dark:bg-rose-950/60 dark:text-rose-300">
-                            <span>⚠️ <strong>Lỗi vi phạm:</strong> Tỷ lệ thanh toán Đợt 1 đang là <strong>{milestones[0].percentage}%</strong> (Luật Nhà ở Xã hội quy định Đợt 1 không được vượt quá <strong>30%</strong>).</span>
+                            <span><strong>Chưa đạt:</strong> tỷ lệ Đợt 1 (tiền cọc) đang là <strong>{milestones[0].percentage}%</strong>. Luật Nhà ở năm 2023 quy định tiền cọc Đợt 1 không được vượt quá <strong>30%</strong> giá trị căn.</span>
                           </div>
                         )}
                       </div>
                     )
                   })()}
 
-                  <div className="space-y-2">
+                <p className="mb-2 text-[11px] text-slate-500 dark:text-slate-400">
+                  Mỗi dòng: tên đợt, tỷ lệ phần trăm, mốc mở đợt, số ngày hạn thanh toán. Đợt 1 khóa mốc cấp nhà vì đây là tiền cọc.
+                </p>
+                <div className="space-y-2">
                     {milestones.map((m, idx) => (
                       <div
                         key={idx}
@@ -1050,15 +1034,19 @@ export function EditProjectModal({
                         <div className="min-w-[190px] flex-1">
                           <select
                             className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
-                            value={m.triggerEvent}
-                            disabled={submitting}
+                            value={idx === 0 ? PHASE1_TRIGGER : m.triggerEvent}
+                            disabled={submitting || idx === 0}
+                            title={idx === 0 ? 'Đợt 1 là tiền cọc khi được cấp nhà — không gắn mốc ký hợp đồng.' : undefined}
                             onChange={(e) => {
                               const n = [...milestones]
-                              n[idx] = { ...n[idx], triggerEvent: e.target.value }
+                              n[idx] = { ...n[idx], triggerEvent: idx === 0 ? PHASE1_TRIGGER : e.target.value }
                               setMilestones(n)
                             }}
                           >
-                            {VALID_TRIGGER_EVENTS.map((t) => (
+                            {(idx === 0
+                              ? VALID_TRIGGER_EVENTS.filter((t) => t.code === PHASE1_TRIGGER)
+                              : VALID_TRIGGER_EVENTS.filter((t) => t.code !== PHASE1_TRIGGER)
+                            ).map((t) => (
                               <option key={t.code} value={t.code}>
                                 {t.label}
                               </option>
@@ -1089,9 +1077,9 @@ export function EditProjectModal({
 
                         <button
                           type="button"
-                          disabled={milestones.length <= MIN_PAYMENT_PHASES || submitting}
+                          disabled={idx === 0 || milestones.length <= MIN_PAYMENT_PHASES || submitting}
                           className="shrink-0 rounded-lg p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:opacity-30 dark:hover:bg-rose-950/40"
-                          title={milestones.length <= MIN_PAYMENT_PHASES ? `Tối thiểu ${MIN_PAYMENT_PHASES} đợt thanh toán` : 'Xóa đợt này'}
+                          title={idx === 0 ? 'Không xóa Đợt 1 — đây là tiền cọc khi được cấp nhà.' : milestones.length <= MIN_PAYMENT_PHASES ? `Tối thiểu ${MIN_PAYMENT_PHASES} đợt thanh toán` : 'Xóa đợt này'}
                           onClick={() => {
                             if (milestones.length > MIN_PAYMENT_PHASES) {
                               setMilestones(

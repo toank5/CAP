@@ -37,7 +37,7 @@ import {
   type WaitlistEntryDto,
 } from '@/api/lottery'
 import { connectLotteryHub, stopLotteryHub } from '@/api/lotteryHub'
-import { housingProjectsApi } from '@/api/housing-projects'
+import { housingProjectsApi, parseApartments } from '@/api/housing-projects'
 import type { HousingProjectSummaryDto } from '@/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -55,6 +55,7 @@ import {
   phaseStepIndex,
   type LotteryPhase,
 } from '@/lib/lottery-phase'
+import { WAITLIST_CONFIRM_HOURS, splitAvailableUnits } from '@/lib/lottery-allocation'
 import { getRole } from '@/router'
 
 interface ProjectLotteryRow {
@@ -180,6 +181,18 @@ function ModernStatusBadge({ phase }: { phase: LotteryPhase }) {
   }
 }
 
+async function freezeIntakeForLottery(projectId: string) {
+  try {
+    await housingProjectsApi.changeLifecycleStatus(
+      projectId,
+      'CLOSED',
+      'Khóa nhận hồ sơ mới khi đề xuất lịch bốc thăm. Căn trả lại dùng waitlist, không mở đợt bốc lần 2.',
+    )
+  } catch {
+    // Dự án có thể đã CLOSED — lịch vẫn được lưu.
+  }
+}
+
 export function LotterySessionsPage() {
   const role = getRole()
   const isDev = role === 'Housing Developer'
@@ -200,10 +213,12 @@ export function LotterySessionsPage() {
   const [schedForm, setSchedForm] = useState({
     lotteryDate: '',
     lotteryLocation: 'Hội trường trực tuyến Zoom / Meet & Cổng DVC',
-    totalUnits: '10',
-    priorityRatio: '30',
+    totalUnits: '0',
     notes: '',
   })
+  const [schedFund, setSchedFund] = useState({ priorityCount: 0, standardCount: 0, available: 0 })
+  const [schedModalError, setSchedModalError] = useState('')
+  const [schedSaving, setSchedSaving] = useState(false)
 
   // Action status toast / message
   const [busyAction, setBusyAction] = useState('')
@@ -216,9 +231,10 @@ export function LotterySessionsPage() {
       const data = await housingProjectsApi.list({ pageIndex: 1, pageSize: 50 })
       const raw = data && typeof data === 'object' ? (data as Record<string, unknown>) : {}
       const list = (raw.items ?? raw.Items ?? []) as HousingProjectSummaryDto[]
+      // Giữ cả dự án CLOSED (đã khóa nhận hồ sơ khi lên lịch). Chỉ ẩn dự án SXD từ chối.
       const items = list.filter((p) => {
         const s = String(p.status ?? '').toUpperCase()
-        return !/CLOSED|ĐÃ ĐÓNG|REJECTED/.test(s)
+        return !/REJECTED|TỪ CHỐI/.test(s)
       })
       const enriched: ProjectLotteryRow[] = await Promise.all(
         items.map(async (p) => {
@@ -280,7 +296,7 @@ export function LotterySessionsPage() {
     }
   }
 
-  const openScheduleModal = (project: HousingProjectSummaryDto, schedule: LotteryScheduleDto | null) => {
+  const openScheduleModal = async (project: HousingProjectSummaryDto, schedule: LotteryScheduleDto | null) => {
     const pPhase = getLotteryPhase(schedule, project.status)
     if (pPhase === 'project_pending') {
       setActionToast({
@@ -291,6 +307,7 @@ export function LotterySessionsPage() {
     }
 
     setSelectedProject({ id: project.id, name: project.projectName, schedule })
+    setSchedModalError('')
     const defaultDate = schedule?.scheduledAt || schedule?.lotteryDate
     let localDateStr = ''
     if (defaultDate) {
@@ -303,36 +320,71 @@ export function LotterySessionsPage() {
     setSchedForm({
       lotteryDate: localDateStr,
       lotteryLocation: schedule?.lotteryLocation || 'Hội trường trực tuyến Zoom / Meet & Cổng Dịch vụ công',
-      totalUnits: String(schedule?.totalUnits || project.availableUnits || 10),
-      priorityRatio: '30',
+      totalUnits: String(schedule?.totalUnits || project.availableUnits || 0),
       notes: schedule?.notes || '',
     })
+    try {
+      const data = await housingProjectsApi.getById(project.id)
+      const apts = parseApartments(data).filter((a) => String(a.status).toUpperCase() === 'AVAILABLE')
+      const fund = splitAvailableUnits(apts)
+      const fallback = Math.max(
+        Number(project.availableUnits) || 0,
+        Number(schedule?.availableUnits ?? schedule?.totalUnits) || 0,
+      )
+      const available = apts.length > 0 ? apts.length : fallback
+      setSchedFund({
+        priorityCount: fund.priorityCount,
+        standardCount: fund.standardCount,
+        available,
+      })
+      setSchedForm((f) => ({ ...f, totalUnits: String(available) }))
+    } catch {
+      const fallback = Math.max(
+        Number(project.availableUnits) || 0,
+        Number(schedule?.availableUnits ?? schedule?.totalUnits) || 0,
+      )
+      setSchedFund({ priorityCount: 0, standardCount: 0, available: fallback })
+      setSchedForm((f) => ({ ...f, totalUnits: String(fallback) }))
+    }
     setScheduleModalOpen(true)
   }
 
   const handleSaveSchedule = async () => {
-    if (!selectedProject) return
-    const totalUnits = Number(schedForm.totalUnits)
+    if (!selectedProject || schedSaving) return
+    setSchedModalError('')
     if (!schedForm.lotteryDate || !schedForm.lotteryLocation.trim()) {
-      setActionToast({ type: 'error', text: 'Vui lòng nhập đủ ngày giờ và địa điểm mở sảnh.' })
+      setSchedModalError('Vui lòng nhập đủ ngày giờ và địa điểm mở sảnh.')
       return
     }
-    if (Number.isNaN(totalUnits) || totalUnits <= 0) {
-      setActionToast({ type: 'error', text: 'Số căn hộ mở bán không hợp lệ.' })
+    const parsed = new Date(schedForm.lotteryDate)
+    if (Number.isNaN(parsed.getTime())) {
+      setSchedModalError('Ngày giờ không hợp lệ.')
       return
     }
-    const iso = new Date(schedForm.lotteryDate).toISOString()
-    setScheduleModalOpen(false)
-    await handleAction('Lưu lịch bốc thăm', selectedProject.id, () =>
-      lotteryApi.schedule(selectedProject.id, {
+    if (parsed.getTime() < Date.now() - 60_000) {
+      setSchedModalError('Thời gian bốc thăm phải ở tương lai.')
+      return
+    }
+    const iso = parsed.toISOString()
+    setSchedSaving(true)
+    try {
+      await lotteryApi.schedule(selectedProject.id, {
         lotteryDate: iso,
         lotteryLocation: schedForm.lotteryLocation.trim(),
         lotteryType: 'ONLINE',
-        totalUnits,
-        lotteryDescription: `Tỷ lệ ưu tiên trước: ${schedForm.priorityRatio}%`,
-        notes: `priorityRatio=${schedForm.priorityRatio}${schedForm.notes ? ' · ' + schedForm.notes : ''}`,
-      }),
-    )
+        totalUnits: schedFund.available > 0 ? schedFund.available : undefined,
+        lotteryDescription: schedForm.notes.trim() || undefined,
+        notes: schedForm.notes.trim() || undefined,
+      })
+      await freezeIntakeForLottery(selectedProject.id)
+      setScheduleModalOpen(false)
+      setActionToast({ type: 'success', text: 'Lưu lịch bốc thăm thành công.' })
+      await load()
+    } catch (err) {
+      setSchedModalError(formatError(err))
+    } finally {
+      setSchedSaving(false)
+    }
   }
 
   // Aggregate metrics
@@ -431,7 +483,7 @@ export function LotterySessionsPage() {
               Quản lý & Điều hành Phiên Bốc Thăm Công Khai
             </h1>
             <p className="text-sm leading-relaxed text-slate-300/90">
-              Phân bổ quyền mua căn hộ minh bạch theo Điều 36 & 38.2 Nghị định 100/2024/NĐ-CP và Luật Nhà ở 2023. Tự động phát sóng sảnh chờ trực tuyến thời gian thực (SignalR), bảo đảm quay số ngẫu nhiên, tự động lập danh sách dự bị (Waitlist) và quản lý biên bản pháp lý.
+              Phân bổ quyền mua: căn ưu tiên cấp trực tiếp cho hồ sơ điểm cao nhất; hồ sơ hợp lệ vượt quỹ căn thì bốc thăm công khai. Không trúng được xếp danh sách chờ theo hạng — suất trả lại (hủy HĐ / không cọc) đôn người #1, hạn xác nhận {WAITLIST_CONFIRM_HOURS} giờ.
             </p>
           </div>
 
@@ -873,7 +925,7 @@ export function LotterySessionsPage() {
                         variant="accent"
                         size="sm"
                         className="flex-1"
-                        onClick={() => openScheduleModal(project, schedule)}
+                        onClick={() => void openScheduleModal(project, schedule)}
                       >
                         <Calendar className="mr-1.5 h-3.5 w-3.5" />
                         Lên lịch bốc thăm
@@ -885,7 +937,7 @@ export function LotterySessionsPage() {
                         variant="outline"
                         size="sm"
                         className="flex-1"
-                        onClick={() => openScheduleModal(project, schedule)}
+                        onClick={() => void openScheduleModal(project, schedule)}
                       >
                         <Edit3 className="mr-1.5 h-3.5 w-3.5" />
                         Sửa đề xuất lịch
@@ -1072,7 +1124,7 @@ export function LotterySessionsPage() {
                             <Button
                               variant="accent"
                               size="sm"
-                              onClick={() => openScheduleModal(project, schedule)}
+                              onClick={() => void openScheduleModal(project, schedule)}
                             >
                               Lên lịch
                             </Button>
@@ -1134,7 +1186,6 @@ export function LotterySessionsPage() {
         open={scheduleModalOpen}
         onClose={() => setScheduleModalOpen(false)}
         title={`Thiết lập lịch bốc thăm: ${selectedProject?.name ?? ''}`}
-        description="Đăng ký ngày giờ mở sảnh trực tuyến, số lượng căn hộ mở bán và tỷ lệ ưu tiên theo quy định."
         size="lg"
       >
         <div className="space-y-4">
@@ -1156,27 +1207,17 @@ export function LotterySessionsPage() {
             />
           </FormField>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <FormField label="Số căn hộ mở bán bốc thăm *" htmlFor="totalUnits">
-              <Input
-                id="totalUnits"
-                type="number"
-                min={1}
-                value={schedForm.totalUnits}
-                onChange={(e) => setSchedForm((f) => ({ ...f, totalUnits: e.target.value }))}
-              />
-            </FormField>
-
-            <FormField label="Tỷ lệ phân bổ ưu tiên trước (%)" htmlFor="priorityRatio">
-              <Input
-                id="priorityRatio"
-                type="number"
-                min={0}
-                max={100}
-                value={schedForm.priorityRatio}
-                onChange={(e) => setSchedForm((f) => ({ ...f, priorityRatio: e.target.value }))}
-              />
-            </FormField>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-200">
+            <p>
+              Căn ưu tiên: <strong>{schedFund.priorityCount}</strong>
+              {' · '}
+              Căn thường: <strong>{schedFund.standardCount}</strong>
+              {' · '}
+              Tổng trống: <strong>{schedFund.available}</strong>
+            </p>
+            <p className="mt-2 font-semibold text-slate-900 dark:text-white">
+              Số căn hộ đưa vào bốc thăm: {schedFund.available}
+            </p>
           </div>
 
           <FormField label="Ghi chú thêm về phiên bốc thăm" htmlFor="notes">
@@ -1188,19 +1229,14 @@ export function LotterySessionsPage() {
             />
           </FormField>
 
-          <div className="rounded-xl bg-blue-50/80 p-3 text-xs text-blue-900 dark:bg-blue-950/40 dark:text-blue-200">
-            <p className="font-semibold">⚖️ Quy định Điều 36 & 38 NĐ 100/2024/NĐ-CP:</p>
-            <p className="mt-1">
-              Sau khi CĐT gửi đề xuất lịch, Sở Xây dựng sẽ thẩm tra và phê duyệt. Sau khi duyệt, hệ thống tự động sinh mã OTP phòng chờ 6 số để gửi thông báo cho tất cả người dân có hồ sơ hợp lệ.
-            </p>
-          </div>
+          {schedModalError && <Alert variant="error">{schedModalError}</Alert>}
 
           <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
-            <Button variant="outline" onClick={() => setScheduleModalOpen(false)}>
+            <Button variant="outline" onClick={() => setScheduleModalOpen(false)} disabled={schedSaving}>
               Hủy bỏ
             </Button>
-            <Button variant="accent" onClick={() => void handleSaveSchedule()}>
-              Xác nhận & Gửi đề xuất
+            <Button variant="accent" onClick={() => void handleSaveSchedule()} disabled={schedSaving}>
+              {schedSaving ? 'Đang gửi…' : 'Xác nhận & Gửi đề xuất'}
             </Button>
           </div>
         </div>
@@ -1231,7 +1267,7 @@ export function LotterySessionsPage() {
               <div>
                 <p className="font-bold text-slate-900 dark:text-white">Bước 2: Chủ đầu tư đề xuất lịch bốc thăm</p>
                 <p className="text-slate-600 dark:text-slate-300">
-                  Chủ đầu tư thiết lập ngày giờ mở sảnh trực tuyến, địa điểm/kênh livestream, số lượng căn hộ bốc thăm và tỷ lệ ưu tiên (Điều 38.2).
+                  Căn ưu tiên đã cấp cho hồ sơ điểm cao nhất. Khi số hồ sơ hợp lệ còn lại vượt quỹ căn thường, CĐT đề xuất ngày giờ bốc thăm công khai (không nhập tỷ lệ %).
                 </p>
               </div>
             </div>
@@ -1261,7 +1297,7 @@ export function LotterySessionsPage() {
               <div>
                 <p className="font-bold text-slate-900 dark:text-white">Bước 5: Bắt đầu Live & Quay số ngẫu nhiên</p>
                 <p className="text-slate-600 dark:text-slate-300">
-                  Quay số ngẫu nhiên thời gian thực qua SignalR WebSockets. Tự động chia nhóm ưu tiên (nhóm đối tượng chính sách) và nhóm bốc thăm tự do.
+                  Quay số ngẫu nhiên công khai. Hồ sơ không trúng được xếp danh sách chờ theo thứ hạng (#1, #2, #3…), không hủy hồ sơ.
                 </p>
               </div>
             </div>
@@ -1271,7 +1307,7 @@ export function LotterySessionsPage() {
               <div>
                 <p className="font-bold text-slate-900 dark:text-white">Bước 6: Công bố kết quả & Quản lý Danh sách dự bị (Waitlist)</p>
                 <p className="text-slate-600 dark:text-slate-300">
-                  Sở Xây dựng công bố kết quả chính thức và xuất biên bản pháp lý. Các hồ sơ trượt được tự động xếp hạng vào Waitlist theo Điều 38 để đôn suất khi có người hủy hoặc bỏ cọc.
+                  Công bố kết quả. Không trúng xếp waitlist #1, #2, #3… Khi căn trả lại (hủy HĐ / không nộp cọc), đôn người đứng đầu — hạn xác nhận {WAITLIST_CONFIRM_HOURS} giờ, không mở lại đợt bốc thăm.
                 </p>
               </div>
             </div>
@@ -1294,14 +1330,18 @@ export function LotteryCreatePage() {
       <PageHeader routeId="lottery-create" />
       <PageCard className="p-6">
         <Alert variant="info">
-          <p className="font-semibold">Lên lịch bốc thăm từ trang chi tiết dự án</p>
+          <p className="font-semibold">Lên lịch bốc thăm theo dự án</p>
           <p className="mt-1 text-sm">
-            BE thiết kế lịch bốc thăm theo dự án (không có phiên riêng). Mở trang chi tiết dự án
-            (Dự án → chọn một dự án) rồi bấm nút <strong>«Lên lịch bốc thăm»</strong> để tạo.
+            Mở Trung tâm bốc thăm rồi bấm <strong>Lên lịch bốc thăm</strong>, hoặc vào chi tiết dự án và bấm nút <strong>Bốc thăm</strong>.
           </p>
-          <Button className="mt-3" variant="accent" onClick={() => navigate('projects')}>
-            Đi tới trang Dự án
-          </Button>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button variant="accent" onClick={() => navigate('lottery-sessions')}>
+              Trung tâm bốc thăm
+            </Button>
+            <Button variant="outline" onClick={() => navigate('projects')}>
+              Danh sách dự án
+            </Button>
+          </div>
         </Alert>
       </PageCard>
     </div>
@@ -1327,9 +1367,10 @@ export function LotteryDetailPage() {
   const [schedForm, setSchedForm] = useState({
     lotteryDate: '',
     lotteryLocation: 'Hội trường / Zoom (demo)',
-    totalUnits: '10',
-    priorityRatio: '30',
+    totalUnits: '0',
   })
+  const [schedFund, setSchedFund] = useState({ priorityCount: 0, standardCount: 0, available: 0 })
+  const [schedModalError, setSchedModalError] = useState('')
   const connectionRef = useRef<import('@microsoft/signalr').HubConnection | null>(null)
 
   const reload = async (opts?: { quiet?: boolean }) => {
@@ -1357,6 +1398,20 @@ export function LotteryDetailPage() {
         setWaitlist(parseWaitlist(wl))
       } catch {
         setWaitlist([])
+      }
+      try {
+        const projectData = await housingProjectsApi.getById(projectId)
+        const apts = parseApartments(projectData).filter((a) => String(a.status).toUpperCase() === 'AVAILABLE')
+        const fund = splitAvailableUnits(apts)
+        const fallback = Number(sched?.availableUnits ?? sched?.totalUnits) || 0
+        setSchedFund({
+          priorityCount: fund.priorityCount,
+          standardCount: fund.standardCount,
+          available: apts.length > 0 ? apts.length : fallback,
+        })
+      } catch {
+        const fallback = Number(sched?.availableUnits ?? sched?.totalUnits) || 0
+        setSchedFund({ priorityCount: 0, standardCount: 0, available: fallback })
       }
     } catch (err) {
       if (!opts?.quiet) setError(formatError(err))
@@ -1472,13 +1527,48 @@ export function LotteryDetailPage() {
     const local = new Date(next.getTime() - next.getTimezoneOffset() * 60000)
       .toISOString()
       .slice(0, 16)
+    setSchedModalError('')
     setSchedForm({
       lotteryDate: local,
       lotteryLocation: schedule?.lotteryLocation || 'Hội trường / Zoom (demo)',
-      totalUnits: String(schedule?.totalUnits || 10),
-      priorityRatio: '30',
+      totalUnits: String(schedFund.available),
     })
     setScheduleOpen(true)
+  }
+
+  const saveDetailSchedule = async () => {
+    if (!projectId || busy) return
+    setSchedModalError('')
+    if (!schedForm.lotteryDate || !schedForm.lotteryLocation.trim()) {
+      setSchedModalError('Vui lòng nhập đủ ngày giờ và địa điểm.')
+      return
+    }
+    const parsed = new Date(schedForm.lotteryDate)
+    if (Number.isNaN(parsed.getTime())) {
+      setSchedModalError('Ngày giờ không hợp lệ.')
+      return
+    }
+    if (parsed.getTime() < Date.now() - 60_000) {
+      setSchedModalError('Thời gian bốc thăm phải ở tương lai.')
+      return
+    }
+    setBusy('Lên lịch')
+    try {
+      await lotteryApi.schedule(projectId, {
+        lotteryDate: parsed.toISOString(),
+        lotteryLocation: schedForm.lotteryLocation.trim(),
+        lotteryType: 'ONLINE',
+        totalUnits: schedFund.available > 0 ? schedFund.available : undefined,
+      })
+      await freezeIntakeForLottery(projectId)
+      setScheduleOpen(false)
+      setMsg({ type: 'success', text: 'Lên lịch thành công.' })
+      await reload()
+    } catch (err) {
+      setSchedModalError(formatError(err))
+    } finally {
+      setBusy('')
+    }
   }
 
   const downloadMinutes = () => {
@@ -1805,7 +1895,7 @@ export function LotteryDetailPage() {
                     <p className="font-medium">{w.applicantName}</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">CCCD: {w.citizenId}</p>
                   </div>
-                  <Badge variant="warning">Không trúng #{i + 1}</Badge>
+                  <Badge variant="warning">Waitlist #{i + 1} — không hủy hồ sơ</Badge>
                 </div>
               ))}
             </div>
@@ -1821,7 +1911,7 @@ export function LotteryDetailPage() {
                   📋 Danh sách dự bị (Waitlist) ({waitlist.length} ứng viên)
                 </h3>
                 <p className="text-xs text-indigo-800 dark:text-indigo-300">
-                  Tự động xếp hạng theo Điều 38 NĐ 100/2024. Khi có người bỏ cọc hoặc bị hủy hợp đồng, người đứng đầu danh sách chờ sẽ được đôn lên nhận quyền mua.
+                  Không trúng không bị hủy. Xếp hạng #1, #2, #3… Khi căn trả lại do hủy hợp đồng hoặc không nộp cọc, hệ thống đôn người đứng đầu — hạn xác nhận {WAITLIST_CONFIRM_HOURS} giờ, không mở lại đợt bốc thăm.
                 </p>
               </div>
 
@@ -1834,7 +1924,7 @@ export function LotteryDetailPage() {
                     void action('Đôn ứng viên Waitlist', () => lotteryApi.promoteWaitlist(projectId))
                   }}
                 >
-                  🚀 Trao quyền mua cho người dự bị #1
+                  🚀 Đôn thủ công người #1 (BE cũng tự đôn khi trả căn)
                 </Button>
               )}
             </div>
@@ -1867,7 +1957,7 @@ export function LotteryDetailPage() {
                     )}
                     {w.depositDeadline && (
                       <span className="text-xs text-amber-600 font-medium">
-                        Hạn cọc: {new Date(w.depositDeadline).toLocaleDateString('vi-VN')}
+                        Hạn xác nhận {WAITLIST_CONFIRM_HOURS}h: {new Date(w.depositDeadline).toLocaleString('vi-VN')}
                       </span>
                     )}
                     <Badge variant={w.status === 'PROMOTED' ? 'success' : 'warning'}>
@@ -1908,7 +1998,6 @@ export function LotteryDetailPage() {
         open={scheduleOpen}
         onClose={() => setScheduleOpen(false)}
         title="Thiết lập phiên bốc thăm trực tuyến"
-        description="Nhập ngày/giờ mở sảnh, số căn mở bán và tỷ lệ ưu tiên trước."
         size="lg"
       >
         <div className="space-y-3">
@@ -1927,58 +2016,23 @@ export function LotteryDetailPage() {
               onChange={(e) => setSchedForm((f) => ({ ...f, lotteryLocation: e.target.value }))}
             />
           </FormField>
-          <FormField label="Số căn hộ mở bán thực tế *" htmlFor="totalUnits">
-            <Input
-              id="totalUnits"
-              type="number"
-              min={1}
-              value={schedForm.totalUnits}
-              onChange={(e) => setSchedForm((f) => ({ ...f, totalUnits: e.target.value }))}
-            />
-          </FormField>
-          <FormField label="Tỷ lệ phân bổ ưu tiên trước (%)" htmlFor="priorityRatio">
-            <Input
-              id="priorityRatio"
-              type="number"
-              min={0}
-              max={100}
-              value={schedForm.priorityRatio}
-              onChange={(e) => setSchedForm((f) => ({ ...f, priorityRatio: e.target.value }))}
-            />
-          </FormField>
-          <p className="text-xs text-slate-500">
-            Tỷ lệ ưu tiên được ghi nhận trên mô tả lịch; logic phân bổ ưu tiên xử lý ở bước quyết định CĐT / BE.
-          </p>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-200">
+            Căn ưu tiên: <strong>{schedFund.priorityCount}</strong>
+            {' · '}Căn thường: <strong>{schedFund.standardCount}</strong>
+            {' · '}Tổng trống: <strong>{schedFund.available}</strong>
+            <p className="mt-2 font-semibold text-slate-900 dark:text-white">
+              Số căn hộ mở bốc thăm: {schedFund.available}
+            </p>
+          </div>
+          {schedModalError && <Alert variant="error">{schedModalError}</Alert>}
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setScheduleOpen(false)}>Huỷ</Button>
+            <Button variant="outline" onClick={() => setScheduleOpen(false)} disabled={!!busy}>Huỷ</Button>
             <Button
               variant="accent"
               disabled={!!busy}
-              onClick={() => {
-                const totalUnits = Number(schedForm.totalUnits)
-                if (!schedForm.lotteryDate || !schedForm.lotteryLocation.trim()) {
-                  setMsg({ type: 'error', text: 'Vui lòng nhập đủ ngày giờ và địa điểm.' })
-                  return
-                }
-                if (Number.isNaN(totalUnits) || totalUnits <= 0) {
-                  setMsg({ type: 'error', text: 'Số căn không hợp lệ.' })
-                  return
-                }
-                const iso = new Date(schedForm.lotteryDate).toISOString()
-                setScheduleOpen(false)
-                void action('Lên lịch', () =>
-                  lotteryApi.schedule(projectId, {
-                    lotteryDate: iso,
-                    lotteryLocation: schedForm.lotteryLocation.trim(),
-                    lotteryType: 'ONLINE',
-                    totalUnits,
-                    lotteryDescription: `Tỷ lệ ưu tiên trước: ${schedForm.priorityRatio}%`,
-                    notes: `priorityRatio=${schedForm.priorityRatio}`,
-                  }),
-                )
-              }}
+              onClick={() => void saveDetailSchedule()}
             >
-              Lưu lịch bốc thăm
+              {busy === 'Lên lịch' ? 'Đang gửi…' : 'Lưu lịch bốc thăm'}
             </Button>
           </div>
         </div>

@@ -160,7 +160,7 @@ export interface HousingProjectDto {
   maxArea?: number
   availableUnits?: number
   totalUnits?: number
-  /** Tỉ lệ Đợt 1 (% giá căn), tối đa 30; Đợt 2 = phần còn lại */
+  /** Tỷ lệ Đợt 1 — tiền cọc khi được cấp nhà (% giá căn), tối đa 30%. Phải đóng trước khi ký hợp đồng mua bán. */
   phase1Percentage?: number
   thumbnailUrl?: string
   imageUrl?: string
@@ -172,6 +172,8 @@ export interface HousingProjectDto {
   rejectReason?: string
   applicationOpenDate?: string
   applicationCloseDate?: string
+  lotteryDate?: string
+  isLotteryApproved?: boolean
   createdAt?: string
   updatedAt?: string
   images?: { id: string; imageUrl: string; displayOrder?: number }[]

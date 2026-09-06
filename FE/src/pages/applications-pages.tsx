@@ -9,7 +9,6 @@ import {
   CheckCircle2,
   XCircle,
   AlertTriangle,
-  CheckCheck,
   X,
   FilePlus,
   Scale,
@@ -179,11 +178,9 @@ export function ApplicationsPage() {
   const [exporting, setExporting] = useState(false)
   const applicantBlocker = useExistingApplicationBlocker()
 
-  // SXD bulk actions
-  const [sxdBulkSending, setSxdBulkSending] = useState(false)
-
   useEffect(() => {
     setPageIndex(1)
+    setSelected(new Set())
   }, [status])
 
   const load = async (filter?: { search?: string; status?: string }, page = 1) => {
@@ -230,9 +227,8 @@ export function ApplicationsPage() {
 
   const toggleSelectAll = () => {
     setSelected((prev) => {
-      const pool = isDeveloper ? submittable : sxdSelectable
-      if (prev.size === pool.length) return new Set()
-      return new Set(pool.map((a) => a.applicationId))
+      if (prev.size === submittable.length) return new Set()
+      return new Set(submittable.map((a) => a.applicationId))
     })
   }
 
@@ -252,54 +248,6 @@ export function ApplicationsPage() {
       setBulkMsg({ type: 'error', text: formatError(err) })
     } finally {
       setBulkSending(false)
-    }
-  }
-
-  // SXD bulk: chỉ chọn những PENDING_SXD_REVIEW
-  const sxdSelectable = useMemo(
-    () => apps.filter((a) => a.applicationStatus === 'PENDING_SXD_REVIEW'),
-    [apps],
-  )
-
-  const sxdToggleSelectAll = () => {
-    setSelected((prev) => {
-      if (prev.size === sxdSelectable.length) return new Set()
-      return new Set(sxdSelectable.map((a) => a.applicationId))
-    })
-  }
-
-  const sxdBulkApprove = async () => {
-    if (selected.size === 0 || sxdBulkSending) return
-    if (!window.confirm(`Phê duyệt ${selected.size} hồ sơ đã chọn?`)) return
-    setSxdBulkSending(true)
-    setBulkMsg(null)
-    try {
-      await housingApplicationsApi.bulkSxdApprove(Array.from(selected))
-      setBulkMsg({ type: 'success', text: `Đã phê duyệt ${selected.size} hồ sơ.` })
-      setSelected(new Set())
-      await load({ search: search || undefined, status: status || undefined })
-    } catch (err) {
-      setBulkMsg({ type: 'error', text: formatError(err) })
-    } finally {
-      setSxdBulkSending(false)
-    }
-  }
-
-  const sxdBulkReject = async () => {
-    if (selected.size === 0 || sxdBulkSending) return
-    const note = window.prompt(`Từ chối ${selected.size} hồ sơ — nhập lý do (bắt buộc):`)
-    if (!note?.trim()) return
-    setSxdBulkSending(true)
-    setBulkMsg(null)
-    try {
-      await housingApplicationsApi.bulkSxdReject(Array.from(selected), note.trim())
-      setBulkMsg({ type: 'success', text: `Đã từ chối ${selected.size} hồ sơ.` })
-      setSelected(new Set())
-      await load({ search: search || undefined, status: status || undefined })
-    } catch (err) {
-      setBulkMsg({ type: 'error', text: formatError(err) })
-    } finally {
-      setSxdBulkSending(false)
     }
   }
 
@@ -499,64 +447,50 @@ export function ApplicationsPage() {
           </div>
         </form>
 
-        {/* Developer Bulk Toolbar */}
-        {isDeveloper && submittable.length > 0 && (
+        {/* CĐT: chọn nhiều hồ sơ đang thẩm định → gửi sang SXD một lần. SXD không có thanh này. */}
+        {isDeveloper && (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 dark:border-emerald-900/60 dark:bg-emerald-950/30">
-            <label className="flex items-center gap-2 text-xs sm:text-sm font-semibold text-emerald-950 dark:text-emerald-200 cursor-pointer">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded text-emerald-600 accent-emerald-600 cursor-pointer"
-                checked={submittable.length > 0 && selected.size === submittable.length}
-                onChange={toggleSelectAll}
-              />
-              Gom danh sách dự kiến: đã chọn <strong>{selected.size}</strong> / {submittable.length} hồ sơ đang thẩm định
-            </label>
-            <Button
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl px-4 py-2 text-xs sm:text-sm shadow-sm shadow-emerald-600/20"
-              size="sm"
-              disabled={selected.size === 0 || bulkSending}
-              onClick={() => void submitSelectedToSxd()}
-            >
-              <Send className="mr-1.5 h-4 w-4" />
-              {bulkSending ? 'Đang gửi…' : `Gửi thẩm định sang Sở (${selected.size || 0})`}
-            </Button>
-          </div>
-        )}
-
-        {/* SXD Bulk Toolbar */}
-        {isSxd && sxdSelectable.length > 0 && (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-indigo-200 bg-indigo-50/70 p-4 dark:border-indigo-900/60 dark:bg-indigo-950/30">
-            <label className="flex items-center gap-2 text-xs sm:text-sm font-semibold text-indigo-950 dark:text-indigo-200 cursor-pointer">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded accent-indigo-600 cursor-pointer"
-                checked={sxdSelectable.length > 0 && selected.size === sxdSelectable.length}
-                onChange={sxdToggleSelectAll}
-              />
-              Đã chọn <strong>{selected.size}</strong> / {sxdSelectable.length} hồ sơ chờ SXD duyệt
-            </label>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="accent"
-                size="sm"
-                className="rounded-xl font-bold text-xs"
-                disabled={selected.size === 0 || sxdBulkSending}
-                onClick={() => void sxdBulkApprove()}
-              >
-                <CheckCheck className="mr-1.5 h-4 w-4" />
-                {sxdBulkSending ? 'Đang duyệt…' : `Duyệt đồng loạt (${selected.size || 0})`}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-xl border-rose-300 text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-300 text-xs font-semibold"
-                disabled={selected.size === 0 || sxdBulkSending}
-                onClick={() => void sxdBulkReject()}
-              >
-                <X className="mr-1.5 h-4 w-4" />
-                Từ chối đồng loạt
-              </Button>
-            </div>
+            {submittable.length > 0 ? (
+              <>
+                <label className="flex items-center gap-2 text-xs sm:text-sm font-semibold text-emerald-950 dark:text-emerald-200 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded text-emerald-600 accent-emerald-600 cursor-pointer"
+                    checked={selected.size === submittable.length}
+                    onChange={toggleSelectAll}
+                  />
+                  Chọn một lúc: đã chọn <strong>{selected.size}</strong> / {submittable.length} hồ sơ đang thẩm định trên trang này
+                </label>
+                <Button
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl px-4 py-2 text-xs sm:text-sm shadow-sm shadow-emerald-600/20"
+                  size="sm"
+                  disabled={selected.size === 0 || bulkSending}
+                  onClick={() => void submitSelectedToSxd()}
+                >
+                  <Send className="mr-1.5 h-4 w-4" />
+                  {bulkSending ? 'Đang gửi…' : `Gửi sang Sở một lúc (${selected.size || 0})`}
+                </Button>
+              </>
+            ) : (
+              <>
+                <p className="text-xs sm:text-sm font-medium text-emerald-950 dark:text-emerald-200">
+                  Chọn nhiều hồ sơ <strong>Đang thẩm định</strong> rồi gửi sang Sở một lần. Trang này chưa có hồ sơ đó.
+                </p>
+                {status !== 'REVIEWING' && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-xl border-emerald-300 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-800 dark:text-emerald-200 text-xs font-semibold"
+                    onClick={() => {
+                      setStatus('REVIEWING')
+                      setPageIndex(1)
+                    }}
+                  >
+                    Lọc đang thẩm định
+                  </Button>
+                )}
+              </>
+            )}
           </div>
         )}
 
@@ -628,7 +562,7 @@ export function ApplicationsPage() {
                 <table className="min-w-full text-left text-sm">
                   <thead className="bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-600 dark:bg-slate-800/80 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700">
                     <tr>
-                      {(isDeveloper || isSxd) && <th className="px-4 py-3.5 w-10">Chọn</th>}
+                      {isDeveloper && <th className="px-4 py-3.5 w-10">Chọn</th>}
                       <th className="px-4 py-3.5">Người đăng ký</th>
                       <th className="px-4 py-3.5">CCCD</th>
                       <th className="px-4 py-3.5">Dự án</th>
@@ -639,9 +573,7 @@ export function ApplicationsPage() {
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
                     {apps.map((app) => {
-                      const canSelect =
-                        (isDeveloper && app.applicationStatus === 'REVIEWING') ||
-                        (isSxd && app.applicationStatus === 'PENDING_SXD_REVIEW')
+                      const canSelect = isDeveloper && app.applicationStatus === 'REVIEWING'
                       const countdown =
                         isSxd && app.applicationStatus === 'PENDING_SXD_REVIEW'
                           ? formatSxdCountdown(app.submittedAt || app.createdAt)
@@ -657,15 +589,19 @@ export function ApplicationsPage() {
                           className={`cursor-pointer transition hover:bg-slate-50/80 dark:hover:bg-slate-800/40 ${app.isViolation ? 'bg-rose-50/40 dark:bg-rose-950/20' : ''
                             }`}
                         >
-                          {(isDeveloper || isSxd) && (
+                          {isDeveloper && (
                             <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                              {canSelect && (
+                              {canSelect ? (
                                 <input
                                   type="checkbox"
                                   className="h-4 w-4 rounded accent-emerald-600 cursor-pointer"
                                   checked={selected.has(app.applicationId)}
                                   onChange={() => toggleSelect(app.applicationId)}
+                                  title="Chọn để gửi sang Sở cùng các hồ sơ khác"
+                                  aria-label={`Chọn hồ sơ ${app.applicantFullName || app.applicationId}`}
                                 />
+                              ) : (
+                                <span className="block w-4" aria-hidden="true" />
                               )}
                             </td>
                           )}
@@ -1635,56 +1571,55 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
                 >
                   <FilePlus className="mr-1.5 h-3.5 w-3.5" /> Yêu cầu bổ sung
                 </Button>
+                {app.isViolation ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-emerald-400 text-emerald-700 dark:text-emerald-300"
+                    disabled={!!acting}
+                    title="Gỡ cờ — hồ sơ sẽ trở lại danh sách bốc thăm / chốt suất nếu được phê duyệt."
+                    onClick={async () => {
+                      if (!window.confirm('Gỡ cờ vi phạm cho hồ sơ này?')) return
+                      setActing('unflag')
+                      try {
+                        await housingApplicationsApi.unflagViolation(app.applicationId)
+                        await refresh()
+                        setMsg({ type: 'success', text: 'Đã gỡ cờ vi phạm.' })
+                      } catch (err) {
+                        setMsg({ type: 'error', text: formatError(err) })
+                      } finally {
+                        setActing('')
+                      }
+                    }}
+                  >
+                    <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Gỡ cờ vi phạm
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-rose-400 text-rose-700 dark:text-rose-300"
+                    disabled={!!acting}
+                    title="Gắn khi phát hiện gian lận (trùng CCCD, đã có nhà đất). Loại khỏi bốc thăm / chốt suất."
+                    onClick={async () => {
+                      const reason = window.prompt('Lý do gắn cờ vi phạm (VD: CCCD trùng, đã có nhà đất):')
+                      if (!reason?.trim()) return
+                      setActing('flag')
+                      try {
+                        await housingApplicationsApi.flagViolation(app.applicationId, reason.trim())
+                        await refresh()
+                        setMsg({ type: 'success', text: 'Đã gắn cờ vi phạm cho hồ sơ.' })
+                      } catch (err) {
+                        setMsg({ type: 'error', text: formatError(err) })
+                      } finally {
+                        setActing('')
+                      }
+                    }}
+                  >
+                    <AlertTriangle className="mr-1.5 h-3.5 w-3.5" /> Gắn cờ vi phạm
+                  </Button>
+                )}
               </>
-            )}
-
-            {isSxd && (
-              app.isViolation ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="border-emerald-400 text-emerald-700 dark:text-emerald-300"
-                  disabled={!!acting}
-                  onClick={async () => {
-                    if (!window.confirm('Gỡ cờ vi phạm cho hồ sơ này?')) return
-                    setActing('unflag')
-                    try {
-                      await housingApplicationsApi.unflagViolation(app.applicationId)
-                      await refresh()
-                      setMsg({ type: 'success', text: 'Đã gỡ cờ vi phạm.' })
-                    } catch (err) {
-                      setMsg({ type: 'error', text: formatError(err) })
-                    } finally {
-                      setActing('')
-                    }
-                  }}
-                >
-                  <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Gỡ cờ vi phạm
-                </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="border-rose-400 text-rose-700 dark:text-rose-300"
-                  disabled={!!acting}
-                  onClick={async () => {
-                    const reason = window.prompt('Lý do gắn cờ vi phạm (VD: CCCD trùng, đã có nhà đất):')
-                    if (!reason?.trim()) return
-                    setActing('flag')
-                    try {
-                      await housingApplicationsApi.flagViolation(app.applicationId, reason.trim())
-                      await refresh()
-                      setMsg({ type: 'success', text: 'Đã gắn cờ vi phạm cho hồ sơ.' })
-                    } catch (err) {
-                      setMsg({ type: 'error', text: formatError(err) })
-                    } finally {
-                      setActing('')
-                    }
-                  }}
-                >
-                  <AlertTriangle className="mr-1.5 h-3.5 w-3.5" /> Gắn cờ vi phạm
-                </Button>
-              )
             )}
 
             {(app.receiptUrl || app.applicationStatus !== 'DRAFT') && (
@@ -1868,7 +1803,10 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
                     <DetailRow label="Kết quả bốc thăm" value={LOTTERY_RESULT_LABELS[app.lotteryResult] ?? app.lotteryResult} />
                   )}
                   {app.waitlistNumber != null && (
-                    <DetailRow label="Số thứ tự hàng chờ" value={`#${app.waitlistNumber}`} />
+                    <DetailRow
+                      label="Số thứ tự hàng chờ"
+                      value={`#${app.waitlistNumber} — không hủy hồ sơ; suất trả lại đôn theo hạng, hạn xác nhận 48 giờ`}
+                    />
                   )}
                 </div>
               </div>
@@ -2055,7 +1993,7 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
             applicationStatus={contractStatus?.applicationStatus ?? app.applicationStatus}
           />
 
-          {/* Lịch thanh toán theo cấu hình CĐT */}
+          {/* Lịch thanh toán theo cấu hình chủ đầu tư */}
           <PaymentSection
             installments={installments}
             paid={installments.filter(i => i.status === 'PAID').reduce((s, i) => s + (i.paidAmount ?? i.amount), 0)}

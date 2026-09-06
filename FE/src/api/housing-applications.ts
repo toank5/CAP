@@ -493,22 +493,6 @@ export const housingApplicationsApi = {
       auth: true,
     }),
 
-  /** SXD bulk approve nhiều PENDING_SXD_REVIEW cùng lúc */
-  bulkSxdApprove: (ids: string[]) =>
-    request<ApiResult>('/api/housing-applications/bulk-sxd-approve', {
-      method: 'PATCH',
-      body: JSON.stringify({ ids }),
-      auth: true,
-    }),
-
-  /** SXD bulk reject nhiều PENDING_SXD_REVIEW cùng lúc */
-  bulkSxdReject: (ids: string[], note: string) =>
-    request<ApiResult>('/api/housing-applications/bulk-sxd-reject', {
-      method: 'PATCH',
-      body: JSON.stringify({ ids, note }),
-      auth: true,
-    }),
-
   /** SXD yêu cầu CĐT bổ sung giấy tờ → application quay về NEED_MORE_DOCUMENTS */
   sxdRequestDocs: (id: string, note: string) =>
     request<ApiResult>(`/api/housing-applications/${id}/sxd-request-docs`, {

@@ -82,6 +82,18 @@ export function isOpenForRegistration(p: HousingProjectDto | null | undefined): 
   return effectiveProjectStatus(p) === 'OPEN'
 }
 
+/**
+ * Còn nhận hồ sơ mới hay không.
+ * Khóa khi CLOSED/FULL, đã có lịch bốc thăm, hoặc quá hạn đóng đăng ký.
+ */
+export function isApplicationIntakeOpen(p: HousingProjectDto | null | undefined): boolean {
+  if (!isOpenForRegistration(p)) return false
+  if (p?.lotteryDate) return false
+  const closeAt = parseDateSafe(p?.applicationCloseDate)
+  if (closeAt && Date.now() > closeAt.getTime()) return false
+  return true
+}
+
 /** Project đã bị SXD từ chối */
 export function isRejected(p: HousingProjectDto | null | undefined): boolean {
   return effectiveProjectStatus(p) === 'REJECTED'

@@ -132,7 +132,7 @@ export function ApplicationTimeline({
         <div className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 ring-1 ring-amber-200 dark:bg-amber-950/40 dark:text-amber-200 dark:ring-amber-800">
           <p className="font-semibold">Đã xếp danh sách chờ (dự bị)</p>
           <p className="mt-0.5">
-            Hồ sơ không bị hủy. Khi có căn trả lại, hệ thống chuyển quyền mua theo thứ hạng.
+            Hồ sơ không bị hủy. Xếp theo hạng (#1, #2, #3…). Khi có căn trả lại, quyền mua chuyển cho người đứng đầu — hạn xác nhận 48 giờ.
           </p>
         </div>
       )}

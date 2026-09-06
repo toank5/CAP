@@ -38,6 +38,7 @@ import { extractApplicationId, extractSingleProject } from '@/lib/parsers'
 import { mapProjectToCard, type ProjectCard } from '@/lib/projects'
 import { formatError } from '@/lib/format-error'
 import { getHashQuery } from '@/router'
+import { isApplicationIntakeOpen } from '@/lib/project-status-flow'
 import type { CreateApplicationDto } from '@/types'
 
 // Wizard 3 bước — dùng API prefill để tự fill thông tin đã kê khai
@@ -229,6 +230,7 @@ export function CreateApplicationWizard() {
   const [selectedProject, setSelectedProject] = useState<ProjectCard | null>(null)
   const [projectLoading, setProjectLoading] = useState(true)
   const [projectLoadError, setProjectLoadError] = useState(false)
+  const [intakeBlockedReason, setIntakeBlockedReason] = useState('')
   const [draftId, setDraftId] = useState<string | null>(null)
   const [draftStatus, setDraftStatus] = useState<string>('DRAFT')
   const [docs, setDocs] = useState<Record<string, DocUpload | null>>({})
@@ -311,6 +313,13 @@ export function CreateApplicationWizard() {
         const dto = extractSingleProject(data)
         if (!dto?.id) throw new Error('missing-project')
         setSelectedProject(mapProjectToCard(dto))
+        if (!isApplicationIntakeOpen(dto)) {
+          setIntakeBlockedReason(
+            'Dự án đã khóa nhận hồ sơ mới (đã đóng đăng ký hoặc đã mở lịch bốc thăm). Không thể nộp hồ sơ mới.',
+          )
+        } else {
+          setIntakeBlockedReason('')
+        }
       })
       .catch(() => {
         if (cancelled) return
@@ -400,6 +409,10 @@ export function CreateApplicationWizard() {
   }
 
   const createDraft = async (): Promise<string | null> => {
+    if (intakeBlockedReason) {
+      setMsg({ type: 'error', text: intakeBlockedReason })
+      return null
+    }
     const body = buildCreateBody()
     if (!body) {
       setMsg({ type: 'error', text: 'Thiếu thông tin để tạo hồ sơ. Kiểm tra lại dự án và nhóm đối tượng.' })
@@ -515,6 +528,7 @@ export function CreateApplicationWizard() {
   }
 
   const goNextFromStep1 = async () => {
+    if (intakeBlockedReason) { setMsg({ type: 'error', text: intakeBlockedReason }); return }
     if (!selectedProjectId) { setMsg({ type: 'error', text: 'Bạn chưa chọn dự án. Hãy tìm dự án đang mở đăng ký rồi nộp hồ sơ từ trang chi tiết.' }); return }
     if (!selectedPriorityGroup) { setMsg({ type: 'error', text: 'Vui lòng chọn nhóm đối tượng ưu tiên.' }); return }
     if (missingFields.length > 0) {
@@ -578,6 +592,10 @@ export function CreateApplicationWizard() {
                     <Loader2 className="h-4 w-4 animate-spin text-primary" />
                     <span className="text-sm text-slate-500">Đang tải dự án đã chọn...</span>
                   </div>
+                )}
+
+                {!projectLoading && selectedProject && intakeBlockedReason && (
+                  <Alert variant="error">{intakeBlockedReason}</Alert>
                 )}
 
                 {!projectLoading && selectedProject && (
@@ -752,7 +770,7 @@ export function CreateApplicationWizard() {
                   <Button
                     type="button"
                     variant="accent"
-                    disabled={prefillLoading || projectLoading || isBusy || !selectedProjectId || !selectedPriorityGroup}
+                    disabled={prefillLoading || projectLoading || isBusy || !selectedProjectId || !selectedPriorityGroup || !!intakeBlockedReason}
                     onClick={() => void goNextFromStep1()}
                   >
                     Tiếp tục <ArrowRight className="ml-1 h-4 w-4" />
