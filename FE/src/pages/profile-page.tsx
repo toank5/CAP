@@ -85,6 +85,7 @@ interface HouseholdMemberDraft {
   isDependent: boolean
   dependentReason: string
   note: string
+  hasMeritService: boolean
 }
 
 interface CitizenDeclarationState {
@@ -113,6 +114,7 @@ function toHouseholdDraft(member: UserHouseholdMemberDto): HouseholdMemberDraft 
     isDependent: member.isDependent,
     dependentReason: member.dependentReason ?? '',
     note: member.note ?? '',
+    hasMeritService: Boolean(member.hasMeritService),
   }
 }
 
@@ -141,6 +143,7 @@ function parseHouseholdMembers(data: unknown): UserHouseholdMemberDto[] {
       isDependent: Boolean(value.isDependent ?? value.IsDependent),
       dependentReason: (value.dependentReason ?? value.DependentReason) as string | null | undefined,
       dependentReasonLabel: (value.dependentReasonLabel ?? value.DependentReasonLabel) as string | null | undefined,
+      hasMeritService: Boolean(value.hasMeritService ?? value.HasMeritService),
       note: (value.note ?? value.Note) as string | null | undefined,
     }
   }).filter((member) => member.memberId && member.fullName)
@@ -423,7 +426,7 @@ export function ProfilePage() {
           monthlyIncome: member.monthlyIncome === '' ? null : Number(member.monthlyIncome),
           isDependent: member.isDependent,
           dependentReason: member.isDependent ? member.dependentReason : null,
-          hasMeritService: false,
+          hasMeritService: Boolean(member.hasMeritService),
           note: member.note.trim() || null,
         }
         if (member.memberId) await usersApi.updateHouseholdMember(member.memberId, body)
@@ -791,7 +794,7 @@ export function ProfilePage() {
                           <p className="text-xs text-slate-500 dark:text-slate-400">Khai báo cha mẹ, vợ/chồng, con và người sống cùng. Người phụ thuộc được tính vào nhân khẩu để xét diện tích, không tính thu nhập.</p>
                         </div>
                         <div className="flex gap-2">
-                          <Button type="button" variant="outline" size="sm" onClick={() => setHouseholdMembers((current) => [...current, { fullName: '', citizenId: '', dateOfBirth: '', relationship: '', occupation: '', monthlyIncome: '', isDependent: false, dependentReason: '', note: '' }])}>Thêm thành viên</Button>
+                          <Button type="button" variant="outline" size="sm" onClick={() => setHouseholdMembers((current) => [...current, { fullName: '', citizenId: '', dateOfBirth: '', relationship: '', occupation: '', monthlyIncome: '', isDependent: false, dependentReason: '', note: '', hasMeritService: false }])}>Thêm thành viên</Button>
                         </div>
                       </div>
                       {householdMembers.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-400">Chưa khai báo thành viên sống cùng.</p>}
@@ -821,6 +824,7 @@ export function ProfilePage() {
                               <FormField label="Thu nhập hàng tháng (VNĐ)" htmlFor={`member-income-${index}`}><Input id={`member-income-${index}`} type="number" min={0} value={member.monthlyIncome} onChange={(event) => setHouseholdMembers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, monthlyIncome: event.target.value } : item))} /></FormField>
                             </div>
                             <label className="mt-3 flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={member.isDependent} onChange={(event) => setHouseholdMembers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, isDependent: event.target.checked, dependentReason: event.target.checked ? item.dependentReason : '' } : item))} />Là người phụ thuộc</label>
+                            <label className="mt-2 flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={member.hasMeritService} onChange={(event) => setHouseholdMembers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, hasMeritService: event.target.checked } : item))} />Người có công với cách mạng (điểm ưu tiên thành viên)</label>
                             {member.isDependent && <div className="mt-3 max-w-xl"><FormField label="Lý do phụ thuộc *" htmlFor={`member-dependent-reason-${index}`}><select id={`member-dependent-reason-${index}`} value={member.dependentReason} onChange={(event) => setHouseholdMembers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, dependentReason: event.target.value } : item))} className="flex h-11 w-full rounded-xl border border-slate-200 bg-white/80 px-4 text-sm dark:border-slate-700 dark:bg-slate-900/80"><option value="">-- Chọn lý do --</option>{DEPENDENT_REASON_OPTIONS.map((reason) => <option key={reason.value} value={reason.value}>{reason.label}</option>)}</select></FormField><p className="mt-1 text-xs text-amber-700 dark:text-amber-400">Bắt buộc đính kèm giấy tờ chứng minh người phụ thuộc và giấy xác nhận thông tin cư trú/hộ khẩu.</p></div>}
                           </div>
                         ))}
@@ -1086,6 +1090,7 @@ function PolicySummary({
               <div key={member.memberId} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm dark:bg-slate-800/60">
                 <span className="font-medium">{member.fullName} <span className="font-normal text-slate-500">({label(RELATIONSHIP_OPTIONS, member.relationship)})</span></span>
                 {member.isDependent && <span className="rounded-full bg-teal-100 px-2 py-0.5 text-xs font-medium text-teal-700 dark:bg-teal-900/40 dark:text-teal-300">Người phụ thuộc: {label(DEPENDENT_REASON_OPTIONS, member.dependentReason)}</span>}
+                {member.hasMeritService && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">Người có công</span>}
               </div>
             ))}
           </div>

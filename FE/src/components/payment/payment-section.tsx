@@ -687,7 +687,7 @@ export function PaymentSection({
       <Alert variant="warning">
         <p className="font-medium">Hợp đồng đã ký nhưng hệ thống chưa sinh lịch thanh toán.</p>
         <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
-          Liên hệ CĐT / Ban quản lý dự án để được tạo lịch thanh toán (3–6 đợt theo quy định dự án).
+          Liên hệ CĐT / Ban quản lý dự án để được tạo lịch thanh toán theo cấu hình dự án.
         </p>
       </Alert>
     )
@@ -696,7 +696,7 @@ export function PaymentSection({
   if (installments.length === 0) {
     return (
       <Alert variant="info">
-        <strong>Chưa có lịch thanh toán.</strong> Hệ thống sẽ sinh lịch thanh toán (3–6 đợt theo cấu hình của CĐT) sau khi CĐT gán căn hộ cho bạn.
+        <strong>Chưa có lịch thanh toán.</strong> Hệ thống sẽ sinh lịch thanh toán theo cấu hình của CĐT sau khi CĐT gán căn hộ cho bạn.
       </Alert>
     )
   }
@@ -722,7 +722,7 @@ export function PaymentSection({
         <div className="mb-3 flex items-baseline justify-between">
           <h4 className="text-base font-semibold">Lịch thanh toán</h4>
           <span className="text-xs text-slate-500 dark:text-slate-400">
-            {installments.length} đợt · theo quy định dự án (3–6 đợt)
+            {installments.length} đợt · Đợt 1 là cọc (tối đa 30%)
           </span>
         </div>
 

@@ -247,7 +247,7 @@ export const contractApi = {
   },
 
   /**
-   * CĐT mở (unlock) đợt thanh toán theo tiến độ xây dựng (PAY.MD Đợt 3-6).
+   * CĐT mở (unlock) đợt thanh toán theo tiến độ xây dựng.
    * BE: POST /api/housing-developer/projects/{projectId}/unlock-phase
    * body: { triggerEvent: 'CONSTRUCTION_ROUGH_FLOOR' | 'ROOFING_COMPLETED' | 'HANDOVER' | 'RED_BOOK_ISSUED' }
    */

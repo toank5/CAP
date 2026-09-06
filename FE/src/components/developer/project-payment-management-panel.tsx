@@ -12,7 +12,9 @@ import {
 import {
   paymentApi,
   parseCancellationRequests,
+  parsePaymentProgressItems,
   type CancellationRequestItemDto,
+  type ApplicationProgressItem,
 } from '@/api/payment'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -29,6 +31,7 @@ export function ProjectPaymentManagementPanel({
   projectName,
 }: ProjectPaymentManagementPanelProps) {
   const [requests, setRequests] = useState<CancellationRequestItemDto[]>([])
+  const [overdueApps, setOverdueApps] = useState<ApplicationProgressItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -54,12 +57,18 @@ export function ProjectPaymentManagementPanel({
     setLoading(true)
     setError('')
     try {
-      const data = await paymentApi.getCancellationRequests(projectId)
-      const list = parseCancellationRequests(data)
-      setRequests(list)
+      const [cancelData, progressData] = await Promise.all([
+        paymentApi.getCancellationRequests(projectId),
+        paymentApi.getPaymentProgress(projectId).catch(() => null),
+      ])
+      setRequests(parseCancellationRequests(cancelData))
+      setOverdueApps(
+        parsePaymentProgressItems(progressData).filter((it) => it.isEligibleForForcedRevocation),
+      )
     } catch (err) {
       console.warn('[ProjectPaymentManagementPanel] Failed to load cancellation requests:', err)
       setRequests([])
+      setOverdueApps([])
     } finally {
       setLoading(false)
     }
@@ -148,7 +157,7 @@ export function ProjectPaymentManagementPanel({
       })
       setMsg({
         type: 'success',
-        text: 'Đã thực hiện cưỡng chế thanh lý hợp đồng mã hồ sơ ' + forcedAppId.trim() + '. Tiền cọc bị phạt tịch thu và căn hộ đã được trả về quỹ căn.',
+        text: 'Đã thực hiện cưỡng chế thanh lý hợp đồng. Tiền cọc bị phạt tịch thu và căn hộ đã được trả về quỹ căn.',
       })
       setForcedModalOpen(false)
       setForcedAppId('')
@@ -245,6 +254,59 @@ export function ProjectPaymentManagementPanel({
       {/* Thông báo kết quả */}
       {msg && <Alert variant={msg.type === 'error' ? 'error' : 'success'}>{msg.text}</Alert>}
       {error && <Alert variant="error">{error}</Alert>}
+
+      <div className="rounded-2xl border border-rose-200 bg-white p-5 shadow-xs dark:border-rose-900/40 dark:bg-slate-900">
+        <div className="mb-3">
+          <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+            Hồ sơ chậm ≥ 2 kỳ — đủ điều kiện thu hồi cưỡng chế ({overdueApps.length})
+          </h4>
+          <p className="text-xs text-slate-500">
+            Chọn hồ sơ trong danh sách, không cần dán mã. Suất căn sẽ trả về quỹ để đôn waitlist.
+          </p>
+        </div>
+        {overdueApps.length === 0 ? (
+          <p className="py-4 text-center text-xs text-slate-500">Không có hồ sơ quá hạn 2 kỳ trở lên.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-rose-50 text-[11px] font-bold uppercase text-rose-800 dark:bg-rose-950/40 dark:text-rose-300">
+                <tr>
+                  <th className="px-3 py-2">Người mua</th>
+                  <th className="px-3 py-2">Căn</th>
+                  <th className="px-3 py-2 text-right">Kỳ quá hạn</th>
+                  <th className="px-3 py-2 text-right">Lãi phạt</th>
+                  <th className="px-3 py-2 text-right">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {overdueApps.map((app) => (
+                  <tr key={app.applicationId}>
+                    <td className="px-3 py-2.5">
+                      <div className="font-bold text-slate-900 dark:text-white">{app.applicantName || '—'}</div>
+                      <div className="text-[11px] text-slate-400">CCCD: {app.citizenId || '—'}</div>
+                    </td>
+                    <td className="px-3 py-2.5 font-semibold text-blue-600">{app.apartmentUnitName || '—'}</td>
+                    <td className="px-3 py-2.5 text-right font-bold text-rose-600">{app.overduePhasesCount}</td>
+                    <td className="px-3 py-2.5 text-right">{formatMoney(app.accruedPenalty)}</td>
+                    <td className="px-3 py-2.5 text-right">
+                      <Button
+                        size="sm"
+                        className="h-7 bg-rose-600 px-2.5 text-[11px] font-bold text-white hover:bg-rose-700"
+                        onClick={() => {
+                          setForcedAppId(app.applicationId)
+                          setForcedModalOpen(true)
+                        }}
+                      >
+                        Thu hồi căn
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {/* Danh sách yêu cầu xin rút hồ sơ */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
@@ -471,18 +533,27 @@ export function ProjectPaymentManagementPanel({
           </div>
 
           <div className="space-y-3">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Mã hồ sơ (Application ID) cần cưỡng chế *
-              </label>
-              <input
-                type="text"
-                value={forcedAppId}
-                onChange={(e) => setForcedAppId(e.target.value)}
-                placeholder="VD: 3fa85f64-5717-4562-b3fc-2c963f66afa6"
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-mono text-slate-900 placeholder:text-slate-400 focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-              />
-            </div>
+            {forcedAppId ? (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-800">
+                <p className="font-semibold text-slate-800 dark:text-slate-100">
+                  {overdueApps.find((a) => a.applicationId === forcedAppId)?.applicantName || 'Hồ sơ đã chọn'}
+                </p>
+                <p className="mt-0.5 font-mono text-[11px] text-slate-500">{forcedAppId}</p>
+              </div>
+            ) : (
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Chọn hồ sơ từ danh sách chậm ≥ 2 kỳ, hoặc dán mã nếu không có trong danh sách
+                </label>
+                <input
+                  type="text"
+                  value={forcedAppId}
+                  onChange={(e) => setForcedAppId(e.target.value)}
+                  placeholder="Mã hồ sơ (UUID)"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-mono text-slate-900 placeholder:text-slate-400 focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                />
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">

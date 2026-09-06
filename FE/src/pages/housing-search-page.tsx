@@ -9,7 +9,6 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useHashRoute, navigate } from '@/hooks/useHashRoute'
 import { useWishlist } from '@/hooks/useWishlist'
-import { FEATURED_HOUSES } from '@/lib/featured-houses'
 import { formatError } from '@/lib/format-error'
 import {
   applyClientFilters,
@@ -24,26 +23,6 @@ import { extractProjects } from '@/lib/parsers'
 import { mapProjectToCard } from '@/lib/projects'
 import type { HousingProjectDto } from '@/types'
 
-function featuredAsProjects(): HousingProjectDto[] {
-  return FEATURED_HOUSES.map((h) => ({
-    id: h.id,
-    projectName: h.name,
-    name: h.name,
-    description: h.description,
-    province: h.location.split(',').pop()?.trim(),
-    district: h.location.split(',')[0]?.trim(),
-    address: h.address,
-    location: h.location,
-    minPrice: h.paymentAmount * 10,
-    maxPrice: h.paymentAmount * 10,
-    minArea: parseInt(h.area.replace(/\D/g, ''), 10) || 0,
-    maxArea: parseInt(h.area.replace(/\D/g, ''), 10) || 0,
-    availableUnits: parseInt(h.units.replace(/\D/g, ''), 10) || 0,
-    thumbnailUrl: h.imageUrl,
-    status: h.status,
-  }))
-}
-
 export function HousingSearchPage() {
   const route = useHashRoute()
   const { isWishlisted, toggle } = useWishlist()
@@ -51,39 +30,20 @@ export function HousingSearchPage() {
   const [results, setResults] = useState<HousingProjectDto[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [usedFallback, setUsedFallback] = useState(false)
 
   const runSearch = useCallback(async (nextFilter: HousingSearchFilter) => {
     setLoading(true)
     setError('')
-    setUsedFallback(false)
     try {
       const data = await housingProjectsApi.list(toApiFilter(nextFilter))
-      let items = sortHousingProjects(
+      const items = sortHousingProjects(
         applyClientFilters(extractProjects(data), nextFilter),
         nextFilter.sort,
       )
-
-      if (items.length === 0) {
-        const fallback = sortHousingProjects(
-          applyClientFilters(featuredAsProjects(), nextFilter),
-          nextFilter.sort,
-        )
-        if (fallback.length > 0) {
-          items = fallback
-          setUsedFallback(true)
-        }
-      }
-
       setResults(items)
     } catch (err) {
-      const fallback = sortHousingProjects(
-        applyClientFilters(featuredAsProjects(), nextFilter),
-        nextFilter.sort,
-      )
-      setResults(fallback)
-      setUsedFallback(true)
-      if (fallback.length === 0) setError(formatError(err))
+      setResults([])
+      setError(formatError(err))
     } finally {
       setLoading(false)
     }
@@ -120,12 +80,6 @@ export function HousingSearchPage() {
       />
 
       {error && <Alert variant="error">{error}</Alert>}
-
-      {usedFallback && !error && cards.length > 0 && (
-        <Alert variant="info">
-          Đang hiển thị dự án mẫu trên máy local. Khi backend có dữ liệu thật, kết quả sẽ lấy từ hệ thống.
-        </Alert>
-      )}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm font-medium text-slate-600">

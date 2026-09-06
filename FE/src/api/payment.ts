@@ -116,6 +116,43 @@ export function parseCancellationRequests(data: unknown): CancellationRequestIte
   return []
 }
 
+export interface ApplicationProgressItem {
+  applicationId: string
+  applicantName?: string
+  citizenId?: string
+  apartmentUnitName?: string
+  paidAmount?: number
+  remainingAmount?: number
+  accruedPenalty?: number
+  overduePhasesCount: number
+  isEligibleForForcedRevocation: boolean
+  applicationStatus?: string
+}
+
+export function parsePaymentProgressItems(data: unknown): ApplicationProgressItem[] {
+  const root = data && typeof data === 'object' ? (data as Record<string, unknown>) : {}
+  const nested = (root.data ?? root.Data ?? root) as Record<string, unknown>
+  const items = nested.items ?? nested.Items
+  if (!Array.isArray(items)) return []
+  return items.map((it) => {
+    const x = it as Record<string, unknown>
+    const overdue = Number(x.overduePhasesCount ?? x.OverduePhasesCount ?? 0)
+    const eligible = Boolean(x.isEligibleForForcedRevocation ?? x.IsEligibleForForcedRevocation) || overdue >= 2
+    return {
+      applicationId: String(x.applicationId ?? x.ApplicationId ?? ''),
+      applicantName: (x.applicantName ?? x.ApplicantName) as string | undefined,
+      citizenId: (x.citizenId ?? x.CitizenId) as string | undefined,
+      apartmentUnitName: (x.apartmentUnitName ?? x.ApartmentUnitName ?? x.slotCode ?? x.SlotCode) as string | undefined,
+      paidAmount: Number(x.paidAmount ?? x.PaidAmount ?? 0),
+      remainingAmount: Number(x.remainingAmount ?? x.RemainingAmount ?? 0),
+      accruedPenalty: Number(x.accruedPenalty ?? x.AccruedPenalty ?? 0),
+      overduePhasesCount: overdue,
+      isEligibleForForcedRevocation: eligible,
+      applicationStatus: (x.applicationStatus ?? x.ApplicationStatus) as string | undefined,
+    }
+  }).filter((it) => it.applicationId)
+}
+
 export const paymentApi = {
   createPaymentUrl: (body: CreatePaymentDto) =>
     request<PaymentResponseDto>('/api/Payment/create-payment-url', {
@@ -191,7 +228,7 @@ export const paymentApi = {
   getPaymentProgress: (projectId: string) =>
     request<ApiResult>(`/api/Payment/projects/${projectId}/payment-progress`, { auth: true }),
 
-  /** CĐT mở đợt thanh toán theo tiến độ xây dựng (Đợt 3-6) */
+  /** CĐT mở đợt thanh toán theo tiến độ xây dựng */
   unlockPhase: (projectId: string, triggerEvent: string) =>
     request<ApiResult>(`/api/Payment/projects/${projectId}/unlock-phase`, {
       method: 'PATCH',

@@ -1542,7 +1542,7 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
               </Button>
             )}
 
-            {isApplicant && !['APPROVED', 'APPROVED_BY_TIMEOUT', 'DEPOSIT_PAID', 'CONTRACT_SIGNED', 'CONTRACT_PENDING', 'REJECTED', 'CANCELED', 'EXPIRED', 'LOTTERY_LOST'].includes(app.applicationStatus) && (
+            {isApplicant && !['APPROVED', 'APPROVED_BY_TIMEOUT', 'DEPOSIT_PAID', 'CONTRACT_SIGNED', 'CONTRACT_PENDING', 'REJECTED', 'CANCELED', 'EXPIRED', 'LOTTERY_LOST', 'CANCELLATION_REQUESTED'].includes(app.applicationStatus) && (
               <Button variant="outline" size="sm" className="text-rose-600 hover:bg-rose-50 dark:text-rose-400" disabled={acting === 'cancel'} onClick={() => setWithdrawOpen(true)}>
                 Rút hồ sơ
               </Button>
@@ -2051,7 +2051,7 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
             applicationStatus={contractStatus?.applicationStatus ?? app.applicationStatus}
           />
 
-          {/* Lịch thanh toán (3–6 đợt) */}
+          {/* Lịch thanh toán theo cấu hình CĐT */}
           <PaymentSection
             installments={installments}
             paid={installments.filter(i => i.status === 'PAID').reduce((s, i) => s + (i.paidAmount ?? i.amount), 0)}

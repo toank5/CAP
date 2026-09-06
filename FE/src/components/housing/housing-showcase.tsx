@@ -477,7 +477,7 @@ function HomeHeroBanner() {
                 <Layers className="h-4 w-4" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-bold text-white truncate">Thanh toán 3–6 đợt</p>
+                <p className="text-xs font-bold text-white truncate">Thanh toán theo tiến độ CĐT</p>
                 <p className="text-[11px] text-sky-100 truncate">Linh hoạt tài chính</p>
               </div>
             </div>

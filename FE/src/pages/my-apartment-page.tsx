@@ -359,7 +359,7 @@ export function MyApartmentPage() {
                   applicationStatus={contractStatus?.applicationStatus ?? appStatus}
                 />
 
-                {/* Lịch thanh toán (3–6 đợt) + nút thanh toán + lịch sử GD */}
+                {/* Lịch thanh toán + nút thanh toán + lịch sử GD */}
                 <PaymentSection
                   installments={installments}
                   paid={installments.filter(i => i.status === 'PAID').reduce((s, i) => s + (i.paidAmount ?? i.amount), 0)}

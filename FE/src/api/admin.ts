@@ -90,4 +90,13 @@ export const adminApi = {
       body: JSON.stringify({ newPassword }),
       auth: true,
     }),
+
+  getAuditLogs: (query: { page?: number; pageSize?: number; searchKey?: string; action?: string } = {}) => {
+    const params = new URLSearchParams()
+    params.set('page', String(query.page ?? 1))
+    params.set('pageSize', String(query.pageSize ?? 50))
+    if (query.searchKey) params.set('searchKey', query.searchKey)
+    if (query.action) params.set('action', query.action)
+    return request<unknown>(`/api/Admin/audit-logs?${params.toString()}`, { auth: true })
+  },
 }

@@ -86,7 +86,7 @@ const PHASES: {
   {
     trigger: 'CONSTRUCTION_ROUGH_FLOOR',
     label: 'Đợt 3 — Xây thô',
-    hint: 'Mở đợt 3 (20%) khi công trình xây thô hoàn tất',
+    hint: 'Mở đợt thanh toán khi công trình xây thô hoàn tất',
     icon: <Construction className="h-3 w-3" />,
   },
   {

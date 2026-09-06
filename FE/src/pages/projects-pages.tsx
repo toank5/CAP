@@ -182,7 +182,7 @@ export function ProjectsPage() {
               Danh mục Dự án Nhà ở Xã hội
             </h1>
             <p className="max-w-2xl text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-              Khám phá các dự án nhà ở xã hội quy hoạch chuẩn mực, thông tin minh bạch, chính sách thanh toán linh hoạt từ 3–6 đợt và nộp hồ sơ xét duyệt trực tuyến.
+              Khám phá các dự án nhà ở xã hội quy hoạch chuẩn mực, thông tin minh bạch, lịch thanh toán do chủ đầu tư công bố (Đợt 1 là cọc, tối đa 30%) và nộp hồ sơ xét duyệt trực tuyến.
             </p>
 
             {/* Quick Metrics Badges */}
@@ -575,7 +575,7 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
         </FormField>
       </div>
       <p className="text-xs text-slate-500">
-        Bắt buộc — công bố cho người dân tỉ lệ trả trước sau ký HĐ (tối đa 30%). Đợt 2 = phần còn lại.
+        Bắt buộc — công bố cho người dân tỉ lệ trả trước sau ký HĐ (Đợt 1 là cọc, tối đa 30%). Các đợt sau do CĐT cấu hình, tổng 100%.
       </p>
 
       <div className="space-y-2 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
@@ -820,7 +820,7 @@ export function ProjectDetailPage() {
                         </span>
                       </div>
                       <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
-                        Dự án đang ở trạng thái chờ duyệt. Bạn có thể chỉnh sửa thông tin dự án, tiến độ thanh toán 3–6 đợt và cơ cấu quỹ căn hộ theo chuẩn mới.
+                        Dự án đang ở trạng thái chờ duyệt. Bạn có thể chỉnh sửa thông tin dự án, tiến độ thanh toán (Đợt 1 là cọc ≤ 30%) và cơ cấu quỹ căn hộ theo chuẩn mới.
                       </p>
                     </div>
                   </div>
@@ -1093,11 +1093,7 @@ function ProjectDetailView({
   ].filter(Boolean) as string[]
   const fullAddress = Array.from(new Set(rawAddressParts)).join(', ') || project.address || 'Thành phố Hồ Chí Minh'
 
-  const milestonesList = project.milestones && project.milestones.length > 0 ? project.milestones : [
-    { phaseOrder: 1, phaseName: 'Đợt 1 (Cọc / Cấp nhà)', percentage: project.phase1Percentage ?? 30, triggerEvent: 'ON_LOTTERY_WON', dueDays: 7 },
-    { phaseOrder: 2, phaseName: 'Đợt 2 (Bàn giao căn hộ)', percentage: 65, triggerEvent: 'HANDOVER', dueDays: 14 },
-    { phaseOrder: 3, phaseName: 'Đợt 3 (Sổ hồng)', percentage: 5, triggerEvent: 'RED_BOOK_ISSUED', dueDays: 7 },
-  ]
+  const milestonesList = project.milestones && project.milestones.length > 0 ? project.milestones : []
 
   return (
     <div className="space-y-8">
@@ -1450,16 +1446,22 @@ function ProjectDetailView({
               Tiến độ thanh toán ({milestonesList.length} đợt)
             </h2>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              Lộ trình đóng tiền theo từng giai đoạn chuẩn bị và bàn giao theo quy định Nhà ở xã hội
+              Lịch đóng tiền do chủ đầu tư công bố. Đợt 1 là tiền cọc, tối đa 30% giá trị căn.
             </p>
           </div>
-          <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
-            Tổng cộng: 100% giá trị căn hộ
-          </span>
+          {milestonesList.length > 0 && (
+            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+              Tổng cộng: {milestonesList.reduce((s: number, m: { percentage?: number }) => s + (Number(m.percentage) || 0), 0)}% giá trị căn hộ
+            </span>
+          )}
         </div>
 
-        {/* Timeline Stepper */}
-        <div className="grid gap-4 md:grid-cols-3">
+        {milestonesList.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-400">
+            Chủ đầu tư chưa công bố lịch thanh toán cho dự án này.
+          </p>
+        ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {milestonesList.map((m: any, idx: number) => {
             const phaseOrder = m.phaseOrder || idx + 1
             const pct = Number(m.percentage) || 0
@@ -1494,6 +1496,7 @@ function ProjectDetailView({
             )
           })}
         </div>
+        )}
       </div>
 
       {/* ═════════════════════════════════════════════════════════════════════ */}

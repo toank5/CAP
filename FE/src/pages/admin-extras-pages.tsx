@@ -9,6 +9,7 @@ import {
   type PriorityGroupPointItemDto,
   type PriorityPointsTableDto,
 } from '@/api/housing-project-statuses'
+import { adminApi } from '@/api/admin'
 import { issueReportsApi } from '@/api/issue-reports'
 import { formatError } from '@/lib/format-error'
 
@@ -31,31 +32,64 @@ interface PolicyConfig {
 
 const POLICY_DEFAULT_VALUES: Record<string, string> = {
   MAX_MONTHLY_INCOME: '15000000',
-  MAX_AVG_HOUSE_AREA: '15',
+  MAX_AVG_HOUSE_AREA: '10',
   SMALL_HOUSE_AREA_THRESHOLD: '15',
   PRIORITY_GROUPS: '["REVOLUTIONARY_CONTRIBUTION","POOR_HOUSEHOLD","SINGLE_MOTHER","DISABILITY","ETHNIC_MINORITY"]',
 }
 
 export function SystemLogsPage() {
-  const [logs, setLogs] = useState<Array<{ id: string; title?: string; status?: string; category?: string; createdAt?: string; description?: string }>>([])
+  const [logs, setLogs] = useState<Array<{
+    id: string
+    action?: string
+    entityName?: string
+    userFullName?: string
+    userEmail?: string
+    ipAddress?: string
+    actionTime?: string
+  }>>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [usedIssueReports, setUsedIssueReports] = useState(false)
 
   useEffect(() => {
     void (async () => {
       try {
-        const data = await issueReportsApi.getAllReports({ pageIndex: 1, pageSize: 50 })
-        const items = (data && typeof data === 'object' && 'items' in (data as object)
-          ? ((data as { items?: unknown[] }).items ?? [])
+        const data = await adminApi.getAuditLogs({ page: 1, pageSize: 50 })
+        const root = data && typeof data === 'object' ? (data as Record<string, unknown>) : {}
+        const nested = (root.data ?? root.Data ?? root) as Record<string, unknown>
+        const items = Array.isArray(nested)
+          ? nested
+          : ((nested.items ?? nested.Items ?? []) as unknown[])
+        const parsed = items.map((it) => {
+          const row = it as Record<string, unknown>
+          return {
+            id: String(row.auditId ?? row.AuditId ?? row.id ?? row.Id ?? ''),
+            action: String(row.action ?? row.Action ?? ''),
+            entityName: String(row.entityName ?? row.EntityName ?? ''),
+            userFullName: (row.userFullName ?? row.UserFullName) as string | undefined,
+            userEmail: (row.userEmail ?? row.UserEmail) as string | undefined,
+            ipAddress: (row.ipAddress ?? row.IpAddress) as string | undefined,
+            actionTime: (row.actionTime ?? row.ActionTime ?? row.createdAt ?? row.CreatedAt) as string | undefined,
+          }
+        }).filter((row) => row.id)
+
+        if (parsed.length > 0) {
+          setLogs(parsed)
+          return
+        }
+
+        const reports = await issueReportsApi.getAllReports({ pageIndex: 1, pageSize: 50 })
+        const reportItems = (reports && typeof reports === 'object' && 'items' in (reports as object)
+          ? ((reports as { items?: unknown[] }).items ?? [])
           : []
         ).map((it) => it as Record<string, unknown>)
-        setLogs(items.map((it) => ({
+        setUsedIssueReports(true)
+        setLogs(reportItems.map((it) => ({
           id: String(it.id ?? it.Id ?? ''),
-          title: String(it.title ?? it.Title ?? it.description ?? '—'),
-          status: String(it.status ?? it.Status ?? ''),
-          category: String(it.category ?? it.Category ?? ''),
-          createdAt: (it.createdAt ?? it.CreatedAt) as string | undefined,
-          description: (it.description ?? it.Description) as string | undefined,
+          action: String(it.title ?? it.Title ?? it.description ?? 'Báo cáo sự cố'),
+          entityName: String(it.category ?? it.Category ?? 'IssueReport'),
+          userFullName: String(it.status ?? it.Status ?? ''),
+          actionTime: (it.createdAt ?? it.CreatedAt) as string | undefined,
         })))
       } catch (err) {
         setError(formatError(err))
@@ -70,32 +104,35 @@ export function SystemLogsPage() {
       <PageHeader routeId="admin-logs" />
       <PageCard className="p-6">
         <Alert variant="info" className="mb-4">
-          <p className="font-semibold">Nhật ký hoạt động (sử dụng tạm Issue Reports)</p>
+          <p className="font-semibold">Nhật ký kiểm toán</p>
           <p className="mt-1 text-sm">
-            Hệ thống BE chưa có API audit-log riêng. Trang này hiển thị các báo cáo sự cố do người dùng gửi lên
-            để admin theo dõi.
+            {usedIssueReports
+              ? 'API audit-log chưa có dữ liệu — đang hiện báo cáo sự cố người dùng gửi lên.'
+              : 'Danh sách hành động nhạy cảm (duyệt, từ chối, cập nhật) theo API /api/Admin/audit-logs.'}
           </p>
         </Alert>
         {error && <Alert variant="error">{error}</Alert>}
         {loading ? (
           <p className="text-sm text-slate-500 dark:text-slate-400">Đang tải...</p>
         ) : logs.length === 0 ? (
-          <p className="text-sm text-slate-500 dark:text-slate-400">Chưa có sự cố nào được báo cáo.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Chưa có bản ghi nhật ký.</p>
         ) : (
           <div className="space-y-2">
             {logs.map((l) => (
               <div key={l.id} className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-medium">{l.title}</span>
+                  <span className="font-medium">{l.action || '—'}</span>
                   <div className="flex gap-2">
-                    {l.category && <Badge variant="secondary">{l.category}</Badge>}
-                    {l.status && <Badge variant="default">{l.status}</Badge>}
+                    {l.entityName && <Badge variant="secondary">{l.entityName}</Badge>}
                   </div>
                 </div>
-                {l.description && <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{l.description}</p>}
-                {l.createdAt && (
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                  {l.userFullName || l.userEmail || 'Hệ thống'}
+                  {l.ipAddress ? ` · IP ${l.ipAddress}` : ''}
+                </p>
+                {l.actionTime && (
                   <p className="mt-1 text-xs text-slate-400">
-                    {new Date(l.createdAt).toLocaleString('vi-VN')}
+                    {new Date(l.actionTime).toLocaleString('vi-VN')}
                   </p>
                 )}
               </div>

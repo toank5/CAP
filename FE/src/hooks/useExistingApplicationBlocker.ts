@@ -10,8 +10,7 @@ import {
  * Hook kiểm tra user hiện tại có hồ sơ nào "đang chạy" (chặn tạo mới) hay không.
  *
  * Quy tắc: chỉ hồ sơ ở trạng thái thất bại (REJECTED / LOTTERY_LOST / CANCELED)
- * hoặc nháp (DRAFT) thì mới cho tạo hồ sơ mới. Nháp không chặn — user có thể
- * tiếp tục chỉnh hoặc tạo mới.
+ * hoặc nháp (DRAFT) thì mới cho tạo hồ sơ mới. Waitlist và xin hủy HĐ vẫn CHẶN.
  *
  * Trả về `canCreate` (= true khi KHÔNG có hồ sơ chặn) để disable nút "Nộp hồ sơ ngay" /
  * "Tạo hồ sơ mới" trên UI mà không cần dựa vào quyết định của BE.

@@ -65,6 +65,9 @@ export const VALID_TRIGGER_EVENTS = [
   { code: 'RED_BOOK_ISSUED', label: 'Nhận Giấy chứng nhận (Sổ hồng)' },
 ]
 
+export const MIN_PAYMENT_PHASES = 2
+export const MAX_PAYMENT_PHASES = 20
+
 export const MILESTONE_PRESETS = [
   {
     name: '3 đợt (Tiêu chuẩn)',
@@ -288,7 +291,12 @@ export function CreateProjectModal({
     if (!street.trim()) return 'Vui lòng nhập địa chỉ đường / số nhà (Bắt buộc).'
     if (!decisionNumber.trim()) return 'Vui lòng nhập số quyết định phê duyệt.'
 
-    if (milestones.length < 3 || milestones.length > 6) return 'Tiến độ thanh toán phải từ 3 đến 6 đợt.'
+    if (milestones.length < MIN_PAYMENT_PHASES) {
+      return `Cần ít nhất ${MIN_PAYMENT_PHASES} đợt thanh toán (Đợt 1 là cọc, tối đa 30%).`
+    }
+    if (milestones.length > MAX_PAYMENT_PHASES) {
+      return `Tối đa ${MAX_PAYMENT_PHASES} đợt thanh toán.`
+    }
 
     // Kiểm tra tỷ lệ Đợt 1 <= 30% theo Luật Nhà ở Xã hội
     const phase1Pct = Number(milestones[0]?.percentage) || 0
@@ -307,7 +315,7 @@ export function CreateProjectModal({
       const pct = Number(milestones[i].percentage)
       if (pct <= 0) return `Đợt ${i + 1}: Vui lòng nhập tỷ lệ % thanh toán lớn hơn 0%.`
       const days = Number(milestones[i].dueDays)
-      if (days < 0) return `Đợt ${i + 1}: Thời hạn thanh toán (ngày) không được âm.`
+      if (days <= 0) return `Đợt ${i + 1}: Thời hạn thanh toán phải lớn hơn 0 ngày.`
     }
     return null
   }
@@ -878,7 +886,7 @@ export function CreateProjectModal({
                       Chính sách thanh toán theo tiến độ
                     </span>
                     <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-bold text-teal-700 dark:bg-teal-950 dark:text-teal-300">
-                      {milestones.length} đợt (quy định 3–6 đợt)
+                      {milestones.length} đợt · Đợt 1 (cọc) ≤ 30%
                     </span>
                     {requiredDot}
                   </div>
@@ -887,7 +895,7 @@ export function CreateProjectModal({
                     <button
                       type="button"
                       onClick={() => {
-                        if (milestones.length < 6) {
+                        if (milestones.length < MAX_PAYMENT_PHASES) {
                           setMilestones([
                             ...milestones,
                             {
@@ -895,15 +903,15 @@ export function CreateProjectModal({
                               phaseName: `Đợt ${milestones.length + 1}`,
                               percentage: 0,
                               triggerEvent: 'CONSTRUCTION_ROUGH_FLOOR',
-                              dueDays: 0,
+                              dueDays: 7,
                             },
                           ])
                         }
                       }}
-                      disabled={milestones.length >= 6 || submitting}
+                      disabled={milestones.length >= MAX_PAYMENT_PHASES || submitting}
                       className="flex items-center gap-1 rounded-md border border-dashed border-teal-400 bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-700 transition hover:bg-teal-100 disabled:opacity-40 dark:border-teal-700 dark:bg-teal-950/40 dark:text-teal-300"
                     >
-                      <Plus className="h-3.5 w-3.5" /> Thêm đợt ({milestones.length}/6)
+                      <Plus className="h-3.5 w-3.5" /> Thêm đợt
                     </button>
                   </div>
                 </div>
@@ -1060,14 +1068,16 @@ export function CreateProjectModal({
 
                       <button
                         type="button"
-                        disabled={milestones.length <= 3 || submitting}
+                        disabled={milestones.length <= MIN_PAYMENT_PHASES || submitting}
                         className="shrink-0 rounded-lg p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:opacity-30 dark:hover:bg-rose-950/40"
-                        title={milestones.length <= 3 ? 'Tối thiểu 3 đợt thanh toán' : 'Xóa đợt này'}
+                        title={milestones.length <= MIN_PAYMENT_PHASES ? `Tối thiểu ${MIN_PAYMENT_PHASES} đợt thanh toán` : 'Xóa đợt này'}
                         onClick={() => {
-                          if (milestones.length > 3) {
-                            const n = [...milestones]
-                            n.splice(idx, 1)
-                            setMilestones(n)
+                          if (milestones.length > MIN_PAYMENT_PHASES) {
+                            setMilestones(
+                              milestones
+                                .filter((_, i) => i !== idx)
+                                .map((item, i) => ({ ...item, phaseOrder: i + 1 })),
+                            )
                           }
                         }}
                       >

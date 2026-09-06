@@ -2,6 +2,7 @@ import type { HousingProjectFilter } from '@/api/housing-projects'
 import type { HousingProjectDto } from '@/types'
 import type { RouteId } from '@/router'
 import { HCM_PROVINCE } from '@/lib/vn-provinces-v2'
+import { effectiveProjectStatus } from '@/lib/project-status-flow'
 
 export { HCM_PROVINCE }
 
@@ -164,6 +165,12 @@ export function applyClientFilters(projects: HousingProjectDto[], filter: Housin
     if (maxArea != null && area > maxArea) return false
 
     if (p.availableUnits != null && p.availableUnits < minAvailable) return false
+
+    const effective = effectiveProjectStatus(p)
+    if (!filter.statusCode && !filter.statusId) {
+      if (effective === 'PENDING' || effective === 'REJECTED') return false
+    }
+
     if (filter.statusId && p.housingProjectStatusId !== filter.statusId) return false
     if (filter.statusCode) {
       const label = String(p.status || '')

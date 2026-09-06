@@ -254,7 +254,7 @@ function DepositCountdown({
 }
 
 /**
- * Thanh điều khiển của CĐT: mở (unlock) Đợt 3-6 theo tiến độ xây dựng.
+ * Thanh điều khiển của CĐT: mở (unlock) đợt thanh toán theo tiến độ xây dựng.
  * Hiển thị sau khi người dân đã ký HĐ (signedAt có).
  * Quy tắc nghiệp vụ (PAY.MD):
  *   - Đợt trước phải PAID thì mới được mở đợt sau.
@@ -1099,7 +1099,7 @@ export function ContractDetailPage() {
           </Button>
         )}
 
-        {/* CĐT: mở đợt 3-6 theo tiến độ */}
+        {/* CĐT: mở đợt theo tiến độ */}
         {canDeveloperUnlock && (
           <DeveloperUnlockBar
             projectId={projectId}
@@ -1206,7 +1206,7 @@ export function ContractDetailPage() {
                 Hợp đồng đã ký nhưng hệ thống chưa sinh lịch thanh toán.
               </p>
               <p className="text-xs text-slate-600 dark:text-slate-400">
-                Vui lòng liên hệ CĐT / Ban quản lý dự án để được tạo lịch thanh toán (3–6 đợt theo dự án).
+                Vui lòng liên hệ CĐT / Ban quản lý dự án để được tạo lịch thanh toán theo cấu hình dự án.
                 (Mã hồ sơ: <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">{id.slice(0, 8)}…</code>)
               </p>
               <Button size="sm" variant="outline" onClick={() => void reload()}>
@@ -1218,7 +1218,7 @@ export function ContractDetailPage() {
 
         {!installmentsError && installments.length === 0 && !hasApartment && (
           <Alert variant="info">
-            <strong>Chưa có lịch thanh toán.</strong> Hệ thống sẽ sinh lịch thanh toán (3–6 đợt theo cấu hình của CĐT) sau khi CĐT gán căn hộ cho bạn.
+            <strong>Chưa có lịch thanh toán.</strong> Hệ thống sẽ sinh lịch thanh toán theo cấu hình của CĐT sau khi CĐT gán căn hộ cho bạn.
           </Alert>
         )}
       </PageCard>

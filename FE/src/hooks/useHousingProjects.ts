@@ -3,27 +3,9 @@ import { housingProjectsApi } from '@/api/housing-projects'
 import { HCM_PROVINCE } from '@/lib/housing-search'
 import { extractProjects } from '@/lib/parsers'
 import { mapProjectToCard, type ProjectCard } from '@/lib/projects'
-import { FEATURED_HOUSES } from '@/lib/featured-houses'
+import { effectiveProjectStatus } from '@/lib/project-status-flow'
 
-function fallbackCards(): ProjectCard[] {
-  return FEATURED_HOUSES.map((h) => ({
-    id: h.id,
-    name: h.name,
-    location: h.location,
-    address: h.address,
-    price: h.price,
-    units: h.units,
-    type: h.type,
-    area: h.area,
-    status: h.status,
-    description: h.description,
-    paymentAmount: h.paymentAmount,
-    imageUrl: h.imageUrl,
-    minPrice: h.paymentAmount * 10,
-    maxPrice: h.paymentAmount * 10,
-    availableUnits: parseInt(h.units.replace(/\D/g, ''), 10) || 0,
-  }))
-}
+const PUBLIC_STATUSES = new Set(['OPEN', 'UPCOMING', 'CLOSED', 'FULL'])
 
 export function useHousingProjects(pageSize = 12) {
   const [projects, setProjects] = useState<ProjectCard[]>([])
@@ -40,12 +22,13 @@ export function useHousingProjects(pageSize = 12) {
         province: HCM_PROVINCE,
       })
       const items = extractProjects(data)
+        .filter((p) => PUBLIC_STATUSES.has(effectiveProjectStatus(p)))
         .filter((p) => (p.availableUnits ?? 0) > 0)
         .map(mapProjectToCard)
-      setProjects(items.length > 0 ? items : fallbackCards())
+      setProjects(items)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Không tải được danh sách dự án')
-      setProjects(fallbackCards())
+      setProjects([])
     } finally {
       setLoading(false)
     }

@@ -19,13 +19,8 @@ interface Props {
 
 /**
  * Panel CĐT mở đợt thanh toán theo tiến độ xây dựng.
- *
- *   Đợt 1 (10%) — luôn mở sau khi ký HĐMB
- *   Đợt 2 (10%) — luôn mở sau khi ký HĐMB
- *   Đợt 3 (20%) — Xây thô         → CONSTRUCTION_ROUGH_FLOOR
- *   Đợt 4 (20%) — Cất nóc          → ROOFING_COMPLETED
- *   Đợt 5 (27%) — Bàn giao         → HANDOVER
- *   Đợt 6 ( 5%) — Sổ hồng          → RED_BOOK_ISSUED
+ * Số đợt và % do CĐT cấu hình; Đợt 1 là cọc (tối đa 30%).
+ * Cột mốc thi công (xây thô / cất nóc / bàn giao / sổ hồng) kích hoạt các đợt tương ứng.
  *
  * Ứng dụng: Chỉ vai trò Housing Developer.
  */
@@ -115,7 +110,7 @@ const PHASES: {
   {
     trigger: 'CONSTRUCTION_ROUGH_FLOOR',
     label: 'Mở Đợt 3 — Xây thô',
-    hint: 'Mở đợt 3 (20%) khi công trình hoàn thành phần xây thô',
+    hint: 'Mở đợt thanh toán khi công trình hoàn thành phần xây thô',
     icon: <Construction className="h-3 w-3" />,
   },
   {

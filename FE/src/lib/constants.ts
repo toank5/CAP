@@ -24,6 +24,8 @@ export const APPLICATION_STATUS: Record<string, { label: string; variant: 'defau
   LOTTERY_WAITING: { label: 'Chờ bốc thăm', variant: 'warning' },
   LOTTERY_IN_PROGRESS: { label: 'Đang bốc thăm', variant: 'warning' },
   LOTTERY_COMPLETED: { label: 'Đã bốc thăm', variant: 'secondary' },
+  WAITLIST: { label: 'Danh sách chờ', variant: 'warning' },
+  CANCELLATION_REQUESTED: { label: 'Xin ngừng thanh toán', variant: 'warning' },
 }
 
 export const CLOSED_APPLICATION_STATUSES = ['APPROVED', 'DEPOSIT_PAID', 'REJECTED', 'CANCELED', 'EXPIRED', 'LOTTERY_LOST']
@@ -36,7 +38,7 @@ export const CLOSED_APPLICATION_STATUSES = ['APPROVED', 'DEPOSIT_PAID', 'REJECTE
  *  - Đã nộp / đang thẩm định / chờ SXD / chờ đặt cọc / chờ ký HĐ / đang ký / đang thanh toán: CHẶN.
  *  - Trượt duyệt (REJECTED) / Trượt bốc thăm (LOTTERY_LOST) / Đã hủy (CANCELED): CHO PHÉP tạo mới.
  *  - Hết hạn (EXPIRED): CHO PHÉP tạo mới.
- *  - Đã duyệt / Đã ký HĐ / Đã thanh toán: CHẶN (đã trúng suất rồi).
+ *  - Đã duyệt / Đã ký HĐ / Đã thanh toán / Waitlist / Xin hủy HĐ: CHẶN.
  */
 export const BLOCKING_APPLICATION_STATUSES = [
   'SUBMITTED',
@@ -54,6 +56,12 @@ export const BLOCKING_APPLICATION_STATUSES = [
   'PARTIALLY_PAID',
   'PAID',
   'FULLY_PAID',
+  'WAITLIST',
+  'CANCELLATION_REQUESTED',
+  'LOTTERY_WON',
+  'LOTTERY_PENDING',
+  'LOTTERY_WAITING',
+  'LOTTERY_IN_PROGRESS',
 ] as const
 
 /**
