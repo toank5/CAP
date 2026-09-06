@@ -28,7 +28,7 @@ const DOC_TYPE_LABELS: Record<string, string> = {
 
 const HOUSING_STATUS_LABELS: Record<string, string> = {
   NO_HOUSE: 'Chưa có nhà ở',
-  SMALL_HOUSE: 'Nhà diện tích dưới 15m²',
+  SMALL_HOUSE: 'Nhà ở chật hẹp (dưới 10m²/người)',
 }
 
 function statusBadge(status: string): HTMLElement {
@@ -196,7 +196,7 @@ export function createApplicationView(): HTMLElement {
           min: '0.1',
           max: '14.99',
           step: '0.1',
-          placeholder: 'Ví dụ: 12.5 (dưới 15)',
+          placeholder: 'Ví dụ: 8.5 (dưới 10)',
         }),
       )
       return wrap
@@ -284,8 +284,8 @@ export function createApplicationView(): HTMLElement {
     let averageHousingAreaPerPerson: number | null = null
     if (housingStatus === 'SMALL_HOUSE') {
       const area = parseFloat(areaRaw.replace(/,/g, ''))
-      if (!areaRaw.trim() || Number.isNaN(area) || area <= 0 || area >= 15) {
-        throw new Error('Khi khai nhà diện tích nhỏ: diện tích bình quân đầu người phải dưới 15 m²/người.')
+      if (!areaRaw.trim() || Number.isNaN(area) || area <= 0 || area >= 10) {
+        throw new Error('Khi khai nhà diện tích nhỏ: diện tích bình quân đầu người phải dưới 10 m²/người.')
       }
       averageHousingAreaPerPerson = area
     }

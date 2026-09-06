@@ -6,7 +6,7 @@ import { lookupApi, parseDocumentTypes, type DocumentTypeDto } from '@/api/looku
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { FormField } from '@/components/ui/label'
-import { Input, Textarea } from '@/components/ui/input'
+import { Input } from '@/components/ui/input'
 import { navigate } from '@/hooks/useHashRoute'
 import { clearRole, getRole } from '@/router'
 import { formatError, formatSuccess } from '@/lib/format-error'
@@ -23,8 +23,8 @@ const MARITAL_STATUS_OPTIONS = [
 ]
 
 const HOUSING_STATUS_OPTIONS = [
-  { value: 'NO_HOUSE', label: 'Chưa có nhà ở' },
-  { value: 'SMALL_HOUSE', label: 'Nhà diện tích dưới 15m²' },
+  { value: 'NO_HOUSE', label: 'Chưa có nhà ở thuộc sở hữu' },
+  { value: 'SMALL_HOUSE', label: 'Nhà ở chật hẹp (dưới 10 m²/người)' },
 ]
 
 const PRIORITY_GROUP_OPTIONS = [
@@ -73,6 +73,11 @@ const RELATIONSHIP_OPTIONS = [
   { value: 'GRANDCHILD', label: 'Cháu' },
   { value: 'OTHER', label: 'Khác' },
 ]
+
+const selectClassName = (invalid?: boolean) =>
+  `flex h-11 w-full rounded-xl border bg-white/80 px-4 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20 dark:bg-slate-900/80 ${
+    invalid ? 'border-red-400 dark:border-red-500' : 'border-slate-200 dark:border-slate-700'
+  }`
 
 interface HouseholdMemberDraft {
   memberId?: string
@@ -220,6 +225,7 @@ export function ProfilePage() {
   const [uploadingDocument, setUploadingDocument] = useState<string | null>(null)
   const [householdMembers, setHouseholdMembers] = useState<HouseholdMemberDraft[]>([])
   const [householdRelationships, setHouseholdRelationships] = useState<DocumentTypeDto[]>([])
+  const [sameAsPermanent, setSameAsPermanent] = useState(true)
 
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -232,7 +238,8 @@ export function ProfilePage() {
     setPhoneSaved(phone)
     setPhoneDraft(phone)
     setCitizenId(String(u.citizenId ?? u.CitizenId ?? ''))
-    setAddress(String(u.address ?? u.Address ?? u.permanentAddress ?? u.PermanentAddress ?? ''))
+    const ekycAddress = String(u.address ?? u.Address ?? '').trim()
+    setAddress(ekycAddress)
 
     const dobRaw = u.dateOfBirth ?? u.DateOfBirth
     if (dobRaw) {
@@ -252,7 +259,7 @@ export function ProfilePage() {
           email: String(u.email ?? u.Email ?? ''),
           dateOfBirth: dobRaw ? String(dobRaw) : null,
           gender: String(u.gender ?? u.Gender ?? u.sex ?? u.Sex ?? 'Nam'),
-          address: String(u.address ?? u.Address ?? u.permanentAddress ?? u.PermanentAddress ?? ''),
+          address: ekycAddress,
           placeOfOrigin: String(u.placeOfOrigin ?? u.PlaceOfOrigin ?? u.hometown ?? u.address ?? ''),
           isEkycVerified: Boolean(u.isCitizenIdVerified ?? u.IsCitizenIdVerified ?? u.isEkycVerified ?? u.IsEkycVerified ?? true),
         }
@@ -272,7 +279,7 @@ export function ProfilePage() {
       occupation: String(u.occupation ?? u.Occupation ?? prev.occupation ?? ''),
       workPlace: String(u.workPlace ?? u.WorkPlace ?? prev.workPlace ?? ''),
       currentResidence: String(u.currentResidence ?? u.CurrentResidence ?? prev.currentResidence ?? ''),
-      permanentAddress: String(u.permanentAddress ?? u.PermanentAddress ?? prev.permanentAddress ?? (address || '')),
+      permanentAddress: ekycAddress || String(u.permanentAddress ?? u.PermanentAddress ?? prev.permanentAddress ?? ''),
       monthlyIncome: (() => {
         const value = u.monthlyIncome ?? u.MonthlyIncome
         return value == null || value === '' ? prev.monthlyIncome ?? '' : String(value)
@@ -280,24 +287,27 @@ export function ProfilePage() {
       housingStatus: String(u.housingStatus ?? u.HousingStatus ?? prev.housingStatus ?? ''),
       averageHousingAreaPerPerson: (() => {
         const value = u.averageHousingAreaPerPerson ?? u.AverageHousingAreaPerPerson
+        const status = String(u.housingStatus ?? u.HousingStatus ?? prev.housingStatus ?? '')
+        if (status !== 'SMALL_HOUSE') return ''
         return value == null || value === '' ? prev.averageHousingAreaPerPerson ?? '' : String(value)
       })(),
       priorityGroup: String(u.priorityGroup ?? u.PriorityGroup ?? prev.priorityGroup ?? ''),
     }))
 
+    const savedPermanent = (ekycAddress || String(u.permanentAddress ?? u.PermanentAddress ?? '')).trim()
+    const savedCurrent = String(u.currentResidence ?? u.CurrentResidence ?? '').trim()
+    setSameAsPermanent(!savedCurrent || savedCurrent === savedPermanent || savedCurrent === ekycAddress.trim())
+
+    const housing = String(u.housingStatus ?? u.HousingStatus ?? '')
     const hasSavedDeclaration = Boolean(
       u.maritalStatus ?? u.MaritalStatus,
     ) && Boolean(
       String(u.occupation ?? u.Occupation ?? '').trim(),
     ) && Boolean(
       String(u.workPlace ?? u.WorkPlace ?? '').trim(),
-    ) && Boolean(
-      String(u.currentResidence ?? u.CurrentResidence ?? '').trim(),
-    ) && Boolean(
-      String(u.permanentAddress ?? u.PermanentAddress ?? '').trim(),
-    ) && (u.monthlyIncome ?? u.MonthlyIncome) != null && Boolean(
-      u.housingStatus ?? u.HousingStatus,
-    ) && (u.averageHousingAreaPerPerson ?? u.AverageHousingAreaPerPerson) != null && Boolean(
+    ) && Boolean(savedCurrent || savedPermanent || ekycAddress.trim()) && (u.monthlyIncome ?? u.MonthlyIncome) != null && Boolean(
+      housing,
+    ) && (housing !== 'SMALL_HOUSE' || (u.averageHousingAreaPerPerson ?? u.AverageHousingAreaPerPerson) != null) && Boolean(
       u.priorityGroup ?? u.PriorityGroup,
     )
     if (hasSavedDeclaration && !policyViewInitialized.current) {
@@ -345,34 +355,35 @@ export function ProfilePage() {
 
   const validateCitizenDeclaration = () => {
     const nextErrors: Record<string, string> = {}
+    const resolvedPermanent = address.trim()
+    const resolvedCurrent = sameAsPermanent ? resolvedPermanent : citizenInfo.currentResidence.trim()
 
-    if (!citizenInfo.maritalStatus) nextErrors.maritalStatus = 'Vui lòng chọn tình trạng hôn nhân.'
-    if (!citizenInfo.occupation?.trim()) nextErrors.occupation = 'Vui lòng nhập nghề nghiệp.'
-    if (!citizenInfo.workPlace?.trim()) nextErrors.workPlace = 'Vui lòng nhập nơi làm việc.'
-    if (!citizenInfo.currentResidence?.trim()) nextErrors.currentResidence = 'Vui lòng nhập chỗ ở hiện tại.'
-    if (!citizenInfo.permanentAddress?.trim()) nextErrors.permanentAddress = 'Vui lòng nhập địa chỉ thường trú.'
-    if (!citizenInfo.monthlyIncome && citizenInfo.monthlyIncome !== '0') nextErrors.monthlyIncome = 'Vui lòng nhập thu nhập hàng tháng.'
+    if (!citizenInfo.maritalStatus) nextErrors.maritalStatus = 'Bắt buộc chọn tình trạng hôn nhân.'
+    if (!citizenInfo.occupation?.trim()) nextErrors.occupation = 'Bắt buộc nhập nghề nghiệp.'
+    if (!citizenInfo.workPlace?.trim()) nextErrors.workPlace = 'Bắt buộc nhập nơi làm việc.'
+    if (!resolvedPermanent) nextErrors.permanentAddress = 'Chưa có địa chỉ thường trú từ CCCD. Vui lòng xác minh danh tính.'
+    if (!resolvedCurrent) nextErrors.currentResidence = 'Bắt buộc nhập chỗ đang ở. Nếu ở đúng hộ khẩu, chọn “Giống địa chỉ thường trú”.'
+    if (!citizenInfo.monthlyIncome && citizenInfo.monthlyIncome !== '0') nextErrors.monthlyIncome = 'Bắt buộc nhập thu nhập hàng tháng.'
     else if (Number(citizenInfo.monthlyIncome) < 0) nextErrors.monthlyIncome = 'Thu nhập không được âm.'
-    else if (Number(citizenInfo.monthlyIncome) > 15000000) nextErrors.monthlyIncome = 'Thu nhập hàng tháng không được vượt quá 15.000.000 VNĐ theo quy chuẩn NOXH.'
+    else if (Number(citizenInfo.monthlyIncome) > 15000000) nextErrors.monthlyIncome = 'Thu nhập hàng tháng không được vượt quá 15.000.000 VNĐ (điều kiện NOXH).'
 
-    if (!citizenInfo.housingStatus) nextErrors.housingStatus = 'Vui lòng chọn tình trạng nhà ở.'
-    if (!citizenInfo.averageHousingAreaPerPerson && citizenInfo.averageHousingAreaPerPerson !== '0') nextErrors.averageHousingAreaPerPerson = 'Vui lòng nhập diện tích bình quân/người.'
-    else if (Number(citizenInfo.averageHousingAreaPerPerson) < 0 || Number(citizenInfo.averageHousingAreaPerPerson) > 1000) nextErrors.averageHousingAreaPerPerson = 'Diện tích bình quân/người phải từ 0 đến 1000 m².'
-    if (!citizenInfo.priorityGroup) nextErrors.priorityGroup = 'Vui lòng chọn nhóm ưu tiên.'
+    if (!citizenInfo.housingStatus) nextErrors.housingStatus = 'Bắt buộc chọn thực trạng nhà ở.'
+    if (citizenInfo.housingStatus === 'SMALL_HOUSE') {
+      if (!citizenInfo.averageHousingAreaPerPerson && citizenInfo.averageHousingAreaPerPerson !== '0') {
+        nextErrors.averageHousingAreaPerPerson = 'Nhà chật hẹp bắt buộc nhập diện tích bình quân (m²/người).'
+      } else {
+        const area = Number(citizenInfo.averageHousingAreaPerPerson)
+        if (!Number.isFinite(area) || area <= 0) nextErrors.averageHousingAreaPerPerson = 'Diện tích bình quân phải lớn hơn 0.'
+        else if (area >= 10) nextErrors.averageHousingAreaPerPerson = 'Phải dưới 10 m²/người mới đủ điều kiện nhà ở (Đ29).'
+      }
+    }
+    if (!citizenInfo.priorityGroup) nextErrors.priorityGroup = 'Bắt buộc chọn nhóm đối tượng hưởng chính sách.'
     const missingDocuments = requiredDocumentCodes.filter((code) => !uploadedDocumentTypes.has(code))
     if (missingDocuments.length > 0) nextErrors.documents = `Vui lòng tải đủ giấy tờ: ${missingDocuments.map(getDocumentLabel).join(', ')}.`
 
     if (citizenInfo.maritalStatus === 'MARRIED') {
       const spouseMember = householdMembers.find((member) => member.relationship === 'SPOUSE')
-      if (!spouseMember) nextErrors.householdMembers = 'Tình trạng đã kết hôn yêu cầu khai báo vợ/chồng trong danh sách hộ gia đình.'
-    }
-
-    if (citizenInfo.monthlyIncome && Number(citizenInfo.monthlyIncome) > 0 && citizenInfo.priorityGroup) {
-      const isPriority = PRIORITY_GROUP_OPTIONS.find((g) => g.value === citizenInfo.priorityGroup)
-      const requiresProof = isPriority?.requiredDocuments ?? []
-      if (requiresProof.length > 0 && !citizenInfo.permanentAddress?.trim()) {
-        nextErrors.permanentAddress = 'Thông tin cần có giấy tờ chứng minh; vui lòng điền địa chỉ thường trú.'
-      }
+      if (!spouseMember) nextErrors.householdMembers = 'Đã kết hôn thì phải khai vợ/chồng trong hộ gia đình.'
     }
 
     return nextErrors
@@ -400,6 +411,8 @@ export function ProfilePage() {
       setSavingCitizenInfo(true)
       const isMarried = citizenInfo.maritalStatus === 'MARRIED'
       const spouseMember = isMarried ? householdMembers.find(m => m.relationship === 'SPOUSE') : null
+      const resolvedPermanent = address.trim()
+      const resolvedCurrent = sameAsPermanent ? resolvedPermanent : citizenInfo.currentResidence.trim()
       const payload = {
         phoneNumber: phoneDraft || null,
         maritalStatus: citizenInfo.maritalStatus || null,
@@ -407,14 +420,24 @@ export function ProfilePage() {
         spouseMonthlyIncome: spouseMember && spouseMember.monthlyIncome !== '' ? Number(spouseMember.monthlyIncome) : null,
         occupation: citizenInfo.occupation || null,
         workPlace: citizenInfo.workPlace || null,
-        currentResidence: citizenInfo.currentResidence || null,
-        permanentAddress: citizenInfo.permanentAddress || address || null,
+        currentResidence: resolvedCurrent || null,
+        permanentAddress: resolvedPermanent || null,
         monthlyIncome: citizenInfo.monthlyIncome ? Number(citizenInfo.monthlyIncome) : null,
         housingStatus: citizenInfo.housingStatus || null,
-        averageHousingAreaPerPerson: citizenInfo.averageHousingAreaPerPerson ? Number(citizenInfo.averageHousingAreaPerPerson) : null,
+        averageHousingAreaPerPerson:
+          citizenInfo.housingStatus === 'SMALL_HOUSE' && citizenInfo.averageHousingAreaPerPerson
+            ? Number(citizenInfo.averageHousingAreaPerPerson)
+            : null,
         priorityGroup: citizenInfo.priorityGroup || null,
       }
       await usersApi.updateCitizenProfile(payload)
+      setCitizenInfo((prev) => ({
+        ...prev,
+        currentResidence: resolvedCurrent,
+        permanentAddress: resolvedPermanent,
+        averageHousingAreaPerPerson:
+          prev.housingStatus === 'SMALL_HOUSE' ? prev.averageHousingAreaPerPerson : '',
+      }))
 
       for (const member of householdMembers) {
         const body: UserHouseholdMemberRequestDto = {
@@ -710,7 +733,8 @@ export function ProfilePage() {
                       Kê khai chính sách
                     </p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Mọi thông tin khai báo phải đi kèm giấy tờ chứng minh hợp lệ theo quy định của NOXH.
+                      Ô có dấu <span className="font-semibold text-red-600">*</span> là bắt buộc.
+                      Địa chỉ thường trú lấy từ CCCD, không gõ lại. Mỗi nội dung phải khớp giấy tờ đính kèm.
                     </p>
                   </div>
                   {!isPolicyEditing && (
@@ -726,12 +750,13 @@ export function ProfilePage() {
                     householdMembers={householdMembers}
                     userDocuments={userDocuments}
                     profileDocumentTypes={profileDocumentTypes}
+                    ekycAddress={address}
                   />
                 ) : (
                   <>
-
-                    <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">
-                      <div className="font-semibold">Giấy tờ chứng minh</div>
+                    <div className="flex flex-col gap-4">
+                    <div className="order-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">
+                      <div className="font-semibold">6. Giấy tờ chứng minh</div>
                       <p className="mt-1 text-xs">Mỗi loại thông tin kê khai phải có tài liệu tương ứng. Chấp nhận PDF hoặc ảnh, tối đa 10 MB mỗi file.</p>
                       <div className="mt-3 space-y-2">
                         {requiredDocumentCodes.map((code) => {
@@ -787,10 +812,10 @@ export function ProfilePage() {
                       {validationErrors.documents && <div className="mt-3 text-xs font-medium text-red-700 dark:text-red-400">{validationErrors.documents}</div>}
                     </div>
 
-                    <div className="mb-4 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+                    <div className="order-2 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
                       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                         <div>
-                          <p className="text-sm font-semibold">Hộ gia đình và người phụ thuộc</p>
+                          <p className="text-sm font-semibold">5. Hộ gia đình và người phụ thuộc</p>
                           <p className="text-xs text-slate-500 dark:text-slate-400">Khai báo cha mẹ, vợ/chồng, con và người sống cùng. Người phụ thuộc được tính vào nhân khẩu để xét diện tích, không tính thu nhập.</p>
                         </div>
                         <div className="flex gap-2">
@@ -854,90 +879,216 @@ export function ProfilePage() {
                       </div>
                     </div>
 
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <FormField label="Tình trạng hôn nhân" htmlFor="maritalStatus">
-                        <select
-                          id="maritalStatus"
-                          value={citizenInfo.maritalStatus}
-                          onChange={(e) => setCitizenInfo((prev) => ({ ...prev, maritalStatus: e.target.value }))}
-                          className="flex h-11 w-full rounded-xl border border-slate-200 bg-white/80 px-4 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20 dark:border-slate-700 dark:bg-slate-900/80"
+                    <div className="order-1 space-y-4">
+                      <section className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+                        <p className="mb-3 text-sm font-semibold">1. Nghề nghiệp và thu nhập</p>
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <FormField label="Tình trạng hôn nhân" htmlFor="maritalStatus" required error={validationErrors.maritalStatus}>
+                            <select
+                              id="maritalStatus"
+                              value={citizenInfo.maritalStatus}
+                              onChange={(e) => setCitizenInfo((prev) => ({ ...prev, maritalStatus: e.target.value }))}
+                              aria-invalid={Boolean(validationErrors.maritalStatus)}
+                              className={selectClassName(Boolean(validationErrors.maritalStatus))}
+                            >
+                              <option value="">-- Chọn --</option>
+                              {MARITAL_STATUS_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                              ))}
+                            </select>
+                          </FormField>
+                          <FormField label="Nghề nghiệp" htmlFor="occupation" required error={validationErrors.occupation}>
+                            <Input
+                              id="occupation"
+                              value={citizenInfo.occupation}
+                              aria-invalid={Boolean(validationErrors.occupation)}
+                              className={validationErrors.occupation ? 'border-red-400' : undefined}
+                              onChange={(e) => setCitizenInfo((prev) => ({ ...prev, occupation: e.target.value }))}
+                            />
+                          </FormField>
+                          <FormField label="Nơi làm việc" htmlFor="workPlace" required error={validationErrors.workPlace}>
+                            <Input
+                              id="workPlace"
+                              value={citizenInfo.workPlace}
+                              aria-invalid={Boolean(validationErrors.workPlace)}
+                              className={validationErrors.workPlace ? 'border-red-400' : undefined}
+                              onChange={(e) => setCitizenInfo((prev) => ({ ...prev, workPlace: e.target.value }))}
+                            />
+                          </FormField>
+                          <FormField
+                            label="Thu nhập hàng tháng (VNĐ)"
+                            htmlFor="monthlyIncome"
+                            required
+                            hint="Thu nhập cá nhân. Nếu đã kết hôn, thu nhập vợ/chồng khai ở thành viên hộ."
+                            error={validationErrors.monthlyIncome}
+                          >
+                            <Input
+                              id="monthlyIncome"
+                              type="number"
+                              min={0}
+                              value={citizenInfo.monthlyIncome}
+                              aria-invalid={Boolean(validationErrors.monthlyIncome)}
+                              className={validationErrors.monthlyIncome ? 'border-red-400' : undefined}
+                              onChange={(e) => setCitizenInfo((prev) => ({ ...prev, monthlyIncome: e.target.value }))}
+                            />
+                          </FormField>
+                        </div>
+                      </section>
+
+                      <section className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+                        <p className="mb-1 text-sm font-semibold">2. Nơi cư trú</p>
+                        <p className="mb-3 text-xs text-slate-500 dark:text-slate-400">
+                          Thường trú theo CCCD. Chỗ đang ở ghi nơi thực tế (thuê, ở nhờ, tạm trú) nếu khác hộ khẩu.
+                        </p>
+                        <FormField
+                          label="Địa chỉ thường trú"
+                          required
+                          hint="In trên CCCD, lấy khi xác minh danh tính. Không được sửa tại đây."
+                          error={validationErrors.permanentAddress}
                         >
-                          <option value="">-- Chọn --</option>
-                          {MARITAL_STATUS_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>{option.label}</option>
-                          ))}
-                        </select>
-                        {validationErrors.maritalStatus && <span className="mt-1 block text-xs text-red-600">{validationErrors.maritalStatus}</span>}
-                      </FormField>
+                          <Input
+                            id="permanentAddress"
+                            readOnly
+                            className="opacity-70"
+                            value={address || 'Chưa có từ CCCD'}
+                          />
+                          {!address.trim() && (
+                            <button
+                              type="button"
+                              className="mt-1 text-xs font-semibold text-primary underline"
+                              onClick={() => navigate('verify-identity')}
+                            >
+                              Xác minh danh tính để lấy địa chỉ từ CCCD
+                            </button>
+                          )}
+                        </FormField>
+                        <label className="mt-3 flex items-center gap-2 text-sm font-medium">
+                          <input
+                            type="checkbox"
+                            checked={sameAsPermanent}
+                            onChange={(event) => {
+                              const checked = event.target.checked
+                              setSameAsPermanent(checked)
+                              if (checked) {
+                                setCitizenInfo((prev) => ({
+                                  ...prev,
+                                  currentResidence: address.trim(),
+                                }))
+                              }
+                            }}
+                          />
+                          Giống địa chỉ thường trú
+                        </label>
+                        {sameAsPermanent ? (
+                          <FormField
+                            label="Chỗ ở hiện tại"
+                            required
+                            hint="Đang dùng địa chỉ thường trú trên CCCD."
+                            error={validationErrors.currentResidence}
+                          >
+                            <Input
+                              readOnly
+                              className="opacity-70"
+                              value={address.trim() || '—'}
+                            />
+                          </FormField>
+                        ) : (
+                          <FormField
+                            label="Chỗ ở hiện tại"
+                            htmlFor="currentResidence"
+                            required
+                            hint="Ví dụ: đang thuê, ở nhờ người thân, tạm trú."
+                            error={validationErrors.currentResidence}
+                          >
+                            <Input
+                              id="currentResidence"
+                              value={citizenInfo.currentResidence}
+                              aria-invalid={Boolean(validationErrors.currentResidence)}
+                              className={validationErrors.currentResidence ? 'border-red-400' : undefined}
+                              onChange={(e) => setCitizenInfo((prev) => ({ ...prev, currentResidence: e.target.value }))}
+                            />
+                          </FormField>
+                        )}
+                      </section>
 
+                      <section className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+                        <p className="mb-3 text-sm font-semibold">3. Điều kiện nhà ở</p>
+                        <div className={citizenInfo.housingStatus === 'SMALL_HOUSE' ? 'grid gap-4 md:grid-cols-2' : undefined}>
+                          <FormField
+                            label="Thực trạng nhà ở"
+                            htmlFor="housingStatus"
+                            required
+                            hint="Chọn đúng hiện trạng trên giấy chứng minh nhà ở."
+                            error={validationErrors.housingStatus}
+                          >
+                            <select
+                              id="housingStatus"
+                              value={citizenInfo.housingStatus}
+                              aria-invalid={Boolean(validationErrors.housingStatus)}
+                              className={selectClassName(Boolean(validationErrors.housingStatus))}
+                              onChange={(e) => {
+                                const value = e.target.value
+                                setCitizenInfo((prev) => ({
+                                  ...prev,
+                                  housingStatus: value,
+                                  averageHousingAreaPerPerson: value === 'SMALL_HOUSE' ? prev.averageHousingAreaPerPerson : '',
+                                }))
+                              }}
+                            >
+                              <option value="">-- Chọn --</option>
+                              {HOUSING_STATUS_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                              ))}
+                            </select>
+                          </FormField>
+                          {citizenInfo.housingStatus === 'SMALL_HOUSE' ? (
+                            <FormField
+                              label="Diện tích bình quân (m²/người)"
+                              htmlFor="averageHousingAreaPerPerson"
+                              required
+                              hint="Tổng diện tích nhà chia cho số nhân khẩu. Phải dưới 10 m²/người (Đ29)."
+                              error={validationErrors.averageHousingAreaPerPerson}
+                            >
+                              <Input
+                                id="averageHousingAreaPerPerson"
+                                type="number"
+                                min={0.1}
+                                max={9.99}
+                                step="0.1"
+                                value={citizenInfo.averageHousingAreaPerPerson}
+                                aria-invalid={Boolean(validationErrors.averageHousingAreaPerPerson)}
+                                className={validationErrors.averageHousingAreaPerPerson ? 'border-red-400' : undefined}
+                                onChange={(e) => setCitizenInfo((prev) => ({ ...prev, averageHousingAreaPerPerson: e.target.value }))}
+                              />
+                            </FormField>
+                          ) : null}
+                        </div>
+                      </section>
 
-
-                      <FormField label="Nghề nghiệp" htmlFor="occupation">
-                        <Input id="occupation" value={citizenInfo.occupation} onChange={(e) => setCitizenInfo((prev) => ({ ...prev, occupation: e.target.value }))} />
-                        {validationErrors.occupation && <span className="mt-1 block text-xs text-red-600">{validationErrors.occupation}</span>}
-                      </FormField>
-
-                      <FormField label="Nơi làm việc" htmlFor="workPlace">
-                        <Input id="workPlace" value={citizenInfo.workPlace} onChange={(e) => setCitizenInfo((prev) => ({ ...prev, workPlace: e.target.value }))} />
-                        {validationErrors.workPlace && <span className="mt-1 block text-xs text-red-600">{validationErrors.workPlace}</span>}
-                      </FormField>
-
-                      <FormField label="Thu nhập hàng tháng (VNĐ)" htmlFor="monthlyIncome">
-                        <Input id="monthlyIncome" type="number" min={0} value={citizenInfo.monthlyIncome} onChange={(e) => setCitizenInfo((prev) => ({ ...prev, monthlyIncome: e.target.value }))} />
-                        {validationErrors.monthlyIncome && <span className="mt-1 block text-xs text-red-600">{validationErrors.monthlyIncome}</span>}
-                      </FormField>
-
-                      <FormField label="Chỗ ở hiện tại" htmlFor="currentResidence">
-                        <Input id="currentResidence" value={citizenInfo.currentResidence} onChange={(e) => setCitizenInfo((prev) => ({ ...prev, currentResidence: e.target.value }))} />
-                        {validationErrors.currentResidence && <span className="mt-1 block text-xs text-red-600">{validationErrors.currentResidence}</span>}
-                      </FormField>
-
-                      <FormField label="Diện tích bình quân/người (m²)" htmlFor="averageHousingAreaPerPerson">
-                        <Input id="averageHousingAreaPerPerson" type="number" min={0} step="0.1" value={citizenInfo.averageHousingAreaPerPerson} onChange={(e) => setCitizenInfo((prev) => ({ ...prev, averageHousingAreaPerPerson: e.target.value }))} />
-                        {validationErrors.averageHousingAreaPerPerson && <span className="mt-1 block text-xs text-red-600">{validationErrors.averageHousingAreaPerPerson}</span>}
-                      </FormField>
-
-                      <FormField label="Tình trạng nhà ở" htmlFor="housingStatus">
-                        <select
-                          id="housingStatus"
-                          value={citizenInfo.housingStatus}
-                          onChange={(e) => setCitizenInfo((prev) => ({ ...prev, housingStatus: e.target.value }))}
-                          className="flex h-11 w-full rounded-xl border border-slate-200 bg-white/80 px-4 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20 dark:border-slate-700 dark:bg-slate-900/80"
+                      <section className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+                        <p className="mb-3 text-sm font-semibold">4. Nhóm đối tượng hưởng chính sách</p>
+                        <FormField
+                          label="Nhóm ưu tiên"
+                          htmlFor="priorityGroup"
+                          required
+                          hint="Chọn nhóm đúng với giấy tờ ưu tiên đính kèm."
+                          error={validationErrors.priorityGroup}
                         >
-                          <option value="">-- Chọn --</option>
-                          {HOUSING_STATUS_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>{option.label}</option>
-                          ))}
-                        </select>
-                        {validationErrors.housingStatus && <span className="mt-1 block text-xs text-red-600">{validationErrors.housingStatus}</span>}
-                      </FormField>
-
-                      <FormField label="Nhóm ưu tiên" htmlFor="priorityGroup">
-                        <select
-                          id="priorityGroup"
-                          value={citizenInfo.priorityGroup}
-                          onChange={(e) => setCitizenInfo((prev) => ({ ...prev, priorityGroup: e.target.value }))}
-                          className="flex h-11 w-full rounded-xl border border-slate-200 bg-white/80 px-4 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20 dark:border-slate-700 dark:bg-slate-900/80"
-                        >
-                          <option value="">-- Chọn --</option>
-                          {PRIORITY_GROUP_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>{option.label}</option>
-                          ))}
-                        </select>
-                        {validationErrors.priorityGroup && <span className="mt-1 block text-xs text-red-600">{validationErrors.priorityGroup}</span>}
-                      </FormField>
-
+                          <select
+                            id="priorityGroup"
+                            value={citizenInfo.priorityGroup}
+                            aria-invalid={Boolean(validationErrors.priorityGroup)}
+                            className={selectClassName(Boolean(validationErrors.priorityGroup))}
+                            onChange={(e) => setCitizenInfo((prev) => ({ ...prev, priorityGroup: e.target.value }))}
+                          >
+                            <option value="">-- Chọn --</option>
+                            {PRIORITY_GROUP_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                          </select>
+                        </FormField>
+                      </section>
                     </div>
-
-                    <div className="mt-4 grid gap-4">
-                      <FormField label="Địa chỉ thường trú" htmlFor="permanentAddress">
-                        <Textarea
-                          id="permanentAddress"
-                          value={citizenInfo.permanentAddress}
-                          onChange={(e) => setCitizenInfo((prev) => ({ ...prev, permanentAddress: e.target.value }))}
-                        />
-                        {validationErrors.permanentAddress && <span className="mt-1 block text-xs text-red-600">{validationErrors.permanentAddress}</span>}
-                      </FormField>
                     </div>
 
                     <div className="mt-6 flex items-center justify-end gap-3 border-t border-slate-200 pt-4 dark:border-slate-700">
@@ -1057,14 +1208,17 @@ function PolicySummary({
   householdMembers,
   userDocuments,
   profileDocumentTypes,
+  ekycAddress,
 }: {
   citizenInfo: CitizenDeclarationState
   householdMembers: HouseholdMemberDraft[]
   userDocuments: UserDocumentDto[]
   profileDocumentTypes: DocumentTypeDto[]
+  ekycAddress: string
 }) {
   const label = (options: Array<{ value: string; label: string }>, value: string) => options.find((option) => option.value === value)?.label ?? value
   const documentLabel = (code: string) => profileDocumentTypes.find((document) => document.code === code)?.label ?? code
+  const permanent = ekycAddress.trim()
 
   return (
     <div className="space-y-4">
@@ -1073,11 +1227,13 @@ function PolicySummary({
         <SummaryItem label="Nghề nghiệp" value={citizenInfo.occupation} />
         <SummaryItem label="Nơi làm việc" value={citizenInfo.workPlace} />
         <SummaryItem label="Thu nhập hàng tháng" value={`${Number(citizenInfo.monthlyIncome).toLocaleString('vi-VN')} VNĐ`} />
-        <SummaryItem label="Chỗ ở hiện tại" value={citizenInfo.currentResidence} />
-        <SummaryItem label="Diện tích bình quân/người" value={`${citizenInfo.averageHousingAreaPerPerson} m²`} />
-        <SummaryItem label="Tình trạng nhà ở" value={label(HOUSING_STATUS_OPTIONS, citizenInfo.housingStatus)} />
+        <SummaryItem label="Địa chỉ thường trú" value={permanent} className="sm:col-span-2" />
+        <SummaryItem label="Chỗ ở hiện tại" value={citizenInfo.currentResidence || (permanent ? 'Giống địa chỉ thường trú' : '')} className="sm:col-span-2" />
+        <SummaryItem label="Thực trạng nhà ở" value={label(HOUSING_STATUS_OPTIONS, citizenInfo.housingStatus)} />
+        {citizenInfo.housingStatus === 'SMALL_HOUSE' ? (
+          <SummaryItem label="Diện tích bình quân/người" value={`${citizenInfo.averageHousingAreaPerPerson} m²`} />
+        ) : null}
         <SummaryItem label="Nhóm ưu tiên" value={label(PRIORITY_GROUP_OPTIONS, citizenInfo.priorityGroup)} />
-        <SummaryItem label="Địa chỉ thường trú" value={citizenInfo.permanentAddress} className="sm:col-span-2" />
       </div>
 
       <div className="border-t border-slate-200 pt-4 dark:border-slate-700">

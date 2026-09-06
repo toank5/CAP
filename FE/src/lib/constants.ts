@@ -108,7 +108,7 @@ export const DOC_TYPE_LABELS: Record<string, string> = {
 export const HOUSING_STATUS_LABELS: Record<string, string> = {
   NO_HOUSE: 'Chưa có nhà ở',
   NO_HOUSING: 'Chưa có nhà ở',
-  SMALL_HOUSE: 'Nhà diện tích dưới 15m²',
+  SMALL_HOUSE: 'Nhà ở chật hẹp (dưới 10m²/người)',
   DILAPIDATED: 'Nhà ở tạm bợ, hư hỏng, dột nát',
   SUBSTANDARD_AREA: 'Diện tích bình quân dưới 10m²/người',
   OVERCROWDED: 'Diện tích bình quân dưới 10m²/người',
