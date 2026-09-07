@@ -67,6 +67,59 @@ export function daysUntilAutoOpen(p: HousingProjectDto | null | undefined): numb
   return AUTO_OPEN_AFTER_DAYS - elapsedDays
 }
 
+/** Còn dưới mốc này thì nhắc người dân là sắp hết hạn nộp. */
+export const INTAKE_CLOSING_SOON_DAYS = 7
+/** Còn dưới mốc này thì cảnh báo gấp. */
+export const INTAKE_CLOSING_URGENT_DAYS = 3
+
+export type IntakeCloseTone = 'unknown' | 'normal' | 'soon' | 'urgent' | 'closed'
+
+export interface IntakeCloseInfo {
+  closeAt: Date | null
+  /** Số ngày còn lại, làm tròn lên. Null khi dự án chưa khai hạn chót. */
+  daysLeft: number | null
+  tone: IntakeCloseTone
+}
+
+/**
+ * Hạn chót tiếp nhận hồ sơ và mức độ gấp.
+ *
+ * Hạn này có hiệu lực thật ở BE: hồ sơ nháp bị cho hết hiệu lực khi tới hạn và bấm nộp sau hạn
+ * sẽ bị chặn, nên người dân phải thấy được nó trước chứ không phải biết khi nộp mới báo lỗi
+ * (cũng là điều kiện công bố công khai theo Đ38.1.b Nghị định 100/2024).
+ */
+export function getIntakeCloseInfo(
+  p: HousingProjectDto | null | undefined,
+  now: Date = new Date(),
+): IntakeCloseInfo {
+  const closeAt = parseDateSafe(p?.applicationCloseDate)
+  if (!closeAt) return { closeAt: null, daysLeft: null, tone: 'unknown' }
+
+  const msLeft = closeAt.getTime() - now.getTime()
+  if (msLeft <= 0) return { closeAt, daysLeft: 0, tone: 'closed' }
+
+  const daysLeft = Math.ceil(msLeft / DAY_MS)
+  const tone: IntakeCloseTone =
+    daysLeft <= INTAKE_CLOSING_URGENT_DAYS
+      ? 'urgent'
+      : daysLeft <= INTAKE_CLOSING_SOON_DAYS
+        ? 'soon'
+        : 'normal'
+
+  return { closeAt, daysLeft, tone }
+}
+
+/** Hạn chót dạng "31/12/2026 17:00" — có cả giờ vì hạn được so tới từng phút ở BE. */
+export function formatIntakeDeadline(closeAt: Date): string {
+  return closeAt.toLocaleString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 /** Project có đang trong trạng thái chờ SXD duyệt (CĐT vừa tạo)? */
 export function isPending(p: HousingProjectDto | null | undefined): boolean {
   return effectiveProjectStatus(p) === 'PENDING'

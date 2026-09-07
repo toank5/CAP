@@ -37,15 +37,18 @@ interface Props {
  *   PENDING  → [Duyệt → Sắp mở bán] [Từ chối]
  *   UPCOMING → [Mở đăng ký ngay]  (BE ghi đè lên logic 30 ngày)
  *              + hiển thị đếm ngược tự động mở
- *   OPEN     → chỉ hiển thị badge (đã mở)
+ *   OPEN     → [Đóng đợt tiếp nhận]
  *   CLOSED/FULL/REJECTED → chỉ hiển thị badge
  *
  * Ứng dụng:
  *   - Vai trò Department Of Construction (Sở Xây dựng) hoặc System Administrator
  *   - Tự coi `effectiveProjectStatus` để quyết định bước tiếp theo (kể cả khi đã quá 30 ngày)
  */
+/** 'close' không đi qua patchStatus mà qua lifecycle-status, nên tách riêng khỏi ProjectStatusAction. */
+type ControlAction = ProjectStatusAction | 'close'
+
 export function ProjectStatusControl({ project, onChanged }: Props) {
-  const [busy, setBusy] = useState<ProjectStatusAction | null>(null)
+  const [busy, setBusy] = useState<ControlAction | null>(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [rejectMode, setRejectMode] = useState(false)
@@ -55,7 +58,7 @@ export function ProjectStatusControl({ project, onChanged }: Props) {
   const eff = effectiveProjectStatus(project)
   const daysLeft = daysUntilAutoOpen(project)
 
-  const run = async (action: ProjectStatusAction, opts?: { rejectReason?: string }) => {
+  const run = async (action: ControlAction, opts?: { rejectReason?: string }) => {
     if (busy) return
     setBusy(action)
     setError('')
@@ -63,6 +66,8 @@ export function ProjectStatusControl({ project, onChanged }: Props) {
     try {
       if (action === 'open') {
         await housingProjectsApi.changeLifecycleStatus(project.id ?? '', 'OPEN')
+      } else if (action === 'close') {
+        await housingProjectsApi.changeLifecycleStatus(project.id ?? '', 'CLOSED')
       } else {
         await housingProjectsApi.patchStatus(project.id ?? '', {
           action,
@@ -79,7 +84,9 @@ export function ProjectStatusControl({ project, onChanged }: Props) {
           ? 'Đã duyệt — dự án chuyển sang Sắp mở bán.'
           : action === 'open'
             ? 'Đã mở đăng ký cho người dân.'
-            : 'Đã từ chối dự án.',
+            : action === 'close'
+              ? 'Đã đóng đợt tiếp nhận. Có thể lên lịch bốc thăm.'
+              : 'Đã từ chối dự án.',
       )
       setRejectMode(false)
       setRejectReason('')
@@ -226,10 +233,34 @@ export function ProjectStatusControl({ project, onChanged }: Props) {
         )}
 
         {isOpenForRegistration(project) && (
-          <span className="text-[11px] text-slate-500 dark:text-slate-400">
-            <Hourglass className="mr-1 inline h-3 w-3" />
-            Trạng thái kết thúc khi Sở đóng đăng ký hoặc hết suất.
-          </span>
+          <Button
+            variant="outline"
+            disabled={!!busy}
+            onClick={() => {
+              if (
+                !window.confirm(
+                  'Đóng đợt tiếp nhận hồ sơ của dự án này?\n\n' +
+                    '• Người dân không nộp được hồ sơ mới.\n' +
+                    '• Hồ sơ nháp chưa nộp sẽ hết hiệu lực.\n' +
+                    '• Sau khi đóng mới lên lịch bốc thăm được.\n\n' +
+                    'Không thể mở lại đợt tiếp nhận sau khi đóng.',
+                )
+              )
+                return
+              void run('close')
+            }}
+            title="Chốt danh sách hồ sơ để chuẩn bị bốc thăm"
+          >
+            {busy === 'close' ? (
+              <>
+                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> Đang đóng...
+              </>
+            ) : (
+              <>
+                <XCircle className="mr-1 h-3.5 w-3.5 text-slate-600" /> Đóng đợt tiếp nhận
+              </>
+            )}
+          </Button>
         )}
 
         {(normalizeStatus(project.status) === 'REJECTED' ||

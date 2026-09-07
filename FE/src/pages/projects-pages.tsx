@@ -64,6 +64,9 @@ import {
   isOpenForRegistration,
   isRejected,
   isApplicationIntakeOpen,
+  getIntakeCloseInfo,
+  formatIntakeDeadline,
+  INTAKE_CLOSING_SOON_DAYS,
 } from '@/lib/project-status-flow'
 import {
   applyClientFilters,
@@ -945,6 +948,7 @@ function ProjectDetailView({
   const { canCreate: canCreateNew, message: applicantBlockMessage } = useExistingApplicationBlocker()
   const [wishlistBusy, setWishlistBusy] = useState(false)
   const [openingSale, setOpeningSale] = useState(false)
+  const [closingIntake, setClosingIntake] = useState(false)
 
   // Apartment filters & 3D state
   const [selectedBlock, setSelectedBlock] = useState<string>('ALL')
@@ -962,6 +966,8 @@ function ProjectDetailView({
   const isDeveloper = role === 'Housing Developer'
   const isAdmin = role === 'System Administrator'
   const canOpenSale = (isDeveloper || isAdmin) && isUpcoming(project)
+  // Chốt danh sách để bốc thăm. BE cho cả CĐT làm việc này, không riêng Sở.
+  const canCloseIntake = (isDeveloper || isAdmin) && isOpenForRegistration(project)
   const showApply = !logged || isApplicant
   const blockedByExisting = logged && isApplicant && !canCreateNew
 
@@ -1001,11 +1007,11 @@ function ProjectDetailView({
 
   const wishlisted = isWishlisted(projectId)
   const openDate = project.applicationOpenDate
-  const closeDate = project.applicationCloseDate
   const statusLabel = String(project.status || '')
   const now = new Date()
   const openAt = openDate ? new Date(openDate) : null
-  const closeAt = closeDate ? new Date(closeDate) : null
+  const intakeClose = getIntakeCloseInfo(project, now)
+  const closeAt = intakeClose.closeAt
   const inOpenWindow =
     (!openAt || Number.isNaN(openAt.getTime()) || now >= openAt) &&
     (!closeAt || Number.isNaN(closeAt.getTime()) || now <= closeAt)
@@ -1050,6 +1056,30 @@ function ProjectDetailView({
       setError(formatError(err))
     } finally {
       setOpeningSale(false)
+    }
+  }
+
+  const handleCloseIntake = async () => {
+    if (!project?.id || closingIntake) return
+    if (
+      !window.confirm(
+        'Đóng đợt tiếp nhận hồ sơ của dự án này?\n\n' +
+          '• Người dân không nộp được hồ sơ mới.\n' +
+          '• Hồ sơ nháp chưa nộp sẽ hết hiệu lực.\n' +
+          '• Sau khi đóng mới lên lịch bốc thăm được.\n\n' +
+          'Không thể mở lại đợt tiếp nhận sau khi đóng.',
+      )
+    )
+      return
+    setClosingIntake(true)
+    setError('')
+    try {
+      await housingProjectsApi.changeLifecycleStatus(project.id, 'CLOSED')
+      window.dispatchEvent(new CustomEvent('fecaps:project-status-changed'))
+    } catch (err) {
+      setError(formatError(err))
+    } finally {
+      setClosingIntake(false)
     }
   }
 
@@ -1303,6 +1333,37 @@ function ProjectDetailView({
               </div>
             </div>
 
+            {/* Hạn chót tiếp nhận — hạn này có hiệu lực thật ở BE nên phải hiện trước khi bấm nộp */}
+            {intakeClose.closeAt && showApply && (
+              <div
+                className={`mt-4 flex items-start gap-2.5 rounded-2xl border p-4 text-sm ${
+                  intakeClose.tone === 'closed'
+                    ? 'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300'
+                    : intakeClose.tone === 'urgent'
+                      ? 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200'
+                      : intakeClose.tone === 'soon'
+                        ? 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200'
+                        : 'border-teal-200 bg-teal-50 text-teal-800 dark:border-teal-900/60 dark:bg-teal-950/40 dark:text-teal-200'
+                }`}
+              >
+                <Clock className="mt-0.5 h-4 w-4 shrink-0" />
+                <div>
+                  <p className="font-semibold">
+                    {intakeClose.tone === 'closed'
+                      ? 'Đã hết hạn tiếp nhận hồ sơ'
+                      : `Hạn chót nộp hồ sơ: ${formatIntakeDeadline(intakeClose.closeAt)}`}
+                  </p>
+                  <p className="mt-0.5 text-xs opacity-90">
+                    {intakeClose.tone === 'closed'
+                      ? 'Dự án không còn nhận hồ sơ mới. Hồ sơ nháp chưa nộp sẽ không còn hiệu lực.'
+                      : intakeClose.daysLeft != null && intakeClose.daysLeft <= INTAKE_CLOSING_SOON_DAYS
+                        ? `Chỉ còn ${intakeClose.daysLeft} ngày. Hồ sơ nháp chưa nộp trước hạn sẽ không còn hiệu lực.`
+                        : `Còn ${intakeClose.daysLeft} ngày. Hồ sơ phải được nộp trước hạn này mới được xét.`}
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Action Buttons */}
             <div className="flex flex-wrap items-center gap-3 pt-2">
               {logged && isApplicant && (
@@ -1330,6 +1391,24 @@ function ProjectDetailView({
                     </span>
                   ) : (
                     'Mở bán dự án'
+                  )}
+                </button>
+              )}
+
+              {canCloseIntake && (
+                <button
+                  type="button"
+                  disabled={closingIntake}
+                  onClick={() => void handleCloseIntake()}
+                  title="Chốt danh sách hồ sơ để chuẩn bị bốc thăm"
+                  className="flex-1 rounded-xl border border-slate-300 bg-white py-3 text-center text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 sm:flex-none sm:px-8"
+                >
+                  {closingIntake ? (
+                    <span className="inline-flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Đang đóng…
+                    </span>
+                  ) : (
+                    'Đóng đợt tiếp nhận'
                   )}
                 </button>
               )}
