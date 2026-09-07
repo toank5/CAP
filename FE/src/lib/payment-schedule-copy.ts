@@ -17,18 +17,18 @@ export function emptyScheduleNoApartmentCopy(role?: string | null): { title: str
   if (isHousingDeveloperRole(role)) {
     return {
       title: 'Chưa có lịch thanh toán',
-      body: 'Hồ sơ này chưa được gán căn nên hệ thống chưa sinh lịch. Hãy gán căn hộ cho hồ sơ; lịch sẽ được tạo theo cấu hình tiến độ bạn đã khai khi tạo dự án. Người dân đóng Đợt 1 (tiền cọc) trước, rồi mới ký hợp đồng mua bán.',
+      body: 'Hồ sơ này chưa được gán căn nên hệ thống chưa sinh lịch. Hãy gán căn hộ cho hồ sơ; lịch sẽ được tạo theo cấu hình tiến độ bạn đã khai khi tạo dự án. Người dân đóng Đợt 1 (thanh toán lần đầu, gồm tiền đặt cọc) trước, rồi mới ký hợp đồng mua bán.',
     }
   }
   if (isStaffRole(role)) {
     return {
       title: 'Chưa có lịch thanh toán',
-      body: 'Lịch được tạo sau khi chủ đầu tư gán căn hộ cho hồ sơ, theo cấu hình tiến độ của dự án. Người dân đóng Đợt 1 (tiền cọc) trước khi ký hợp đồng mua bán.',
+      body: 'Lịch được tạo sau khi chủ đầu tư gán căn hộ cho hồ sơ, theo cấu hình tiến độ của dự án. Người dân đóng Đợt 1 (thanh toán lần đầu, gồm tiền đặt cọc) trước khi ký hợp đồng mua bán.',
     }
   }
   return {
     title: 'Chưa có lịch thanh toán',
-    body: 'Hệ thống sẽ tạo lịch theo cấu hình của chủ đầu tư sau khi chủ đầu tư gán căn hộ cho bạn. Bạn đóng Đợt 1 (tiền cọc) trước, rồi mới ký hợp đồng mua bán.',
+    body: 'Hệ thống sẽ tạo lịch theo cấu hình của chủ đầu tư sau khi chủ đầu tư gán căn hộ cho bạn. Bạn đóng Đợt 1 (thanh toán lần đầu, gồm tiền đặt cọc) trước, rồi mới ký hợp đồng mua bán.',
   }
 }
 
@@ -90,7 +90,7 @@ export function payScheduleMissingError(role?: string | null): string {
 
 export function payStatusNotReadyError(role?: string | null): string {
   if (isHousingDeveloperRole(role)) {
-    return 'Hồ sơ chưa ở trạng thái cho phép thanh toán. Kiểm tra đã gán căn và người dân đã đóng cọc Đợt 1 chưa.'
+    return 'Hồ sơ chưa ở trạng thái cho phép thanh toán. Kiểm tra đã gán căn và người dân đã đóng Đợt 1 chưa.'
   }
-  return 'Hồ sơ chưa ở trạng thái cho phép thanh toán. Kiểm tra: đã được chủ đầu tư gán căn và đã đóng cọc Đợt 1 chưa.'
+  return 'Hồ sơ chưa ở trạng thái cho phép thanh toán. Kiểm tra: đã được chủ đầu tư gán căn và đã đóng Đợt 1 chưa.'
 }

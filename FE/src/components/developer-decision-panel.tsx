@@ -14,8 +14,9 @@ import { Select } from '@/components/ui/input'
 import { navigate } from '@/hooks/useHashRoute'
 import { formatError } from '@/lib/format-error'
 import {
-  WAITLIST_CONFIRM_HOURS,
+  WAITLIST_CONFIRM_HOURS_DEFAULT,
   apartmentOptionLabel,
+  isAssignableUnit,
   sortByHighestScore,
   splitAvailableUnits,
 } from '@/lib/lottery-allocation'
@@ -255,7 +256,7 @@ export function DeveloperDecisionPanel({ projectId }: { projectId: string }) {
       } else {
         setMsg({
           type: 'success',
-          text: `Đã cấp căn ưu tiên cho ${priorityGrantApps.length} hồ sơ điểm cao nhất. Phần còn lại bốc thăm công khai; không trúng sẽ vào danh sách chờ (hạn xác nhận ${WAITLIST_CONFIRM_HOURS} giờ khi được đôn).`,
+          text: `Đã cấp căn ưu tiên cho ${priorityGrantApps.length} hồ sơ điểm cao nhất. Phần còn lại bốc thăm công khai; không trúng sẽ vào danh sách chờ (hạn xác nhận ${WAITLIST_CONFIRM_HOURS_DEFAULT} giờ khi được đôn).`,
         })
         sessionStorage.setItem('lotteryProjectId', projectId)
         sessionStorage.setItem('projectId', projectId)
@@ -298,7 +299,7 @@ export function DeveloperDecisionPanel({ projectId }: { projectId: string }) {
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           Căn ưu tiên cấp trực tiếp cho hồ sơ điểm cao nhất. Khi số hồ sơ hợp lệ vượt quỹ căn còn lại,
           phần còn lại bốc thăm công khai. Không trúng được xếp danh sách chờ theo hạng — suất trả lại
-          (hủy HĐ / không cọc) đôn người #1, hạn xác nhận {WAITLIST_CONFIRM_HOURS} giờ.
+          (hủy HĐ / không cọc) đôn người #1, hạn xác nhận {WAITLIST_CONFIRM_HOURS_DEFAULT} giờ.
         </p>
       </div>
 
@@ -456,11 +457,14 @@ function ApartmentAssignList({
         {title} ({items.length})
       </p>
       <p className="text-xs text-slate-500">
-        Mỗi hồ sơ chọn một căn còn trống. Hợp đồng sẽ ghi tên căn · diện tích · giá đã chọn.
+        Mỗi hồ sơ chọn một căn còn trống. Danh sách căn của từng hồ sơ đã lọc theo nguyện vọng loại
+        căn đã khai và quỹ căn hồ sơ được nhận — backend chặn nếu gán lệch. Hợp đồng sẽ ghi tên căn ·
+        diện tích · giá đã chọn.
       </p>
       <ul className="space-y-3">
         {items.map((app) => {
           const selected = aptByApp[app.applicationId] ?? ''
+          const eligibleApts = availableApts.filter((apt) => isAssignableUnit(app, apt))
           return (
             <li
               key={app.applicationId}
@@ -474,14 +478,20 @@ function ApartmentAssignList({
                     : 'Không ưu tiên'}{' '}
                   · Điểm {app.priorityScore} · {app.citizenId}
                 </p>
+                <p className="text-xs text-slate-500">
+                  Nguyện vọng: {app.desiredApartmentTypeLabel || 'không khai loại căn'}
+                </p>
               </div>
               <Select
                 value={selected}
                 onChange={(e) => onChange(app.applicationId, e.target.value)}
                 aria-label={`Chọn căn cho ${app.fullName}`}
+                disabled={eligibleApts.length === 0}
               >
-                <option value="">Chọn căn…</option>
-                {availableApts.map((apt) => {
+                <option value="">
+                  {eligibleApts.length > 0 ? 'Chọn căn…' : 'Không có căn khớp nguyện vọng & quỹ căn'}
+                </option>
+                {eligibleApts.map((apt) => {
                   const taken = usedAptIds.has(apt.id) && selected !== apt.id
                   return (
                     <option key={apt.id} value={apt.id} disabled={taken}>

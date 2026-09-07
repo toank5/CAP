@@ -12,10 +12,11 @@ import {
 } from '@/api/lottery'
 import { housingProjectsApi } from '@/api/housing-projects'
 import type { HousingProjectSummaryDto } from '@/types'
-import { WAITLIST_CONFIRM_HOURS } from '@/lib/lottery-allocation'
+import { WAITLIST_CONFIRM_HOURS_DEFAULT } from '@/lib/lottery-allocation'
 import { connectLotteryHub, stopLotteryHub } from '@/api/lotteryHub'
 import { getRole } from '@/router'
 import { getLotteryPhase } from '@/lib/lottery-phase'
+import { normalizeStatus } from '@/lib/project-status-flow'
 import { LiveZone } from './LiveZone'
 import { WinnersZone } from './WinnersZone'
 import { ApartmentFundZone } from './ApartmentFundZone'
@@ -557,7 +558,7 @@ export const LotteryLivePage: React.FC = () => {
             </div>
 
             <p className="mt-4 text-xs leading-relaxed text-slate-600">
-              Hệ thống xáo trộn ngẫu nhiên công khai phần quỹ căn còn lại. Hồ sơ không trúng được xếp danh sách chờ theo hạng. Căn trả lại (hủy hợp đồng / không cọc) đôn người đứng đầu — hạn xác nhận {WAITLIST_CONFIRM_HOURS} giờ, không mở lại đợt bốc thăm.
+              Hệ thống xáo trộn ngẫu nhiên công khai phần quỹ căn còn lại. Hồ sơ không trúng được xếp danh sách chờ theo hạng. Căn trả lại (hủy hợp đồng / không cọc) đôn người đứng đầu — hạn xác nhận {WAITLIST_CONFIRM_HOURS_DEFAULT} giờ, không mở lại đợt bốc thăm.
             </p>
 
             <div className="mt-6 flex items-center justify-end gap-3">

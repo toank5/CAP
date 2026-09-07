@@ -39,6 +39,9 @@ export interface ApplicationSummaryItemDto {
   priorityScore: number
   submittedAt: string
   applicationStatus: string
+  /** Nguyện vọng loại căn đã khai — dùng để lọc danh sách căn được gán */
+  desiredApartmentTypeId?: string | null
+  desiredApartmentTypeLabel?: string | null
 }
 
 export interface ProjectApplicationEvaluationDto {
@@ -101,6 +104,10 @@ export function parseApartments(data: unknown): ApartmentDto[] {
       description: (x.description ?? x.Description) as string | null | undefined,
       model3DUrl: (x.model3DUrl ?? x.Model3DUrl) as string | undefined,
       virtualTourUrl: (x.virtualTourUrl ?? x.VirtualTourUrl) as string | undefined,
+      // Không map hai trường này thì bộ lọc "đúng loại căn nguyện vọng" luôn cho qua mọi căn
+      apartmentTypeId: (x.apartmentTypeId ?? x.ApartmentTypeId) as string | undefined,
+      apartmentTypeLabel: (x.apartmentTypeLabel ?? x.ApartmentTypeLabel ?? x.apartmentType ?? x.ApartmentType) as string | undefined,
+      unitGroupLabel: (x.unitGroupLabel ?? x.UnitGroupLabel) as string | undefined,
     } satisfies ApartmentDto
   })
 }
@@ -124,6 +131,8 @@ function mapAppItem(x: Record<string, unknown>): ApplicationSummaryItemDto {
     priorityScore: Number(x.priorityScore ?? x.PriorityScore ?? 0),
     submittedAt: String(x.submittedAt ?? x.SubmittedAt ?? ''),
     applicationStatus: String(x.applicationStatus ?? x.ApplicationStatus ?? ''),
+    desiredApartmentTypeId: (x.desiredApartmentTypeId ?? x.DesiredApartmentTypeId) as string | null | undefined,
+    desiredApartmentTypeLabel: (x.desiredApartmentTypeLabel ?? x.DesiredApartmentTypeLabel) as string | null | undefined,
   }
 }
 

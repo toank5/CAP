@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { FileText, PenLine, Download, Wallet, Unlock, Hammer, HardHat, KeyRound, BookOpen, CheckCircle2, Clock, AlertTriangle, XCircle, Lock, Calendar, Banknote, TrendingUp, CircleDot } from 'lucide-react'
+import { FileText, Download, Wallet, Unlock, Hammer, HardHat, KeyRound, BookOpen, CheckCircle2, Clock, AlertTriangle, XCircle, Lock, Calendar, Banknote, TrendingUp, CircleDot } from 'lucide-react'
 import {
   contractApi,
   CONTRACT_STATUS_LABEL,
@@ -149,10 +149,10 @@ export function ContractsPage() {
         {!loading && applications.length === 0 && (
           <Alert variant="info">
             {isDev
-              ? 'Chưa có hồ sơ nào ở bước hợp đồng. Hồ sơ xuất hiện khi bạn chốt suất hoặc người dân trúng bốc thăm (chờ ký → ký → thanh toán Đợt 1 là tiền cọc).'
+              ? 'Chưa có hồ sơ nào ở bước hợp đồng. Hồ sơ xuất hiện khi bạn chốt suất hoặc người dân trúng bốc thăm (chờ ký → ký → thanh toán Đợt 1, gồm tiền đặt cọc).'
               : isApplicant
-                ? 'Chưa có hồ sơ nào ở bước hợp đồng. Hồ sơ xuất hiện khi chủ đầu tư chốt suất hoặc bạn trúng bốc thăm (chờ ký → ký → thanh toán Đợt 1 là tiền cọc).'
-                : 'Chưa có hồ sơ nào ở bước hợp đồng. Hồ sơ xuất hiện khi chủ đầu tư chốt suất hoặc người dân trúng bốc thăm (chờ ký → ký → thanh toán Đợt 1 là tiền cọc).'}
+                ? 'Chưa có hồ sơ nào ở bước hợp đồng. Hồ sơ xuất hiện khi chủ đầu tư chốt suất hoặc bạn trúng bốc thăm (chờ ký → ký → thanh toán Đợt 1, gồm tiền đặt cọc).'
+                : 'Chưa có hồ sơ nào ở bước hợp đồng. Hồ sơ xuất hiện khi chủ đầu tư chốt suất hoặc người dân trúng bốc thăm (chờ ký → ký → thanh toán Đợt 1, gồm tiền đặt cọc).'}
           </Alert>
         )}
         <div className="grid gap-3">

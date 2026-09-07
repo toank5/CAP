@@ -105,13 +105,30 @@ export const DOC_TYPE_LABELS: Record<string, string> = {
   RELATIVE_CITIZEN_CARD: 'CCCD người thân trong hộ gia đình',
 }
 
+/**
+ * Ngưỡng diện tích nhà ở bình quân đầu người — Đ29.2 Nghị định 100/2024:
+ * có nhà thuộc sở hữu nhưng thấp hơn 15 m² sàn/người thì vẫn đủ điều kiện mua NOXH.
+ * BE là nguồn quyết định (PolicyConfig MAX_AREA_PER_PERSON_M2); hằng số này chỉ để hiển thị
+ * và validate sớm trên form, phải khớp với giá trị BE.
+ */
+export const MAX_AVG_AREA_PER_PERSON_M2 = 15
+
+/**
+ * Đ25.1 Luật Kinh doanh bất động sản 2023: thanh toán lần đầu không quá 30% giá trị hợp đồng,
+ * BAO GỒM cả tiền đặt cọc. Vì vậy Đợt 1 không được gọi là "tiền cọc" — tiền đặt cọc riêng
+ * bị giới hạn không quá 5% giá bán (Đ23.5) và chỉ thu khi nhà đủ điều kiện kinh doanh.
+ */
+export const PHASE1_LABEL = 'Đợt 1 — thanh toán lần đầu (gồm tiền đặt cọc)'
+export const PHASE1_LEGAL_NOTE =
+  'Thanh toán lần đầu không quá 30% giá trị hợp đồng, bao gồm cả tiền đặt cọc (Đ25.1 Luật Kinh doanh bất động sản 2023).'
+
 export const HOUSING_STATUS_LABELS: Record<string, string> = {
   NO_HOUSE: 'Chưa có nhà ở',
   NO_HOUSING: 'Chưa có nhà ở',
-  SMALL_HOUSE: 'Nhà ở chật hẹp (dưới 10m²/người)',
+  SMALL_HOUSE: `Nhà ở chật hẹp (dưới ${MAX_AVG_AREA_PER_PERSON_M2} m²/người)`,
   DILAPIDATED: 'Nhà ở tạm bợ, hư hỏng, dột nát',
-  SUBSTANDARD_AREA: 'Diện tích bình quân dưới 10m²/người',
-  OVERCROWDED: 'Diện tích bình quân dưới 10m²/người',
+  SUBSTANDARD_AREA: `Diện tích bình quân dưới ${MAX_AVG_AREA_PER_PERSON_M2} m²/người`,
+  OVERCROWDED: `Diện tích bình quân dưới ${MAX_AVG_AREA_PER_PERSON_M2} m²/người`,
   RENTING: 'Đang thuê nhà ở',
   LIVING_WITH_PARENTS: 'Ở nhờ / cùng người thân',
   OWNED_STANDARD: 'Đã có nhà ở đạt chuẩn',

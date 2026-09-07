@@ -56,7 +56,7 @@ import {
   phaseStepIndex,
   type LotteryPhase,
 } from '@/lib/lottery-phase'
-import { WAITLIST_CONFIRM_HOURS, splitAvailableUnits } from '@/lib/lottery-allocation'
+import { WAITLIST_CONFIRM_HOURS_DEFAULT, splitAvailableUnits } from '@/lib/lottery-allocation'
 import { getRole } from '@/router'
 
 interface ProjectLotteryRow {
@@ -179,18 +179,6 @@ function ModernStatusBadge({ phase }: { phase: LotteryPhase }) {
           ĐÃ CÔNG BỐ
         </span>
       )
-  }
-}
-
-async function freezeIntakeForLottery(projectId: string) {
-  try {
-    await housingProjectsApi.changeLifecycleStatus(
-      projectId,
-      'CLOSED',
-      'Khóa nhận hồ sơ mới khi đề xuất lịch bốc thăm. Căn trả lại dùng danh sách dự bị, không mở đợt bốc lần 2.',
-    )
-  } catch {
-    // Dự án có thể đã CLOSED — lịch vẫn được lưu.
   }
 }
 
@@ -377,7 +365,6 @@ export function LotterySessionsPage() {
         lotteryDescription: schedForm.notes.trim() || undefined,
         notes: schedForm.notes.trim() || undefined,
       })
-      await freezeIntakeForLottery(selectedProject.id)
       setScheduleModalOpen(false)
       setActionToast({ type: 'success', text: 'Lưu lịch bốc thăm thành công.' })
       await load()
@@ -485,7 +472,7 @@ export function LotterySessionsPage() {
               Quản lý & Điều hành Phiên Bốc Thăm Công Khai
             </h1>
             <p className="text-sm leading-relaxed text-slate-300/90">
-              Phân bổ quyền mua: căn ưu tiên cấp trực tiếp cho hồ sơ điểm cao nhất; hồ sơ hợp lệ vượt quỹ căn thì bốc thăm công khai. Không trúng được xếp danh sách chờ theo hạng — suất trả lại (hủy hợp đồng / không cọc) đôn người đứng đầu, hạn xác nhận {WAITLIST_CONFIRM_HOURS} giờ.
+              Phân bổ quyền mua: căn ưu tiên cấp trực tiếp cho hồ sơ điểm cao nhất; hồ sơ hợp lệ vượt quỹ căn thì bốc thăm công khai. Không trúng được xếp danh sách chờ theo hạng — suất trả lại (hủy hợp đồng / không cọc) đôn người đứng đầu, hạn xác nhận {WAITLIST_CONFIRM_HOURS_DEFAULT} giờ.
             </p>
           </div>
 
@@ -1309,7 +1296,7 @@ export function LotterySessionsPage() {
               <div>
                 <p className="font-bold text-slate-900 dark:text-white">Bước 6: Công bố kết quả và quản lý danh sách dự bị</p>
                 <p className="text-slate-600 dark:text-slate-300">
-                  Công bố kết quả. Không trúng xếp danh sách dự bị thứ 1, 2, 3… Khi căn trả lại (hủy hợp đồng / không nộp cọc), đôn người đứng đầu — hạn xác nhận {WAITLIST_CONFIRM_HOURS} giờ, không mở lại đợt bốc thăm.
+                  Công bố kết quả. Không trúng xếp danh sách dự bị thứ 1, 2, 3… Khi căn trả lại (hủy hợp đồng / không nộp cọc), đôn người đứng đầu — hạn xác nhận {WAITLIST_CONFIRM_HOURS_DEFAULT} giờ, không mở lại đợt bốc thăm.
                 </p>
               </div>
             </div>
@@ -1566,7 +1553,6 @@ export function LotteryDetailPage() {
         lotteryType: 'ONLINE',
         totalUnits: schedFund.available > 0 ? schedFund.available : undefined,
       })
-      await freezeIntakeForLottery(projectId)
       setScheduleOpen(false)
       setMsg({ type: 'success', text: 'Lên lịch thành công.' })
       await reload()
@@ -1918,7 +1904,7 @@ export function LotteryDetailPage() {
                   📋 Danh sách dự bị ({waitlist.length} ứng viên)
                 </h3>
                 <p className="text-xs text-indigo-800 dark:text-indigo-300">
-                  Không trúng không bị hủy. Xếp hạng #1, #2, #3… Khi căn trả lại do hủy hợp đồng hoặc không nộp cọc, hệ thống đôn người đứng đầu — hạn xác nhận {WAITLIST_CONFIRM_HOURS} giờ, không mở lại đợt bốc thăm.
+                  Không trúng không bị hủy. Xếp hạng #1, #2, #3… Khi căn trả lại do hủy hợp đồng hoặc không nộp cọc, hệ thống đôn người đứng đầu — hạn xác nhận {WAITLIST_CONFIRM_HOURS_DEFAULT} giờ, không mở lại đợt bốc thăm.
                 </p>
               </div>
 
@@ -1964,7 +1950,7 @@ export function LotteryDetailPage() {
                     )}
                     {w.depositDeadline && (
                       <span className="text-xs text-amber-600 font-medium">
-                        Hạn xác nhận {WAITLIST_CONFIRM_HOURS}h: {new Date(w.depositDeadline).toLocaleString('vi-VN')}
+                        Hạn xác nhận: {new Date(w.depositDeadline).toLocaleString('vi-VN')}
                       </span>
                     )}
                     <Badge variant={w.status === 'PROMOTED' ? 'success' : 'warning'}>

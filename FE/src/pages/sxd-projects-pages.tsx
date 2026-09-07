@@ -1016,7 +1016,7 @@ function ProjectInspectorModal({
                         </span>
                       </div>
                       <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                        <span className="text-slate-500">Tỷ lệ Đợt 1 (tiền cọc, tối đa 30%):</span>
+                        <span className="text-slate-500">Tỷ lệ Đợt 1 (thanh toán lần đầu gồm tiền đặt cọc, tối đa 30%):</span>
                         <span className="font-bold text-emerald-600">
                           {project.phase1Percentage ? `${project.phase1Percentage}%` : 'Theo Luật Nhà ở năm 2023 (tối đa 30%)'}
                         </span>
@@ -1784,7 +1784,7 @@ export function SxdProjectDetailPage() {
                             : '—'
                     }
                   />
-                  <DetailRow label="Tỷ lệ Đợt 1 (tiền cọc, tối đa 30%)" value={project.phase1Percentage ? `${project.phase1Percentage}%` : 'Luật Nhà ở năm 2023 (tối đa 30%)'} />
+                  <DetailRow label="Tỷ lệ Đợt 1 (thanh toán lần đầu gồm tiền đặt cọc, tối đa 30%)" value={project.phase1Percentage ? `${project.phase1Percentage}%` : 'Đ25.1 Luật Kinh doanh bất động sản 2023 (tối đa 30%)'} />
                   <DetailRow label="Ngày tạo hồ sơ" value={formatDate(project.createdAt)} />
                   <DetailRow label="Ngày phê duyệt công bố" value={formatDate(project.publicAnnounceAt)} />
                   <DetailRow label="Ngày mở nhận hồ sơ" value={formatDate(project.applicationOpenDate)} />

@@ -13,6 +13,7 @@ import { formatError, formatSuccess } from '@/lib/format-error'
 import { labelRole } from '@/lib/labels'
 import { extractProfileImageUrl } from '@/lib/user-display'
 import { validateDocumentFile } from '@/lib/ekyc-helpers'
+import { MAX_AVG_AREA_PER_PERSON_M2 } from '@/lib/constants'
 import { useUserProfile } from '@/providers/user-profile-provider'
 
 const MARITAL_STATUS_OPTIONS = [
@@ -46,7 +47,7 @@ function maritalHouseholdHint(status: string) {
 
 const HOUSING_STATUS_OPTIONS = [
   { value: 'NO_HOUSE', label: 'Chưa có nhà ở thuộc sở hữu' },
-  { value: 'SMALL_HOUSE', label: 'Nhà ở chật hẹp (dưới 10 m²/người)' },
+  { value: 'SMALL_HOUSE', label: `Nhà ở chật hẹp (dưới ${MAX_AVG_AREA_PER_PERSON_M2} m²/người)` },
 ]
 
 const PRIORITY_GROUP_OPTIONS = [
@@ -441,7 +442,8 @@ export function ProfilePage() {
       } else {
         const area = Number(citizenInfo.averageHousingAreaPerPerson)
         if (!Number.isFinite(area) || area <= 0) nextErrors.averageHousingAreaPerPerson = 'Diện tích bình quân phải lớn hơn 0.'
-        else if (area >= 10) nextErrors.averageHousingAreaPerPerson = 'Phải dưới 10 m²/người mới đủ điều kiện nhà ở (Đ29).'
+        else if (area >= MAX_AVG_AREA_PER_PERSON_M2)
+          nextErrors.averageHousingAreaPerPerson = `Phải dưới ${MAX_AVG_AREA_PER_PERSON_M2} m² sàn/người mới đủ điều kiện nhà ở (Đ29.2).`
       }
     }
     if (!citizenInfo.priorityGroup) nextErrors.priorityGroup = 'Bắt buộc chọn nhóm đối tượng hưởng chính sách.'
@@ -1136,7 +1138,7 @@ export function ProfilePage() {
                               label="Diện tích bình quân (m²/người)"
                               htmlFor="averageHousingAreaPerPerson"
                               required
-                              hint="Tổng diện tích nhà chia cho số nhân khẩu. Phải dưới 10 m²/người (Đ29)."
+                              hint={`Tổng diện tích nhà chia cho số người đứng đơn, vợ/chồng, cha, mẹ và các con đăng ký thường trú tại căn nhà đó. Phải dưới ${MAX_AVG_AREA_PER_PERSON_M2} m² sàn/người (Đ29.2).`}
                               error={validationErrors.averageHousingAreaPerPerson}
                             >
                               <Input

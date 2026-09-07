@@ -81,11 +81,13 @@ import {
   RELATIONSHIP_LABELS,
   GENDER_LABELS,
   getRequiredDocsForPriorityGroup,
+  MAX_AVG_AREA_PER_PERSON_M2,
 } from '@/lib/constants'
 import { formatError } from '@/lib/format-error'
 import { ensureVerifiedForApplication } from '@/lib/ekyc-gate'
 import { formatDepositCountdown } from '@/lib/deposit-deadline'
 import { formatSxdCountdown } from '@/lib/sxd-deadline'
+import { isAssignableUnit } from '@/lib/lottery-allocation'
 import { getRole } from '@/router'
 import type { ApartmentDto, ApplicationDetailDto, ApplicationSummaryDto } from '@/types'
 
@@ -1136,10 +1138,13 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
       .getById(app.projectId)
       .then((data) => {
         if (cancelled) return
+        // Chỉ hiện căn hồ sơ này thực sự được nhận: đúng loại nguyện vọng và đúng quỹ căn.
+        // Backend chặn bằng ApartmentAssignmentGate, ở đây lọc để cán bộ không chọn thử rồi báo lỗi.
         setApartments(
           parseApartments(data).filter(
             (t) =>
-              String(t.status).toUpperCase() === 'AVAILABLE' || t.id === app.apartmentId,
+              t.id === app.apartmentId ||
+              (String(t.status).toUpperCase() === 'AVAILABLE' && isAssignableUnit(app, t)),
           ),
         )
       })
@@ -1939,6 +1944,18 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
                   <p className="text-sm text-slate-600 dark:text-slate-400">
                     Hồ sơ đã trúng bốc thăm / đủ điều kiện ký hợp đồng nhưng chưa được gán căn. Vui lòng chọn căn trống dưới đây để bàn giao:
                   </p>
+                  <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-3 text-xs text-blue-900 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-200">
+                    <p>
+                      Nguyện vọng đã đăng ký:{' '}
+                      <strong>{app.desiredApartmentTypeLabel || app.desiredApartmentType || 'không khai loại căn'}</strong>
+                      {' · '}Quỹ căn được nhận:{' '}
+                      <strong>{app.priorityGroup ? 'ưu tiên và tiêu chuẩn' : 'chỉ tiêu chuẩn'}</strong>
+                    </p>
+                    <p className="mt-1 text-blue-700 dark:text-blue-300">
+                      Danh sách dưới đây đã lọc theo hai điều kiện trên. Suất trúng được đếm theo từng loại căn,
+                      nên gán lệch loại sẽ làm sai số suất còn lại và ảnh hưởng hồ sơ khác.
+                    </p>
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     <Select
                       id="assign-apt-select"
@@ -1947,10 +1964,10 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
                       onChange={(e) => setSelectedApartmentId(e.target.value)}
                       disabled={assigningApt || apartments.length === 0}
                     >
-                      <option value="">{apartments.length > 0 ? '--- Chọn căn hộ phù hợp ---' : 'Dự án hiện chưa có căn hộ trạng thái trống'}</option>
+                      <option value="">{apartments.length > 0 ? '--- Chọn căn hộ phù hợp ---' : 'Không có căn trống nào khớp nguyện vọng & quỹ căn của hồ sơ này'}</option>
                       {apartments.map((a) => (
                         <option key={a.id} value={a.id}>
-                          {a.unitName} · Tầng {a.floorNumber ?? '—'} · {a.area}m² · {Number(a.price).toLocaleString('vi-VN')} VNĐ
+                          {a.unitName} · Tầng {a.floorNumber ?? '—'} · {a.area}m² · {a.apartmentTypeLabel || a.apartmentType || 'chưa gắn loại'} · {Number(a.price).toLocaleString('vi-VN')} VNĐ
                         </option>
                       ))}
                     </Select>
@@ -2431,7 +2448,7 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
             <div className="space-y-2">
               {[
                 'Thu nhập bình quân của hộ gia đình vượt quá mức trần quy định hưởng chính sách NOXH',
-                'Đã sở hữu nhà ở hoặc diện tích nhà ở bình quân hiện tại đạt trên 10m²/người',
+                `Đã sở hữu nhà ở với diện tích bình quân từ ${MAX_AVG_AREA_PER_PERSON_M2} m² sàn/người trở lên`,
                 'Đã từng được hưởng chính sách hỗ trợ nhà ở xã hội tại các dự án khác',
                 'Không thuộc đối tượng ưu tiên được mua NOXH theo quy định tại Điều 76 Luật Nhà ở',
                 'Giấy tờ không hợp lệ hoặc phát hiện thông tin kê khai gian lận sau khi xác minh',
@@ -2604,10 +2621,10 @@ function HardRulesComplianceCard({
   const isMarriedOrFamily = app.maritalStatus === 'MARRIED' || !!app.spouseFullName || (app.householdMembers && app.householdMembers.length > 0)
   const maxAllowedIncome = el?.maxAllowedIncome ?? (isMarriedOrFamily ? 30000000 : 15000000)
 
-  // 1. Nhà ở: Đạt nếu chưa có nhà, hoặc diện tích bình quân <= 10m2/người, hoặc trạng thái nhà là dột nát/tạm bợ/thuê trọ
+  // 1. Nhà ở (Đ29.2): đạt nếu chưa có nhà, hoặc diện tích bình quân dưới ngưỡng m² sàn/người
   const numericAvgArea = calculatedAvgArea != null && calculatedAvgArea !== '' ? Number(calculatedAvgArea) : null
   const isHousingStatusOk = !app.housingStatus || app.housingStatus !== 'OWNED_STANDARD'
-  const isAreaOk = numericAvgArea != null ? numericAvgArea <= 10 : isHousingStatusOk
+  const isAreaOk = numericAvgArea != null ? numericAvgArea < MAX_AVG_AREA_PER_PERSON_M2 : isHousingStatusOk
 
   // 2. Thu nhập: Đạt nếu tổng thu nhập gia đình <= trần quy định (15M cho cá nhân, 30M cho gia đình)
   const isIncomeOk = totalFamilyIncome <= maxAllowedIncome
@@ -2665,7 +2682,7 @@ function HardRulesComplianceCard({
               : HOUSING_STATUS_LABELS[app.housingStatus] ?? 'Chưa có nhà ở'}
           </div>
           <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-            Quy định: ≤ 10 m²/người ({isAreaOk ? '✓ Hợp lệ' : '✗ Vượt chuẩn'})
+            Quy định: dưới {MAX_AVG_AREA_PER_PERSON_M2} m² sàn/người ({isAreaOk ? '✓ Hợp lệ' : '✗ Vượt chuẩn'})
           </p>
         </div>
 

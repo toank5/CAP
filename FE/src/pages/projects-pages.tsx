@@ -568,7 +568,7 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <FormField label="Số căn còn trống" htmlFor="availableUnits"><Input id="availableUnits" name="availableUnits" type="number" /></FormField>
-        <FormField label="Tỷ lệ Đợt 1 — tiền cọc (%)" htmlFor="phase1Percentage">
+        <FormField label="Tỷ lệ Đợt 1 — thanh toán lần đầu, gồm tiền đặt cọc (%)" htmlFor="phase1Percentage">
           <Input
             id="phase1Percentage"
             name="phase1Percentage"
@@ -916,7 +916,7 @@ const DIRECTION_LABELS: Record<string, string> = {
 }
 
 const TRIGGER_EVENT_LABELS: Record<string, string> = {
-  ON_LOTTERY_WON: 'Khi được cấp nhà hoặc trúng bốc thăm (tiền cọc Đợt 1)',
+  ON_LOTTERY_WON: 'Khi được cấp suất hoặc trúng bốc thăm (Đợt 1 — thanh toán lần đầu, gồm tiền đặt cọc)',
   ON_CONTRACT_SIGNED: 'Sau khi đã ký hợp đồng mua bán',
   CONSTRUCTION_ROUGH_FLOOR: 'Khi hoàn thành xây dựng phần thô',
   FOUNDATION_COMPLETED: 'Khi hoàn thành móng',
@@ -1446,7 +1446,7 @@ function ProjectDetailView({
           <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-800/40">
             <div className="flex items-center gap-2 text-slate-500">
               <DollarSign className="h-4 w-4 text-teal-600" />
-              <span className="text-xs font-semibold uppercase">Tỷ lệ Đợt 1 (tiền cọc)</span>
+              <span className="text-xs font-semibold uppercase">Tỷ lệ Đợt 1 (thanh toán lần đầu)</span>
             </div>
             <p className="mt-2 text-sm font-bold text-teal-700 dark:text-teal-400">
               {project.phase1Percentage ?? 30}% giá trị căn hộ

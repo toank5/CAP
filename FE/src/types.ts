@@ -160,7 +160,10 @@ export interface HousingProjectDto {
   maxArea?: number
   availableUnits?: number
   totalUnits?: number
-  /** Tỷ lệ Đợt 1 — tiền cọc khi được cấp nhà (% giá căn), tối đa 30%. Phải đóng trước khi ký hợp đồng mua bán. */
+  /**
+   * Tỷ lệ Đợt 1 — thanh toán lần đầu (% giá căn), gồm cả tiền đặt cọc, tối đa 30%
+   * theo Đ25.1 Luật Kinh doanh bất động sản 2023. Phải đóng trước khi ký hợp đồng mua bán.
+   */
   phase1Percentage?: number
   thumbnailUrl?: string
   imageUrl?: string
