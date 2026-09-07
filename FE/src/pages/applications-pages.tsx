@@ -84,6 +84,7 @@ import {
   MAX_AVG_AREA_PER_PERSON_M2,
 } from '@/lib/constants'
 import { formatError } from '@/lib/format-error'
+import { ApiError } from '@/api/http'
 import { ensureVerifiedForApplication } from '@/lib/ekyc-gate'
 import { formatDepositCountdown } from '@/lib/deposit-deadline'
 import { formatSxdCountdown } from '@/lib/sxd-deadline'
@@ -1191,6 +1192,12 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
       setMsg({ type: 'success', text: 'Đã bàn giao căn và sinh lịch thanh toán theo đợt.' })
     } catch (err) {
       setMsg({ type: 'error', text: formatError(err) })
+      // 409 = căn vừa bị hồ sơ khác lấy. Tải lại để căn đó biến khỏi danh sách,
+      // nếu không cán bộ sẽ chọn lại đúng căn vừa báo lỗi.
+      if (err instanceof ApiError && err.status === 409) {
+        setSelectedApartmentId('')
+        await refresh()
+      }
     } finally {
       setAssigningApt(false)
     }
