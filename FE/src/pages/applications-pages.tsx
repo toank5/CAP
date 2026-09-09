@@ -37,6 +37,7 @@ import {
   Home,
   FolderOpen,
   Plus,
+  FileSignature,
 } from 'lucide-react'
 import {
   housingApplicationsApi,
@@ -53,11 +54,10 @@ import { ApplicationTimeline } from '@/components/shared/application-timeline'
 import { FileDropzone } from '@/components/shared/file-dropzone'
 import {
   ApartmentCard,
-  PaymentSection,
-  SignContractSection,
+  PaymentHistoryPanel,
 } from '@/components/payment/payment-section'
-import { contractApi, parseContractStatus, parseInstallmentsEnvelope, summarizeInstallments } from '@/api/contracts'
-import { canSignAfterDeposit, isPhase1Paid } from '@/lib/deposit-pipeline'
+import { contractApi, parseInstallmentsEnvelope } from '@/api/contracts'
+import { isPhase1Paid } from '@/lib/deposit-pipeline'
 import { usersApi } from '@/api/users'
 import { PageCard, PageHeader } from '@/components/layout/page-header'
 import { StatusBadge } from '@/components/shared/status-badge'
@@ -1006,17 +1006,7 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
   const [submitSxdModalOpen, setSubmitSxdModalOpen] = useState(false)
 
   // Payment / contract state
-  const [contractStatus, setContractStatus] = useState<{
-    isSigned: boolean
-    signedAt?: string | null
-    applicationStatus: string
-  } | null>(null)
   const [installments, setInstallments] = useState<import('@/api/contracts').PaymentInstallment[]>([])
-  const [installmentsError, setInstallmentsError] = useState(false)
-  const [contractPrice, setContractPrice] = useState<number | null>(null)
-  const [housePrice, setHousePrice] = useState<number | null>(null)
-  const [officialPrice, setOfficialPrice] = useState<number | null>(null)
-  const [signing, setSigning] = useState(false)
 
   const refresh = async () => {
     const data = await housingApplicationsApi.getById(appId)
@@ -1076,27 +1066,13 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
       setSelectedDocId((prev) => (prev && parsed?.documents?.some((d) => d.documentId === prev) ? prev : parsed?.documents?.[0]?.documentId ?? null))
     }
 
-    // Load contract status + installments
-    try {
-      const s = await contractApi.getStatus(appId)
-      const cParsed = parseContractStatus(s)
-      setContractStatus(cParsed ? { isSigned: cParsed.isSigned, signedAt: cParsed.signedAt, applicationStatus: cParsed.applicationStatus } : null)
-    } catch { setContractStatus(null) }
-
+    // Load installments for payment status badges
     try {
       const i = await contractApi.getInstallments(appId)
       const env = parseInstallmentsEnvelope(i)
       setInstallments(env.installments)
-      setInstallmentsError(false)
-      setContractPrice(env.contractPrice ?? null)
-      setHousePrice(env.housePrice ?? null)
-      setOfficialPrice(env.officialPrice ?? null)
     } catch {
       setInstallments([])
-      setInstallmentsError(true)
-      setContractPrice(null)
-      setHousePrice(null)
-      setOfficialPrice(null)
     }
   }
 
@@ -1298,20 +1274,6 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
     }
   }
 
-  const handleSign = async () => {
-    if (signing) return
-    setSigning(true)
-    setMsg(null)
-    try {
-      await contractApi.sign(appId)
-      await refresh()
-      setMsg({ type: 'success', text: 'Đã ký HĐ thành công. Đợt 2 (20%) đã tự mở — có thể đóng ngay.' })
-    } catch (err) {
-      setMsg({ type: 'error', text: formatError(err) })
-    } finally {
-      setSigning(false)
-    }
-  }
 
   const confirmWithdraw = async () => {
     if (!withdrawReason.trim()) {
@@ -2002,45 +1964,40 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
             lotteryResult={app.lotteryResult}
           />
 
-          <SignContractSection
-            canSign={
-              isApplicant &&
-              canSignAfterDeposit({
-                applicationStatus: contractStatus?.applicationStatus || app.applicationStatus,
-                hasApartment: !!app.apartmentId,
-                depositPaid: deposit1Paid,
-              }) &&
-              !contractStatus?.isSigned
-            }
-            signing={signing}
-            onSign={() => void handleSign()}
-            applicationId={appId}
-            applicationStatus={contractStatus?.applicationStatus ?? app.applicationStatus}
-          />
-          {isApplicant && deposit1Paid && !app.apartmentId && !contractStatus?.isSigned && (
-            <Alert variant="info">
-              Đã đóng cọc Đợt 1. Chủ đầu tư cần gán căn hộ cụ thể trước khi bạn ký hợp đồng.
-            </Alert>
+          {/* ĐIỀU HƯỚNG KÝ HĐ & THANH TOÁN QUA MỤC HỢP ĐỒNG */}
+          {(['CONTRACT_PENDING', 'CONTRACT_SIGNED', 'PARTIALLY_PAID', 'PAID', 'FULLY_PAID', 'DEPOSIT_PAID', 'DEPOSIT_PENDING'].includes(app.applicationStatus) || !!app.apartmentId) && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-blue-200 bg-blue-50/70 p-4 dark:border-blue-900/60 dark:bg-blue-950/30">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-md shadow-blue-500/20">
+                  <FileSignature className="h-5 w-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-blue-900 dark:text-blue-100">
+                    Ký hợp đồng & Thanh toán từng đợt
+                  </h4>
+                  <p className="text-xs text-blue-700/80 dark:text-blue-300/80">
+                    Ký hợp đồng mua bán điện tử và thực hiện thanh toán các đợt tiền được quản lý tại mục <strong>Hợp đồng</strong>.
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="accent"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => {
+                  sessionStorage.setItem('current_application_id', appId)
+                  if (app.projectId) sessionStorage.setItem('current_project_id', app.projectId)
+                  navigate('contract-detail')
+                }}
+              >
+                <FileSignature className="h-4 w-4" />
+                Vào mục Hợp đồng
+              </Button>
+            </div>
           )}
 
-          {/* Lịch thanh toán theo cấu hình chủ đầu tư */}
-          <PaymentSection
-            installments={installments}
-            paid={installments.filter(i => i.status === 'PAID').reduce((s, i) => s + (i.paidAmount ?? i.amount), 0)}
-            remaining={summarizeInstallments(installments).remaining}
-            progress={summarizeInstallments(installments).progress}
-            contractPrice={contractPrice}
-            officialPrice={officialPrice}
-            housePrice={housePrice}
-            signedAt={contractStatus?.signedAt ?? null}
-            applicationId={appId}
-            applicationStatus={contractStatus?.applicationStatus ?? app.applicationStatus}
-            hasError={installmentsError}
-            hasApartment={!!app.apartmentId}
-            onReload={() => void refresh()}
-            role={role}
-            projectId={app.projectId}
-          />
+          {/* LỊCH SỬ GIAO DỊCH THANH TOÁN */}
+          <PaymentHistoryPanel applicationId={appId} />
 
           {/* LỊCH SỬ XÉT DUYỆT */}
           {(app.reviewHistories ?? []).length > 0 && (
