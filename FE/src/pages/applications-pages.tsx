@@ -2268,68 +2268,70 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
             })()}
           </div>
 
-          {/* PHẦN KIỂM TRA AI (NẰM TRỰC TIẾP DƯỚI KHUNG ẢNH / TÀI LIỆU) */}
-          <div className="rounded-2xl border border-violet-200/90 bg-gradient-to-br from-violet-50/70 via-white to-sky-50/50 p-5 shadow-sm dark:border-violet-900/60 dark:from-violet-950/30 dark:via-slate-900 dark:to-sky-950/20">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-violet-100 pb-3 dark:border-violet-900/40">
-              <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-tr from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-500/20">
-                  <Sparkles className="h-4 w-4" />
+          {/* PHẦN KIỂM TRA AI (CHỈ DÀNH CHO CHỦ ĐẦU TƯ) */}
+          {isDeveloper && (
+            <div className="rounded-2xl border border-violet-200/90 bg-gradient-to-br from-violet-50/70 via-white to-sky-50/50 p-5 shadow-sm dark:border-violet-900/60 dark:from-violet-950/30 dark:via-slate-900 dark:to-sky-950/20">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-violet-100 pb-3 dark:border-violet-900/40">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-tr from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-500/20">
+                    <Sparkles className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 dark:text-slate-100">
+                      Kiểm tra hồ sơ bằng AI
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Đối chiếu tự động OCR tài liệu & dữ liệu đăng ký
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 dark:text-slate-100">
-                    Kiểm tra hồ sơ bằng AI
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Đối chiếu tự động OCR tài liệu & dữ liệu đăng ký
-                  </p>
-                </div>
+
+                <Button
+                  type="button"
+                  variant="accent"
+                  size="sm"
+                  className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md hover:opacity-95"
+                  disabled={aiAuditing || (app.documents ?? []).length === 0}
+                  onClick={() => void runAiAudit()}
+                >
+                  {aiAuditing ? (
+                    <>
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      Đang quét...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                      {aiAuditResult ? 'Phân tích lại' : 'Chạy kiểm tra AI'}
+                    </>
+                  )}
+                </Button>
               </div>
 
-              <Button
-                type="button"
-                variant="accent"
-                size="sm"
-                className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md hover:opacity-95"
-                disabled={aiAuditing || (app.documents ?? []).length === 0}
-                onClick={() => void runAiAudit()}
-              >
-                {aiAuditing ? (
-                  <>
-                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                    Đang quét...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-                    {aiAuditResult ? 'Phân tích lại' : 'Chạy kiểm tra AI'}
-                  </>
-                )}
-              </Button>
+              {/* AI Error */}
+              {aiAuditError && (
+                <Alert variant="error" className="mt-3 text-xs">
+                  Không thể thực hiện kiểm tra AI: {aiAuditError}
+                </Alert>
+              )}
+
+              {/* AI Result View */}
+              {aiAuditing ? (
+                <div className="flex flex-col items-center gap-2 py-8 text-center text-slate-500">
+                  <Loader2 className="h-7 w-7 animate-spin text-violet-600" />
+                  <p className="text-xs font-medium">AI đang đọc {app.documents?.length ?? 0} tài liệu và đối chiếu các trường thông tin...</p>
+                </div>
+              ) : aiAuditResult ? (
+                <div className="mt-4">
+                  <AiAuditResultPanel result={aiAuditResult} />
+                </div>
+              ) : (
+                <div className="mt-3 rounded-xl bg-violet-100/50 p-3 text-xs leading-relaxed text-slate-600 dark:bg-violet-950/20 dark:text-slate-300">
+                  Nhấn <strong>"Chạy kiểm tra AI"</strong> để hệ thống tự động bóc tách thông tin từ các tệp CCCD, bảng lương, xác nhận nhà ở... và so khớp với biểu mẫu người dân kê khai nhằm phát hiện sai lệch và cảnh báo rủi ro cho Chủ đầu tư.
+                </div>
+              )}
             </div>
-
-            {/* AI Error */}
-            {aiAuditError && (
-              <Alert variant="error" className="mt-3 text-xs">
-                Không thể thực hiện kiểm tra AI: {aiAuditError}
-              </Alert>
-            )}
-
-            {/* AI Result View */}
-            {aiAuditing ? (
-              <div className="flex flex-col items-center gap-2 py-8 text-center text-slate-500">
-                <Loader2 className="h-7 w-7 animate-spin text-violet-600" />
-                <p className="text-xs font-medium">AI đang đọc {app.documents?.length ?? 0} tài liệu và đối chiếu các trường thông tin...</p>
-              </div>
-            ) : aiAuditResult ? (
-              <div className="mt-4">
-                <AiAuditResultPanel result={aiAuditResult} />
-              </div>
-            ) : (
-              <div className="mt-3 rounded-xl bg-violet-100/50 p-3 text-xs leading-relaxed text-slate-600 dark:bg-violet-950/20 dark:text-slate-300">
-                Nhấn <strong>"Chạy kiểm tra AI"</strong> để hệ thống tự động bóc tách thông tin từ các tệp CCCD, bảng lương, xác nhận nhà ở... và so khớp với biểu mẫu người dân kê khai nhằm phát hiện sai lệch và cảnh báo rủi ro cho Chủ đầu tư.
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </div>
 
