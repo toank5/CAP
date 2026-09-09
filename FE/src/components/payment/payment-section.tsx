@@ -114,11 +114,12 @@ function UnlockButton({ projectId, inst, allInstallments, onUnlocked }: UnlockBu
   const trigger = inst.triggerEvent
   if (!projectId || !trigger || !isManualUnlockTrigger(trigger)) return null
 
-  const prevUnlocked =
-    inst.ordinal <= 2
-      ? true
-      : !allInstallments.some((i) => i.ordinal === inst.ordinal - 1 && i.status === 'LOCKED')
-  if (!prevUnlocked) return null
+  // Đợt trước phải ĐÃ THANH TOÁN (status === 'PAID') thì mới hiển thị nút mở đợt tiếp theo
+  const allPrevPaid = allInstallments
+    .filter((i) => i.ordinal < inst.ordinal)
+    .every((i) => i.status === 'PAID')
+
+  if (!allPrevPaid) return null
 
   const handle = async () => {
     setBusy(true)
