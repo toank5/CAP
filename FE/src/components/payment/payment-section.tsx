@@ -525,9 +525,9 @@ interface InstallmentTimelineProps {
 }
 
 export function InstallmentTimeline({
-  installments, signedAt, onPaid, applicationId, applicationStatus, role, projectId, onUnlocked,
+  installments = [], signedAt, onPaid, applicationId, applicationStatus, role, projectId, onUnlocked,
 }: Omit<InstallmentTimelineProps, 'totalAmount'>) {
-  const unlocked = installments // show all 6 installments including LOCKED ones
+  const unlocked = Array.isArray(installments) ? installments : [] // show all 6 installments including LOCKED ones
 
   return (
     <ol className="relative space-y-3 border-l-2 border-dashed border-slate-200 pl-6 dark:border-slate-700 sm:pl-8">
@@ -540,7 +540,7 @@ export function InstallmentTimeline({
             onPaid={onPaid}
             applicationId={applicationId}
             applicationStatus={applicationStatus}
-            installments={installments}
+            installments={unlocked}
             role={role}
             projectId={projectId}
             onUnlocked={onUnlocked}
@@ -557,6 +557,19 @@ interface PaymentHistoryPanelProps {
   applicationId: string
 }
 
+function parsePaymentInfoList(data: unknown): PaymentInfoDto[] {
+  if (Array.isArray(data)) return data as PaymentInfoDto[]
+  if (!data || typeof data !== 'object') return []
+  const o = data as Record<string, unknown>
+  const rawList = o.data ?? o.Data ?? o.items ?? o.Items ?? o.payments ?? o.Payments
+  if (Array.isArray(rawList)) return rawList as PaymentInfoDto[]
+  if (rawList && typeof rawList === 'object') {
+    const nested = (rawList as Record<string, unknown>).items ?? (rawList as Record<string, unknown>).Items ?? (rawList as Record<string, unknown>).data ?? (rawList as Record<string, unknown>).Data
+    if (Array.isArray(nested)) return nested as PaymentInfoDto[]
+  }
+  return []
+}
+
 export function PaymentHistoryPanel({ applicationId }: PaymentHistoryPanelProps) {
   const [txs, setTxs] = useState<PaymentInfoDto[]>([])
   const [loading, setLoading] = useState(true)
@@ -567,13 +580,16 @@ export function PaymentHistoryPanel({ applicationId }: PaymentHistoryPanelProps)
     setError('')
     void paymentApi.getMyPayments()
       .then((data) => {
-        const src = (data as { data?: unknown[]; items?: unknown[] } | null)
-        const arr = src?.data ?? src?.items ?? (Array.isArray(data) ? data : [])
-        setTxs(arr as PaymentInfoDto[])
+        setTxs(parsePaymentInfoList(data))
       })
-      .catch((err) => setError(formatError(err)))
+      .catch((err) => {
+        setError(formatError(err))
+        setTxs([])
+      })
       .finally(() => setLoading(false))
   }, [applicationId])
+
+  const safeTxs = Array.isArray(txs) ? txs : []
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900/40">
@@ -583,27 +599,27 @@ export function PaymentHistoryPanel({ applicationId }: PaymentHistoryPanelProps)
       </div>
       {loading && <p className="text-sm text-slate-500 dark:text-slate-400">Đang tải...</p>}
       {error && <Alert variant="error">{error}</Alert>}
-      {!loading && txs.length === 0 && (
+      {!loading && safeTxs.length === 0 && (
         <p className="text-sm text-slate-500 dark:text-slate-400">
           Chưa có giao dịch thanh toán nào.
         </p>
       )}
       <div className="mt-3 space-y-2">
-        {txs.map((tx) => {
-          const st = tx.status?.toUpperCase() ?? ''
+        {safeTxs.map((tx, idx) => {
+          const st = tx?.status?.toUpperCase() ?? ''
           const isSuccess = st === '00' || st === 'SUCCESS' || st === 'PAID'
           const isPending = st === '01' || st === 'PENDING'
           const isCancelled = st === '24' || st === 'CANCELLED'
           const variant = isSuccess ? 'success' : isCancelled ? 'danger' : 'warning'
           const label = isSuccess ? 'Thành công' : isCancelled ? 'Đã hủy' : isPending ? 'Chờ xử lý' : st || 'Không rõ'
           return (
-            <div key={tx.orderId} className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-slate-100 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/40">
+            <div key={tx?.orderId || `tx-${idx}`} className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-slate-100 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/40">
               <div>
-                <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{tx.orderId}</p>
+                <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{tx?.orderId || 'N/A'}</p>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {tx.orderInfo || 'Thanh toán VNPay'} · {tx.vnpBankCode ?? 'VNPay'}
+                  {tx?.orderInfo || 'Thanh toán VNPay'} · {tx?.vnpBankCode ?? 'VNPay'}
                 </p>
-                {tx.createdAt && (
+                {tx?.createdAt && (
                   <p className="text-[11px] text-slate-400">
                     {new Date(tx.createdAt).toLocaleString('vi-VN')}
                   </p>
@@ -611,7 +627,7 @@ export function PaymentHistoryPanel({ applicationId }: PaymentHistoryPanelProps)
               </div>
               <div className="text-right">
                 <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  {Number(tx.amount).toLocaleString('vi-VN')} VNĐ
+                  {Number(tx?.amount ?? 0).toLocaleString('vi-VN')} VNĐ
                 </p>
                 <Badge variant={variant} className="mt-1">{label}</Badge>
               </div>
