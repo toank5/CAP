@@ -24,6 +24,7 @@ import {
   Maximize2,
   Box,
   ExternalLink,
+  AlertTriangle,
 } from 'lucide-react'
 import { housingProjectsApi, parseApartments } from '@/api/housing-projects'
 import { housingProjectStatusesApi, parseStatuses } from '@/api/housing-project-statuses'
@@ -43,6 +44,7 @@ import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { FormField } from '@/components/ui/label'
 import { Input, Select } from '@/components/ui/input'
+import { Modal } from '@/components/ui/modal'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Pagination } from '@/components/ui/pagination'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -949,6 +951,8 @@ function ProjectDetailView({
   const [wishlistBusy, setWishlistBusy] = useState(false)
   const [openingSale, setOpeningSale] = useState(false)
   const [closingIntake, setClosingIntake] = useState(false)
+  const [closeIntakeModalOpen, setCloseIntakeModalOpen] = useState(false)
+  const [statusSuccessMsg, setStatusSuccessMsg] = useState('')
 
   // Apartment filters & 3D state
   const [selectedBlock, setSelectedBlock] = useState<string>('ALL')
@@ -1059,22 +1063,20 @@ function ProjectDetailView({
     }
   }
 
-  const handleCloseIntake = async () => {
+  const handleCloseIntake = () => {
     if (!project?.id || closingIntake) return
-    if (
-      !window.confirm(
-        'Đóng đợt tiếp nhận hồ sơ của dự án này?\n\n' +
-          '• Người dân không nộp được hồ sơ mới.\n' +
-          '• Hồ sơ nháp chưa nộp sẽ hết hiệu lực.\n' +
-          '• Sau khi đóng mới lên lịch bốc thăm được.\n\n' +
-          'Không thể mở lại đợt tiếp nhận sau khi đóng.',
-      )
-    )
-      return
+    setError('')
+    setCloseIntakeModalOpen(true)
+  }
+
+  const confirmCloseIntake = async () => {
+    if (!project?.id || closingIntake) return
     setClosingIntake(true)
     setError('')
     try {
       await housingProjectsApi.changeLifecycleStatus(project.id, 'CLOSED')
+      setCloseIntakeModalOpen(false)
+      setStatusSuccessMsg('Đã đóng đợt tiếp nhận hồ sơ thành công. Danh sách hồ sơ đã được chốt để tiến hành thẩm định và lên lịch bốc thăm.')
       window.dispatchEvent(new CustomEvent('fecaps:project-status-changed'))
     } catch (err) {
       setError(formatError(err))
@@ -1362,6 +1364,11 @@ function ProjectDetailView({
                   </p>
                 </div>
               </div>
+            )}
+            {statusSuccessMsg && (
+              <Alert variant="success" className="mb-2 text-xs font-semibold">
+                {statusSuccessMsg}
+              </Alert>
             )}
 
             {/* Action Buttons */}
@@ -1919,6 +1926,81 @@ function ProjectDetailView({
         isOpen={is3DModalOpen}
         onClose={() => setIs3DModalOpen(false)}
       />
+
+      {/* MODAL THÔNG BÁO XÁC NHẬN ĐÓNG ĐỢT TIẾP NHẬN HỒ SƠ */}
+      <Modal
+        open={closeIntakeModalOpen}
+        onClose={() => { if (!closingIntake) setCloseIntakeModalOpen(false) }}
+        size="md"
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-3.5">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400 shadow-sm ring-4 ring-amber-50 dark:ring-amber-950/30">
+              <AlertTriangle className="h-6 w-6 stroke-[2.2]" />
+            </div>
+            <div>
+              <h3 className="text-lg font-black tracking-tight text-slate-900 dark:text-white">
+                Xác nhận đóng đợt tiếp nhận hồ sơ
+              </h3>
+              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                Dự án: <strong className="font-semibold text-slate-800 dark:text-slate-200">{project.projectName || project.name}</strong>
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-2 rounded-xl border border-amber-200/80 bg-amber-50/70 p-4 text-xs leading-relaxed text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-200">
+            <p className="font-bold text-amber-900 dark:text-amber-300">
+              Hệ thống sẽ thực hiện các tác vụ sau khi đóng tiếp nhận:
+            </p>
+            <ul className="space-y-1.5 pl-4 list-disc text-[12px]">
+              <li>
+                <strong>Khóa nộp hồ sơ mới:</strong> Người dân không thể đăng ký thêm hồ sơ mới vào dự án này.
+              </li>
+              <li>
+                <strong>Hủy hiệu lực hồ sơ nháp:</strong> Các hồ sơ đang ở trạng thái Bản nháp (chưa bấm nộp) sẽ không thể gửi đi được nữa.
+              </li>
+              <li>
+                <strong>Chốt danh sách bốc thăm:</strong> Chốt toàn bộ hồ sơ hợp lệ để Chủ đầu tư tiến hành thẩm định và mở lịch bốc thăm suất mua.
+              </li>
+            </ul>
+          </div>
+
+          <div className="flex items-center gap-2 rounded-xl border border-rose-200/80 bg-rose-50/60 px-3.5 py-2.5 text-xs font-medium text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/20 dark:text-rose-300">
+            <span className="text-sm">⚠️</span>
+            <span><strong>Lưu ý:</strong> Thao tác này <strong>không thể mở lại</strong> đợt tiếp nhận sau khi đã đóng.</span>
+          </div>
+
+          {error && <Alert variant="error" className="text-xs">{error}</Alert>}
+
+          <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={closingIntake}
+              onClick={() => setCloseIntakeModalOpen(false)}
+              className="text-xs font-semibold"
+            >
+              Hủy bỏ
+            </Button>
+            <Button
+              type="button"
+              variant="default"
+              disabled={closingIntake}
+              onClick={() => void confirmCloseIntake()}
+              className="gap-1.5 bg-rose-600 font-bold text-white shadow-md shadow-rose-600/25 hover:bg-rose-700 text-xs"
+            >
+              {closingIntake ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Đang đóng đợt...
+                </>
+              ) : (
+                'Xác nhận đóng tiếp nhận'
+              )}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

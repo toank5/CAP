@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import {
+  AlertTriangle,
   ArrowRight,
   CheckCircle2,
   Clock,
@@ -12,6 +13,7 @@ import {
 import { housingProjectsApi, type ProjectStatusAction } from '@/api/housing-projects'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { Modal } from '@/components/ui/modal'
 import { formatError } from '@/lib/format-error'
 import { labelProjectStatus } from '@/lib/labels'
 import {
@@ -53,6 +55,7 @@ export function ProjectStatusControl({ project, onChanged }: Props) {
   const [success, setSuccess] = useState('')
   const [rejectMode, setRejectMode] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
+  const [closeModalOpen, setCloseModalOpen] = useState(false)
 
   const raw = normalizeStatus(project.status)
   const eff = effectiveProjectStatus(project)
@@ -236,19 +239,7 @@ export function ProjectStatusControl({ project, onChanged }: Props) {
           <Button
             variant="outline"
             disabled={!!busy}
-            onClick={() => {
-              if (
-                !window.confirm(
-                  'Đóng đợt tiếp nhận hồ sơ của dự án này?\n\n' +
-                    '• Người dân không nộp được hồ sơ mới.\n' +
-                    '• Hồ sơ nháp chưa nộp sẽ hết hiệu lực.\n' +
-                    '• Sau khi đóng mới lên lịch bốc thăm được.\n\n' +
-                    'Không thể mở lại đợt tiếp nhận sau khi đóng.',
-                )
-              )
-                return
-              void run('close')
-            }}
+            onClick={() => setCloseModalOpen(true)}
             title="Chốt danh sách hồ sơ để chuẩn bị bốc thăm"
           >
             {busy === 'close' ? (
@@ -271,6 +262,86 @@ export function ProjectStatusControl({ project, onChanged }: Props) {
           </span>
         )}
       </div>
+
+      {/* MODAL XÁC NHẬN ĐÓNG ĐỢT TIẾP NHẬN HỒ SƠ */}
+      <Modal
+        open={closeModalOpen}
+        onClose={() => {
+          if (!busy) setCloseModalOpen(false)
+        }}
+        size="md"
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-3.5">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400 shadow-sm ring-4 ring-amber-50 dark:ring-amber-950/30">
+              <AlertTriangle className="h-6 w-6 stroke-[2.2]" />
+            </div>
+            <div>
+              <h3 className="text-lg font-black tracking-tight text-slate-900 dark:text-white">
+                Xác nhận đóng đợt tiếp nhận hồ sơ
+              </h3>
+              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                Dự án: <strong className="font-semibold text-slate-800 dark:text-slate-200">{project.projectName || project.name}</strong>
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-2 rounded-xl border border-amber-200/80 bg-amber-50/70 p-4 text-xs leading-relaxed text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-200">
+            <p className="font-bold text-amber-900 dark:text-amber-300">
+              Hệ thống sẽ thực hiện các tác vụ sau khi đóng tiếp nhận:
+            </p>
+            <ul className="space-y-1.5 pl-4 list-disc text-[12px]">
+              <li>
+                <strong>Khóa nộp hồ sơ mới:</strong> Người dân không thể đăng ký thêm hồ sơ mới vào dự án này.
+              </li>
+              <li>
+                <strong>Hủy hiệu lực hồ sơ nháp:</strong> Các hồ sơ đang ở trạng thái Bản nháp (chưa bấm nộp) sẽ không thể gửi đi được nữa.
+              </li>
+              <li>
+                <strong>Chốt danh sách bốc thăm:</strong> Chốt toàn bộ hồ sơ hợp lệ để chuyển sang giai đoạn thẩm định và lên lịch bốc thăm suất mua.
+              </li>
+            </ul>
+          </div>
+
+          <div className="flex items-center gap-2 rounded-xl border border-rose-200/80 bg-rose-50/60 px-3.5 py-2.5 text-xs font-medium text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/20 dark:text-rose-300">
+            <span className="text-sm">⚠️</span>
+            <span><strong>Lưu ý:</strong> Thao tác này <strong>không thể mở lại</strong> đợt tiếp nhận sau khi đã đóng.</span>
+          </div>
+
+          {error && <Alert variant="error" className="text-xs">{error}</Alert>}
+
+          <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!!busy}
+              onClick={() => setCloseModalOpen(false)}
+              className="text-xs font-semibold"
+            >
+              Hủy bỏ
+            </Button>
+            <Button
+              type="button"
+              variant="default"
+              disabled={!!busy}
+              onClick={async () => {
+                setCloseModalOpen(false)
+                await run('close')
+              }}
+              className="gap-1.5 bg-rose-600 font-bold text-white shadow-md shadow-rose-600/25 hover:bg-rose-700 text-xs"
+            >
+              {busy === 'close' ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Đang đóng đợt...
+                </>
+              ) : (
+                'Xác nhận đóng tiếp nhận'
+              )}
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Form từ chối */}
       {rejectMode && (
