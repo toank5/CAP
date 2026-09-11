@@ -959,33 +959,24 @@ export function ContractDetailPage() {
 
   if (!id) {
     return (
-      <div>
-        <PageHeader routeId="contract-detail" />
-        <PageCard className="p-6">
-          <Alert variant="error">Không tìm thấy hồ sơ. Vui lòng chọn từ danh sách hợp đồng.</Alert>
-          <Button className="mt-3" variant="outline" onClick={() => navigate('contracts')}>
-            ← Danh sách hợp đồng
-          </Button>
-        </PageCard>
-      </div>
+      <PageCard className="p-6">
+        <Alert variant="error">Không tìm thấy hồ sơ. Vui lòng chọn từ danh sách hợp đồng.</Alert>
+        <Button className="mt-3" variant="outline" onClick={() => navigate('contracts')}>
+          ← Danh sách hợp đồng
+        </Button>
+      </PageCard>
     )
   }
 
   if (loading) {
     return (
-      <div>
-        <PageHeader routeId="contract-detail" />
-        <PageCard className="p-6"><p className="text-sm text-slate-500 dark:text-slate-400">Đang tải...</p></PageCard>
-      </div>
+      <PageCard className="p-6"><p className="text-sm text-slate-500 dark:text-slate-400">Đang tải...</p></PageCard>
     )
   }
 
   if (error) {
     return (
-      <div>
-        <PageHeader routeId="contract-detail" />
-        <PageCard className="p-6"><Alert variant="error">{error}</Alert></PageCard>
-      </div>
+      <PageCard className="p-6"><Alert variant="error">{error}</Alert></PageCard>
     )
   }
 
@@ -1006,9 +997,10 @@ export function ContractDetailPage() {
 
   return (
     <div>
-      <PageHeader routeId="contract-detail" />
       <PageCard className="space-y-6 p-6">
-        <Button variant="ghost" className="mb-2" onClick={() => navigate('contracts')}>← Danh sách hợp đồng</Button>
+        <Button variant="ghost" size="sm" className="-ml-2 mb-2 text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100" onClick={() => navigate('contracts')}>
+          ← Danh sách hợp đồng
+        </Button>
 
         <div className="flex flex-wrap items-start justify-between gap-3">
           <ContractStatusBadge status={derivedStatus} />
