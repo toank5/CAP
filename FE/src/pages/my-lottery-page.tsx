@@ -15,7 +15,7 @@ import type { ApplicationSummaryDto } from '@/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Alert } from '@/components/ui/alert'
-import { PageCard, PageHeader } from '@/components/layout/page-header'
+import { PageCard } from '@/components/layout/page-header'
 import { navigate } from '@/hooks/useHashRoute'
 import { formatError } from '@/lib/format-error'
 import { LOTTERY_RESULT_LABELS } from '@/lib/constants'
@@ -224,7 +224,6 @@ export function MyLotteryPage() {
 
   return (
     <div>
-      <PageHeader routeId="my-lottery" />
       <PageCard className="space-y-4 p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
