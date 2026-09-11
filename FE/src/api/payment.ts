@@ -161,8 +161,10 @@ export const paymentApi = {
       auth: true,
     }),
 
-  getPaymentCallback: () =>
-    request<ApiResult>('/api/Payment/payment-callback', { auth: true }),
+  getPaymentCallback: (queryString?: string) => {
+    const q = queryString ? (queryString.startsWith('?') ? queryString : `?${queryString}`) : ''
+    return request<ApiResult>(`/api/Payment/payment-callback${q}`, { auth: true })
+  },
 
   getPaymentInfo: (orderId: string) =>
     request<ApiResult>(`/api/Payment/payment-info/${orderId}`, { auth: true }),

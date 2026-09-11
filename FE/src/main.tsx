@@ -8,6 +8,27 @@ import { NotificationsProvider } from './providers/notifications-provider'
 import { WishlistProvider } from './providers/wishlist-provider'
 import './index.css'
 
+// Xử lý khi popup VNPay redirect về Frontend (đóng popup và báo cho tab chính)
+const searchStr = window.location.search || (window.location.hash.includes('?') ? window.location.hash.split('?')[1] : '')
+if (window.opener && searchStr && searchStr.includes('vnp_')) {
+  try {
+    const params = new URLSearchParams(searchStr)
+    const code = params.get('vnp_ResponseCode') || params.get('vnp_TransactionStatus') || ''
+    window.opener.postMessage(
+      {
+        type: 'VNPAY_CALLBACK_DONE',
+        success: code === '00',
+        responseCode: code,
+        search: searchStr,
+      },
+      '*',
+    )
+    window.close()
+  } catch {
+    /* ignore */
+  }
+}
+
 const root = document.querySelector<HTMLDivElement>('#app')
 if (root) {
   if (!location.hash) location.hash = '#/landing'

@@ -7,14 +7,25 @@ function unwrapStatus(data: unknown): string {
   const o = data as Record<string, unknown>
   const nested = o.data ?? o.Data
   const src = (nested && typeof nested === 'object' ? nested : o) as Record<string, unknown>
-  return String(src.status ?? src.Status ?? '').trim()
+  if (src.isPaid === true || src.IsPaid === true) return 'PAID'
+  return String(
+    src.status ??
+    src.Status ??
+    src.paymentStatus ??
+    src.PaymentStatus ??
+    src.vnp_TransactionStatus ??
+    src.transactionStatus ??
+    src.vnp_ResponseCode ??
+    src.responseCode ??
+    ''
+  ).trim()
 }
 
 function classifyStatus(status: string): VnPayWaitResult | null {
   const s = status.toLowerCase()
-  if (s === 'paid' || s === 'success') return 'success'
-  if (s === 'cancelled' || s === 'canceled') return 'cancelled'
-  if (s === 'failed' || s === 'fail') return 'failed'
+  if (s === 'paid' || s === 'success' || s === '00' || s === 'completed' || s === 'successful') return 'success'
+  if (s === 'cancelled' || s === 'canceled' || s === '24') return 'cancelled'
+  if (s === 'failed' || s === 'fail' || (s.length === 2 && s !== '00' && /^\d+$/.test(s))) return 'failed'
   return null // Pending / unknown → keep polling
 }
 
@@ -49,6 +60,7 @@ export async function openVnPayPopupAndWait(
       if (settled) return
       settled = true
       window.clearInterval(timer)
+      window.removeEventListener('message', onMessage)
       try {
         if (!popup.closed) popup.close()
       } catch {
@@ -56,6 +68,21 @@ export async function openVnPayPopupAndWait(
       }
       resolve(result)
     }
+
+    const onMessage = async (event: MessageEvent) => {
+      if (event.data && event.data.type === 'VNPAY_CALLBACK_DONE') {
+        const isSuccess = event.data.success || event.data.responseCode === '00'
+        if (event.data.search) {
+          try {
+            await paymentApi.getPaymentCallback(event.data.search)
+          } catch {
+            // ignore
+          }
+        }
+        finish(isSuccess ? 'success' : 'failed')
+      }
+    }
+    window.addEventListener('message', onMessage)
 
     const tick = async () => {
       if (Date.now() - started > timeoutMs) {
@@ -67,9 +94,27 @@ export async function openVnPayPopupAndWait(
         const raw = unwrapStatus(data)
         if (raw) options?.onStatus?.(raw)
         const classified = classifyStatus(raw)
-        if (classified) finish(classified)
+        if (classified) {
+          finish(classified)
+          return
+        }
       } catch {
         // mạng tạm lỗi — tiếp tục poll
+      }
+
+      // Nếu người dùng đã đóng popup bằng tay, thử check lần cuối
+      if (popup.closed && !settled) {
+        try {
+          const checkData = await paymentApi.getPaymentInfo(orderId)
+          const raw = unwrapStatus(checkData)
+          const classified = classifyStatus(raw)
+          if (classified === 'success') {
+            finish('success')
+            return
+          }
+        } catch {
+          // ignore
+        }
       }
     }
 
