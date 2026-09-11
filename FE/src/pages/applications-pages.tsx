@@ -648,23 +648,6 @@ export function ApplicationsPage() {
                           )}
                           <td className="px-4 py-3 text-right">
                             <div className="flex flex-wrap items-center justify-end gap-1.5">
-                              {isDeveloper &&
-                                (app.applicationStatus === 'APPROVED' ||
-                                  app.applicationStatus === 'APPROVED_BY_TIMEOUT') &&
-                                app.projectId && (
-                                  <Button
-                                    size="sm"
-                                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      sessionStorage.setItem('projectId', app.projectId)
-                                      navigate('project-detail')
-                                    }}
-                                  >
-                                    <Building2 className="mr-1 h-3.5 w-3.5" />
-                                    Cấp căn
-                                  </Button>
-                                )}
                               <Button
                                 size="sm"
                                 variant="outline"
