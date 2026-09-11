@@ -336,7 +336,7 @@ function DeveloperUnlockBar({
     if (!isPrevPaid(inst.ordinal)) {
       setMsg({
         type: 'error',
-        text: `Đợt trước chưa thanh toán — không thể mở ${inst.label?.trim() || `đợt ${inst.ordinal}`}.`,
+        text: `Đợt ${inst.ordinal - 1} chưa được thanh toán — không thể mở ${inst.label?.trim() || `đợt ${inst.ordinal}`}. Vui lòng chờ người dân hoàn tất thanh toán đợt trước.`,
       })
       return
     }
@@ -347,7 +347,7 @@ function DeveloperUnlockBar({
       await onUnlocked()
       setMsg({
         type: 'success',
-        text: `Đã mở ${inst.label?.trim() || `đợt ${inst.ordinal}`}.`,
+        text: `Đã mở ${inst.label?.trim() || `đợt ${inst.ordinal}`}. Người dân hiện có thể thanh toán đợt này.`,
       })
     } catch (err) {
       setMsg({ type: 'error', text: formatError(err) })
@@ -360,43 +360,77 @@ function DeveloperUnlockBar({
 
   return (
     <div className="rounded-xl border border-indigo-200 bg-indigo-50/40 p-4 dark:border-indigo-800 dark:bg-indigo-950/20">
-      <div className="mb-2 flex items-center gap-2">
-        <Unlock className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-        <h4 className="font-semibold">Mở đợt thanh toán theo tiến độ (chủ đầu tư)</h4>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Unlock className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+          <h4 className="font-semibold text-slate-900 dark:text-slate-100">
+            Mở đợt thanh toán theo tiến độ (Chủ đầu tư)
+          </h4>
+        </div>
+        <span className="rounded-full bg-indigo-100 px-2.5 py-0.5 text-[11px] font-medium text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300">
+          Theo quy chế NOXH
+        </span>
       </div>
-      <p className="mb-3 text-xs text-slate-600 dark:text-slate-400">
-        Bấm mở khi đến mốc tiến độ tương ứng. Đợt trước phải được người dân thanh toán trước. Tên đợt lấy theo lịch chủ đầu tư đã nhập.
+      <p className="mb-3 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+        Bấm mở khi công trình hoàn thành mốc thi công tương ứng. Theo quy định, <strong>đợt trước phải được người dân thanh toán xong</strong> mới có thể mở đợt tiếp theo.
       </p>
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
         {phases.map((inst) => {
           const trigger = inst.triggerEvent || ''
           const Icon = unlockIconForTrigger(trigger)
           const paid = inst.status === 'PAID'
           const cancelled = inst.status === 'CANCELLED'
           const locked = inst.status === 'LOCKED'
-          const disabled = !projectId || paid || cancelled || !isPrevPaid(inst.ordinal) || !!busy
+          const prevPaid = isPrevPaid(inst.ordinal)
+          const disabled = !projectId || paid || cancelled || !prevPaid || !locked || !!busy
           const label = inst.label?.trim() || `Đợt ${inst.ordinal}`
           const sub = UNLOCK_PHASE_LABEL[trigger as UnlockPhaseTrigger] || trigger
+
+          let statusText = '⏳ Đang chờ thanh toán'
+          if (paid) statusText = '✓ Đã hoàn thành'
+          else if (cancelled) statusText = '✗ Đã hủy'
+          else if (locked && prevPaid) statusText = '✨ Sẵn sàng mở đợt'
+          else if (locked && !prevPaid) statusText = `🔒 Cần Đợt ${inst.ordinal - 1} đóng trước`
+
           return (
             <button
               key={`${inst.installmentId}-${trigger}`}
               type="button"
               disabled={disabled}
+              title={
+                locked && !prevPaid
+                  ? `Cần người dân thanh toán Đợt ${inst.ordinal - 1} trước khi mở đợt này`
+                  : locked && prevPaid
+                    ? `Bấm để mở ${label} cho người dân thanh toán`
+                    : paid
+                      ? 'Đợt này đã thanh toán đủ'
+                      : 'Đợt này đã được mở'
+              }
               onClick={() => void handleUnlock(inst)}
-              className={`flex flex-col items-start gap-1 rounded-lg border p-3 text-left text-sm transition ${paid
-                ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30'
-                : disabled
-                  ? 'cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400 dark:border-slate-700 dark:bg-slate-800/40'
-                  : 'border-indigo-200 bg-white hover:border-indigo-400 hover:bg-indigo-50 dark:border-indigo-800 dark:bg-slate-900 dark:hover:bg-indigo-950/40'
-                }`}
+              className={`flex flex-col items-start gap-1 rounded-lg border p-3 text-left text-sm transition shadow-xs ${
+                paid
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200'
+                  : locked && prevPaid
+                    ? 'border-indigo-400 bg-indigo-50/80 text-indigo-950 hover:bg-indigo-100 hover:border-indigo-500 dark:border-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-200 cursor-pointer font-medium'
+                    : disabled
+                      ? 'cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400 dark:border-slate-800 dark:bg-slate-800/40 dark:text-slate-500'
+                      : 'border-amber-200 bg-amber-50/50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200'
+              }`}
             >
-              <span className="flex items-center gap-2 font-semibold">
-                <Icon className="h-4 w-4" />
-                {label}
-              </span>
-              <span className="text-xs">{sub}</span>
-              <span className="text-[11px]">
-                {paid ? '✓ Đã thanh toán' : cancelled ? '✗ Đã hủy' : locked ? '🔒 Chưa mở' : '⏳ Chờ thanh toán'}
+              <div className="flex w-full items-center justify-between gap-1 font-semibold">
+                <span className="flex items-center gap-1.5">
+                  <Icon className="h-4 w-4 shrink-0" />
+                  {label}
+                </span>
+                {locked && prevPaid && (
+                  <span className="rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-xs">
+                    Mở ngay
+                  </span>
+                )}
+              </div>
+              <span className="text-xs opacity-80">{sub}</span>
+              <span className="text-[11px] font-medium mt-0.5">
+                {statusText}
               </span>
             </button>
           )
@@ -415,6 +449,8 @@ function InstallmentRow({
   applicationId,
   applicationStatus,
   installments,
+  projectId,
+  onUnlocked,
 }: {
   inst: PaymentInstallment
   onPaid: () => void
@@ -423,8 +459,11 @@ function InstallmentRow({
   applicationId: string
   applicationStatus: string
   installments: PaymentInstallment[]
+  projectId?: string
+  onUnlocked?: () => void
 }) {
   const [paying, setPaying] = useState(false)
+  const [unlocking, setUnlocking] = useState(false)
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const isOverdue = inst.status !== 'PAID' && new Date(inst.dueDate) < new Date()
   const isDeposit = inst.ordinal === 1
@@ -436,10 +475,13 @@ function InstallmentRow({
   // - Đợt đang PENDING/OVERDUE (BE raw status) VÀ tất cả đợt trước đã PAID
   const allPrevPaid =
     inst.ordinal === 1 ||
-    installments.every((p) => p.ordinal < inst.ordinal || p.status === 'PAID')
+    installments
+      .filter((p) => p.ordinal < inst.ordinal)
+      .every((p) => p.status === 'PAID')
+
   const canPay =
     role === 'Applicant' &&
-    (inst._rawStatus === 'PENDING' || inst._rawStatus === 'OVERDUE') &&
+    (inst._rawStatus === 'PENDING' || inst._rawStatus === 'OVERDUE' || inst.status === 'UNPAID') &&
     allPrevPaid
 
   const isPaid = inst.status === 'PAID'
@@ -526,6 +568,24 @@ function InstallmentRow({
       }
     } finally {
       setPaying(false)
+    }
+  }
+
+  const handleUnlockDirect = async () => {
+    if (!projectId || !inst.triggerEvent || unlocking) return
+    setUnlocking(true)
+    setMsg(null)
+    try {
+      await contractApi.unlockPhase(projectId, inst.triggerEvent)
+      setMsg({
+        type: 'success',
+        text: `Đã mở ${inst.label || `Đợt ${inst.ordinal}`}. Người mua nhà hiện có thể thanh toán đợt này.`,
+      })
+      onUnlocked?.()
+    } catch (err) {
+      setMsg({ type: 'error', text: formatError(err) })
+    } finally {
+      setUnlocking(false)
     }
   }
 
@@ -632,6 +692,26 @@ function InstallmentRow({
             <Button variant="accent" size="sm" disabled={paying} onClick={() => void handlePay()} className="mt-1">
               {paying ? 'Đang xử lý...' : 'Thanh toán'}
             </Button>
+          )}
+          {role === 'Housing Developer' && isLocked && isManualUnlockTrigger(inst.triggerEvent) && projectId && (
+            <div className="mt-1 flex flex-col items-end">
+              {allPrevPaid ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={unlocking}
+                  onClick={() => void handleUnlockDirect()}
+                  className="border-indigo-300 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-600 dark:text-indigo-300 dark:hover:bg-indigo-950 text-xs gap-1 font-medium"
+                >
+                  <Unlock className="h-3.5 w-3.5" />
+                  {unlocking ? 'Đang mở...' : `Mở ${inst.label || `Đợt ${inst.ordinal}`}`}
+                </Button>
+              ) : (
+                <span className="text-[11px] italic text-slate-400 dark:text-slate-500">
+                  🔒 Cần Đợt {inst.ordinal - 1} hoàn tất trước
+                </span>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -798,6 +878,8 @@ function InstallmentTimeline({
   totalAmount,
   applicationId,
   applicationStatus,
+  projectId,
+  onUnlocked,
 }: {
   installments: PaymentInstallment[]
   signedAt: string | null
@@ -805,6 +887,8 @@ function InstallmentTimeline({
   totalAmount: number
   applicationId: string
   applicationStatus: string
+  projectId?: string
+  onUnlocked?: () => void
 }) {
   return (
     <ol className="relative space-y-3 border-l-2 border-dashed border-slate-200 pl-6 dark:border-slate-700 sm:pl-8">
@@ -819,6 +903,8 @@ function InstallmentTimeline({
             applicationId={applicationId}
             applicationStatus={applicationStatus}
             installments={installments}
+            projectId={projectId}
+            onUnlocked={onUnlocked}
           />
         </li>
       ))}
@@ -1073,9 +1159,8 @@ export function ContractDetailPage() {
       hasApartment,
       depositPaid: deposit1Paid,
     })
-  const projectId = readProjectId()
-  const canDeveloperUnlock =
-    role === 'Housing Developer' && !!projectId && !!status?.isSigned
+  const projectId = readProjectId() || appDetail?.projectId || ''
+  const canDeveloperUnlock = role === 'Housing Developer' && !!projectId
 
   return (
     <div>
@@ -1216,6 +1301,8 @@ export function ContractDetailPage() {
                 }
                 applicationId={id}
                 applicationStatus={status?.applicationStatus ?? appDetail?.applicationStatus ?? ''}
+                projectId={projectId}
+                onUnlocked={() => void reload()}
               />
             </div>
           </section>

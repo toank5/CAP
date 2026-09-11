@@ -230,10 +230,20 @@ export const paymentApi = {
 
   /** CĐT mở đợt thanh toán theo tiến độ xây dựng (hỗ trợ cả HousingDeveloper và Payment controller) */
   unlockPhase: async (projectId: string, triggerEvent: string): Promise<ApiResult> => {
-    const payload = JSON.stringify({ triggerEvent, trigger: triggerEvent, milestoneEvent: triggerEvent })
+    const payload = JSON.stringify({
+      triggerEvent,
+      TriggerEvent: triggerEvent,
+      trigger: triggerEvent,
+      Trigger: triggerEvent,
+      milestoneEvent: triggerEvent,
+      MilestoneEvent: triggerEvent,
+      event: triggerEvent,
+      Event: triggerEvent,
+    })
+    const queryParam = `?triggerEvent=${encodeURIComponent(triggerEvent)}`
     try {
       // 1. Thử POST /api/housing-developer/projects/{projectId}/unlock-phase (Chuẩn CĐT)
-      return await request<ApiResult>(`/api/housing-developer/projects/${projectId}/unlock-phase`, {
+      return await request<ApiResult>(`/api/housing-developer/projects/${projectId}/unlock-phase${queryParam}`, {
         method: 'POST',
         body: payload,
         auth: true,
@@ -241,7 +251,7 @@ export const paymentApi = {
     } catch (err1) {
       // 2. Thử PATCH /api/Payment/projects/{projectId}/unlock-phase
       try {
-        return await request<ApiResult>(`/api/Payment/projects/${projectId}/unlock-phase`, {
+        return await request<ApiResult>(`/api/Payment/projects/${projectId}/unlock-phase${queryParam}`, {
           method: 'PATCH',
           body: payload,
           auth: true,
@@ -249,7 +259,7 @@ export const paymentApi = {
       } catch (err2) {
         // 3. Thử POST /api/Payment/projects/{projectId}/unlock-phase
         try {
-          return await request<ApiResult>(`/api/Payment/projects/${projectId}/unlock-phase`, {
+          return await request<ApiResult>(`/api/Payment/projects/${projectId}/unlock-phase${queryParam}`, {
             method: 'POST',
             body: payload,
             auth: true,

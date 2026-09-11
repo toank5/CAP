@@ -634,17 +634,18 @@ export function ProjectPaymentManagementPanel({
 
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-              Cột mốc thi công hoàn thành *
+              Cột mốc thi công / Tiến độ mở thu tiền *
             </label>
             <select
               value={unlockTrigger}
               onChange={(e) => setUnlockTrigger(e.target.value)}
               className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
             >
-              <option value="CONSTRUCTION_ROUGH_FLOOR">Hoàn thành phần thô</option>
-              <option value="ROOFING_COMPLETED">Cất nóc công trình</option>
-              <option value="HANDOVER">Bàn giao nhà</option>
-              <option value="RED_BOOK_ISSUED">Cấp giấy chứng nhận (sổ hồng)</option>
+              <option value="ON_CONTRACT_SIGNED">Sau khi ký hợp đồng mua bán (Đợt 2)</option>
+              <option value="CONSTRUCTION_ROUGH_FLOOR">Hoàn thành phần thô công trình (Đợt 3)</option>
+              <option value="ROOFING_COMPLETED">Cất nóc công trình (Đợt 4)</option>
+              <option value="HANDOVER">Bàn giao nhà (Đợt 5)</option>
+              <option value="RED_BOOK_ISSUED">Cấp giấy chứng nhận / Sổ hồng (Đợt 6)</option>
             </select>
           </div>
 
@@ -653,7 +654,12 @@ export function ProjectPaymentManagementPanel({
               <div className="font-semibold mb-1">Không thể mở khóa đợt:</div>
               <div>{unlockError}</div>
               <div className="mt-2 text-[11px] opacity-90 border-t border-rose-200/60 pt-1.5 dark:border-rose-900/60">
-                💡 <strong>Điều kiện mở đợt:</strong> Dự án cần có hồ sơ đã ký hợp đồng mua bán và người mua cần hoàn thành thanh toán các đợt trước đó (Đợt 1 / Đợt 2) trước khi mở đợt thanh toán tiếp theo theo tiến độ thi công.
+                💡 <strong>Quy tắc thanh toán theo quy chế NOXH:</strong>
+                <ul className="mt-1 list-disc pl-4 space-y-0.5">
+                  <li>Đợt 1 (Đóng cọc): Người dân đóng sau khi trúng bốc thăm / cấp nhà.</li>
+                  <li>Đợt 2 (Ký hợp đồng): Mở sau khi ký HĐ.</li>
+                  <li>Đợt 3 trở đi: Chỉ mở được khi người dân đã hoàn tất thanh toán (PAID) toàn bộ các đợt trước đó.</li>
+                </ul>
               </div>
             </Alert>
           )}

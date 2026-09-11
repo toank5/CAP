@@ -3,19 +3,38 @@ import { ApiError } from '@/api/http'
 export function formatError(err: unknown): string {
   if (err instanceof ApiError) {
     const b = err.body
+    if (typeof b === 'string' && b.trim()) {
+      return b.trim()
+    }
     if (b && typeof b === 'object') {
-      const pd = b as { title?: string; errors?: Record<string, string[]>; detail?: string; Detail?: string; message?: string; Message?: string }
+      const pd = b as {
+        title?: string
+        errors?: Record<string, string[]>
+        detail?: string
+        Detail?: string
+        details?: string
+        Details?: string
+        message?: string
+        Message?: string
+        error?: string
+        Error?: string
+        description?: string
+        Description?: string
+      }
       if (pd.errors) {
         return Object.entries(pd.errors)
           .flatMap(([k, msgs]) => msgs.map((m) => `${k}: ${m}`))
           .join(' · ')
       }
 
-      // BE có thể trả `message` (raw object) thay vì ProblemDetails `title`/`detail`.
-      // Ưu tiên `message` cho status 4xx/5xx vì title thường là chuỗi generic do .NET sinh ra.
+      // BE có thể trả `message` / `error` / `description` (raw object) thay vì ProblemDetails `title`/`detail`.
       const msg =
         (typeof pd.message === 'string' && pd.message) ||
         (typeof pd.Message === 'string' && pd.Message) ||
+        (typeof pd.error === 'string' && pd.error) ||
+        (typeof pd.Error === 'string' && pd.Error) ||
+        (typeof pd.description === 'string' && pd.description) ||
+        (typeof pd.Description === 'string' && pd.Description) ||
         null
 
       if (pd.title && pd.title !== 'Unauthorized' && pd.title !== 'One or more validation errors occurred.' && (!msg || msg.startsWith('Đã xảy ra lỗi'))) {
@@ -23,7 +42,7 @@ export function formatError(err: unknown): string {
       }
       if (pd.title === 'Unauthorized') return 'Bạn chưa đăng nhập hoặc phiên đã hết hạn.'
 
-      const detail = pd.detail ?? pd.Detail
+      const detail = pd.detail ?? pd.Detail ?? pd.details ?? pd.Details
       if (typeof detail === 'string' && detail) {
         if (detail.includes('429') || detail.toLowerCase().includes('rate limit')) {
           return 'Dịch vụ FPT AI tạm giới hạn số lần gọi. Vui lòng đợi khoảng 30 phút rồi thử lại.'
@@ -39,6 +58,9 @@ export function formatError(err: unknown): string {
       }
       if (err.status === 409) {
         return 'Hồ sơ đang ở trạng thái không thể thực hiện thao tác này.'
+      }
+      if (err.status === 400) {
+        return 'Yêu cầu không hợp lệ hoặc điều kiện mở đợt thanh toán chưa thỏa mãn (cần người dân thanh toán đợt trước đó).'
       }
     }
     return err.message
@@ -57,3 +79,4 @@ export function formatSuccess(data: unknown): string {
   if (typeof msg === 'string' && msg) return msg
   return 'Thành công.'
 }
+

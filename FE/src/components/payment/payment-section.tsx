@@ -119,7 +119,13 @@ function UnlockButton({ projectId, inst, allInstallments, onUnlocked }: UnlockBu
     .filter((i) => i.ordinal < inst.ordinal)
     .every((i) => i.status === 'PAID')
 
-  if (!allPrevPaid) return null
+  if (!allPrevPaid) {
+    return (
+      <span className="mt-1 text-[11px] italic text-slate-400 dark:text-slate-500">
+        🔒 Cần Đợt {inst.ordinal - 1} hoàn tất trước
+      </span>
+    )
+  }
 
   const handle = async () => {
     setBusy(true)
@@ -134,7 +140,7 @@ function UnlockButton({ projectId, inst, allInstallments, onUnlocked }: UnlockBu
   const label = inst.label?.trim() ? `Mở ${inst.label}` : `Mở đợt ${inst.ordinal}`
 
   return (
-    <Button variant="outline" size="sm" disabled={busy} onClick={() => void handle()} className="mt-1 border-violet-300 text-violet-700 hover:bg-violet-50 dark:border-violet-600 dark:text-violet-300 dark:hover:bg-violet-950">
+    <Button variant="outline" size="sm" disabled={busy} onClick={() => void handle()} className="mt-1 border-violet-300 text-violet-700 hover:bg-violet-50 dark:border-violet-600 dark:text-violet-300 dark:hover:bg-violet-950 text-xs font-medium">
       {busy ? 'Đang mở...' : label}
     </Button>
   )
