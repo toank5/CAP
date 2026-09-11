@@ -19,6 +19,7 @@ import {
 import { parseApplicationDetail } from '@/api/housing-applications'
 import { request } from '@/api/http'
 import type { ApplicationDetailDto } from '@/types'
+import { APPLICATION_STATUS } from '@/lib/constants'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Alert } from '@/components/ui/alert'
@@ -57,6 +58,23 @@ function readApplicationId(): string {
 
 function readProjectId(): string {
   return sessionStorage.getItem('contractProjectId') ?? ''
+}
+
+function formatAppStatusVi(code: string | null | undefined): string {
+  if (!code) return '—'
+  const key = code.trim().toUpperCase()
+  if (APPLICATION_STATUS[key]?.label) return APPLICATION_STATUS[key].label
+  if (APPLICATION_STATUS[code]?.label) return APPLICATION_STATUS[code].label
+  if (key === 'DEPOSIT_PENDING' || key === 'PENDING_DEPOSIT') return 'Chờ đặt cọc'
+  if (key === 'CONTRACT_PENDING' || key === 'PENDING_CONTRACT') return 'Chờ ký hợp đồng'
+  if (key === 'CONTRACTING') return 'Đang ký hợp đồng'
+  if (key === 'CONTRACT_SIGNED' || key === 'SIGNED') return 'Đã ký hợp đồng'
+  if (key === 'DEPOSIT_PAID') return 'Đã đóng Đợt 1'
+  if (key === 'SUBMITTED') return 'Đã nộp hồ sơ'
+  if (key === 'APPROVED') return 'Đã phê duyệt'
+  if (key === 'REVIEWING') return 'Đang thẩm định'
+  if (key === 'NEED_MORE_DOCUMENTS') return 'Cần bổ sung hồ sơ'
+  return code
 }
 
 function mapStatus(s: ContractStatusDto | null): ContractStatus {
@@ -175,7 +193,7 @@ export function ContractsPage() {
                   Dự án: {a.projectName}
                 </p>
                 <p className="text-xs text-slate-400">
-                  CCCD: {a.citizenId} · Trạng thái: {a.applicationStatus}
+                  CCCD: {a.citizenId} · Trạng thái: {formatAppStatusVi(a.applicationStatus)}
                 </p>
               </div>
               <Wallet className="h-5 w-5 text-emerald-500" />
@@ -685,13 +703,6 @@ function PaymentProgressCard({
         : housePrice != null
           ? housePrice
           : sumPhases
-  const hp = housePrice ?? contractPrice
-  const pbt =
-    hp != null && sumPhases > hp
-      ? Math.max(0, sumPhases - hp)
-      : hp != null
-        ? Math.round((hp * 0.02) / 1000) * 1000
-        : null
   const paidCount = installments.filter((i) => i.status === 'PAID').length
   const fmt = (n: number) => `${n.toLocaleString('vi-VN')} VNĐ`
 
@@ -718,11 +729,6 @@ function PaymentProgressCard({
             <p className="mt-1 text-base font-semibold text-slate-900 dark:text-slate-100">
               {fmt(totalRef)}
             </p>
-            {pbt != null && (
-              <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
-                bao gồm 2% PBT ({fmt(pbt)})
-              </p>
-            )}
           </div>
         </div>
 
@@ -889,12 +895,6 @@ function ApplicationSummaryCard({
   } | null
   const sumPhases = installments.reduce((s, i) => s + (i.amount || 0), 0)
   const basePrice = apt?.apartmentPrice ?? null
-  const pbt =
-    basePrice != null && sumPhases > basePrice
-      ? Math.max(0, sumPhases - basePrice)
-      : basePrice != null
-        ? Math.round((basePrice * 0.02) / 1000) * 1000
-        : null
   const apartmentArea = apt?.apartmentArea ?? null
   const apartmentCode = apt?.apartmentUnitName ?? apt?.apartmentCode ?? null
 
@@ -907,7 +907,10 @@ function ApplicationSummaryCard({
 
       <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
         <InfoRow label="Mã hồ sơ" value={appDetail?.applicationId} mono />
-        <InfoRow label="Trạng thái hồ sơ" value={appDetail?.applicationStatus ?? status?.applicationStatus} />
+        <InfoRow
+          label="Trạng thái hồ sơ"
+          value={formatAppStatusVi(appDetail?.applicationStatus ?? status?.applicationStatus)}
+        />
         <InfoRow label="Dự án" value={appDetail?.projectName} />
         <InfoRow label="Mã dự án" value={appDetail?.projectId} mono />
         <InfoRow label="Người mua" value={appDetail?.fullName} />
@@ -925,12 +928,6 @@ function ApplicationSummaryCard({
           label={`Tổng ${installments.length > 0 ? `${installments.length} đợt` : 'các đợt'} phải trả`}
           value={sumPhases > 0 ? `${sumPhases.toLocaleString('vi-VN')} VNĐ` : null}
         />
-        {pbt != null && (
-          <InfoRow
-            label="Phí bảo trì 2% (PBT)"
-            value={`${pbt.toLocaleString('vi-VN')} VNĐ`}
-          />
-        )}
         <InfoRow
           label="Ngày nộp hồ sơ"
           value={appDetail?.submittedAt ? new Date(appDetail.submittedAt).toLocaleDateString('vi-VN') : null}

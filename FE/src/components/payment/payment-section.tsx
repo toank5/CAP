@@ -428,13 +428,6 @@ export function PaymentProgressCard({
         : housePrice != null
           ? housePrice
           : sumPhases
-  const hp = housePrice ?? contractPrice
-  const pbt =
-    hp != null && sumPhases > hp
-      ? Math.max(0, sumPhases - hp)
-      : hp != null
-        ? Math.round((hp * 0.02) / 1000) * 1000
-        : null
   const paidCount = installments.filter((i) => i.status === 'PAID').length
   const fmt = (n: number) => `${n.toLocaleString('vi-VN')} VNĐ`
   const pct = Math.max(0, Math.min(100, Number(progress) || 0))
@@ -460,11 +453,6 @@ export function PaymentProgressCard({
             <p className="mt-1 text-base font-semibold text-slate-900 dark:text-slate-100">
               {fmt(totalRef)}
             </p>
-            {pbt != null && (
-              <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
-                bao gồm 2% PBT ({fmt(pbt)})
-              </p>
-            )}
           </div>
         </div>
 
