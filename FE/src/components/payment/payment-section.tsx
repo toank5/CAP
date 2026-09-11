@@ -1006,6 +1006,7 @@ export function SignContractSection({
   const [pdfLoading, setPdfLoading] = useState(false)
   const [pdfError, setPdfError] = useState<string | null>(null)
   const [agreed, setAgreed] = useState(false)
+  const [confirmSignModalOpen, setConfirmSignModalOpen] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const pdfUrlRef = useRef<string | null>(null)
 
@@ -1056,10 +1057,12 @@ export function SignContractSection({
 
   const handleSign = () => {
     if (!agreed || signing) return
-    const ok = window.confirm(
-      'Bạn xác nhận đồng ý với toàn bộ điều khoản hợp đồng mua bán nhà ở xã hội? Hệ thống sẽ ghi nhận chữ ký điện tử của bạn.',
-    )
-    if (ok) onSign()
+    setConfirmSignModalOpen(true)
+  }
+
+  const handleConfirmSign = () => {
+    setConfirmSignModalOpen(false)
+    onSign()
   }
 
   return (
@@ -1186,6 +1189,61 @@ export function SignContractSection({
           </Button>
         </div>
       </div>
+
+      {/* Modal Xác nhận Ký hợp đồng nhỏ gọn & thẩm mỹ */}
+      <Modal
+        open={confirmSignModalOpen}
+        onClose={() => !signing && setConfirmSignModalOpen(false)}
+        size="sm"
+      >
+        <div className="p-5 space-y-4">
+          <div className="flex items-start gap-3.5">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 shadow-xs">
+              <PenLine className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                Xác nhận ký hợp đồng mua bán
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Chữ ký điện tử sẽ được ghi nhận và lưu vĩnh viễn trên văn bản hợp đồng.
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-300 space-y-1.5">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+              <span>Đồng ý toàn bộ điều khoản mua bán nhà ở xã hội.</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+              <span>Kích hoạt mở khóa đợt thanh toán tiếp theo theo tiến độ.</span>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-1">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={signing}
+              onClick={() => setConfirmSignModalOpen(false)}
+            >
+              Hủy
+            </Button>
+            <Button
+              variant="accent"
+              size="sm"
+              disabled={signing}
+              onClick={handleConfirmSign}
+              className="font-bold"
+            >
+              <PenLine className="mr-1.5 h-3.5 w-3.5" />
+              {signing ? 'Đang ký...' : 'Xác nhận & Ký ngay'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }
