@@ -228,13 +228,39 @@ export const paymentApi = {
   getPaymentProgress: (projectId: string) =>
     request<ApiResult>(`/api/Payment/projects/${projectId}/payment-progress`, { auth: true }),
 
-  /** CĐT mở đợt thanh toán theo tiến độ xây dựng */
-  unlockPhase: (projectId: string, triggerEvent: string) =>
-    request<ApiResult>(`/api/Payment/projects/${projectId}/unlock-phase`, {
-      method: 'PATCH',
-      body: JSON.stringify({ triggerEvent }),
-      auth: true,
-    }),
+  /** CĐT mở đợt thanh toán theo tiến độ xây dựng (hỗ trợ cả HousingDeveloper và Payment controller) */
+  unlockPhase: async (projectId: string, triggerEvent: string): Promise<ApiResult> => {
+    const payload = JSON.stringify({ triggerEvent, trigger: triggerEvent, milestoneEvent: triggerEvent })
+    try {
+      // 1. Thử POST /api/housing-developer/projects/{projectId}/unlock-phase (Chuẩn CĐT)
+      return await request<ApiResult>(`/api/housing-developer/projects/${projectId}/unlock-phase`, {
+        method: 'POST',
+        body: payload,
+        auth: true,
+      })
+    } catch (err1) {
+      // 2. Thử PATCH /api/Payment/projects/{projectId}/unlock-phase
+      try {
+        return await request<ApiResult>(`/api/Payment/projects/${projectId}/unlock-phase`, {
+          method: 'PATCH',
+          body: payload,
+          auth: true,
+        })
+      } catch (err2) {
+        // 3. Thử POST /api/Payment/projects/{projectId}/unlock-phase
+        try {
+          return await request<ApiResult>(`/api/Payment/projects/${projectId}/unlock-phase`, {
+            method: 'POST',
+            body: payload,
+            auth: true,
+          })
+        } catch {
+          // Trả về lỗi chi tiết nhất từ backend để UI hiển thị
+          throw (err1 instanceof Error && !err1.message.includes('404') && !err1.message.includes('405')) ? err1 : err2
+        }
+      }
+    }
+  },
 }
 
 /** Tải PDF hợp đồng — dùng fetch blob + Bearer (KHÔNG dùng request JSON vì endpoint trả file). */

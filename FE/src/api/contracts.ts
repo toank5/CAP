@@ -1,5 +1,5 @@
 import { request } from './http'
-import { downloadContractPdf } from './payment'
+import { downloadContractPdf, paymentApi } from './payment'
 import type { ApiResult } from '../types'
 
 /**
@@ -272,10 +272,7 @@ export const contractApi = {
    * body: { triggerEvent }
    */
   unlockPhase(projectId: string, triggerEvent: string) {
-    return request<ApiResult>(
-      `/api/housing-developer/projects/${projectId}/unlock-phase`,
-      { method: 'POST', body: JSON.stringify({ triggerEvent }), auth: true },
-    )
+    return paymentApi.unlockPhase(projectId, triggerEvent)
   },
 }
 

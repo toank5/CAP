@@ -16,6 +16,7 @@ import {
   type CancellationRequestItemDto,
   type ApplicationProgressItem,
 } from '@/api/payment'
+import { UNLOCK_PHASE_LABEL, type UnlockPhaseTrigger } from '@/api/contracts'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
@@ -52,6 +53,7 @@ export function ProjectPaymentManagementPanel({
   // Phase Unlock Modal State
   const [unlockModalOpen, setUnlockModalOpen] = useState(false)
   const [unlockTrigger, setUnlockTrigger] = useState('CONSTRUCTION_ROUGH_FLOOR')
+  const [unlockError, setUnlockError] = useState<string | null>(null)
 
   const loadRequests = async () => {
     setLoading(true)
@@ -171,16 +173,21 @@ export function ProjectPaymentManagementPanel({
 
   const handleUnlockPhase = async () => {
     setActionBusy('unlock')
+    setUnlockError(null)
     setMsg(null)
     try {
       await paymentApi.unlockPhase(projectId, unlockTrigger)
+      const label = UNLOCK_PHASE_LABEL[unlockTrigger as UnlockPhaseTrigger] || unlockTrigger
       setMsg({
         type: 'success',
-        text: 'Đã mở khóa đợt thanh toán theo tiến độ "' + unlockTrigger + '". Thông báo nộp tiền đã được gửi tới các khách hàng sở hữu căn.',
+        text: `Đã mở khóa đợt thanh toán "${label}". Thông báo nộp tiền đã được gửi tới các khách hàng sở hữu căn.`,
       })
       setUnlockModalOpen(false)
+      await loadRequests()
     } catch (err) {
-      setMsg({ type: 'error', text: formatError(err) })
+      const errText = formatError(err)
+      setUnlockError(errText)
+      setMsg({ type: 'error', text: errText })
     } finally {
       setActionBusy(null)
     }
@@ -220,7 +227,10 @@ export function ProjectPaymentManagementPanel({
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => setUnlockModalOpen(true)}
+              onClick={() => {
+                setUnlockError(null)
+                setUnlockModalOpen(true)
+              }}
               className="inline-flex items-center gap-1.5 border-teal-300 bg-teal-50/60 text-xs font-bold text-teal-700 hover:bg-teal-100 dark:border-teal-800 dark:bg-teal-950/40 dark:text-teal-300"
             >
               <Unlock className="h-3.5 w-3.5" />
@@ -637,6 +647,16 @@ export function ProjectPaymentManagementPanel({
               <option value="RED_BOOK_ISSUED">Cấp giấy chứng nhận (sổ hồng)</option>
             </select>
           </div>
+
+          {unlockError && (
+            <Alert variant="error" className="text-xs">
+              <div className="font-semibold mb-1">Không thể mở khóa đợt:</div>
+              <div>{unlockError}</div>
+              <div className="mt-2 text-[11px] opacity-90 border-t border-rose-200/60 pt-1.5 dark:border-rose-900/60">
+                💡 <strong>Điều kiện mở đợt:</strong> Dự án cần có hồ sơ đã ký hợp đồng mua bán và người mua cần hoàn thành thanh toán các đợt trước đó (Đợt 1 / Đợt 2) trước khi mở đợt thanh toán tiếp theo theo tiến độ thi công.
+              </div>
+            </Alert>
+          )}
 
           <p className="text-[11px] text-slate-500">
             Khi mở khóa, hệ thống sẽ tự động gửi thông báo thanh toán đợt kèm hạn chót đóng tiền (7–15 ngày) đến tất cả các chủ hộ đã ký hợp đồng.
