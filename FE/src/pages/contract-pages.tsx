@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { FileText, Download, Wallet, Unlock, Hammer, HardHat, KeyRound, BookOpen, CheckCircle2, Clock, AlertTriangle, XCircle, Lock, Calendar, Banknote, TrendingUp, CircleDot } from 'lucide-react'
+import { FileText, Download, Wallet, Unlock, CheckCircle2, Clock, AlertTriangle, XCircle, Lock, Calendar, Banknote, TrendingUp, CircleDot } from 'lucide-react'
 import {
   contractApi,
   CONTRACT_STATUS_LABEL,
@@ -9,12 +9,10 @@ import {
   parseContractStatus,
   parseInstallmentsEnvelope,
   summarizeInstallments,
-  UNLOCK_PHASE_LABEL,
   isManualUnlockTrigger,
   type ContractStatusDto,
   type PaymentInstallment,
   type ContractStatus,
-  type UnlockPhaseTrigger,
 } from '@/api/contracts'
 import { parseApplicationDetail } from '@/api/housing-applications'
 import { request } from '@/api/http'
@@ -281,163 +279,6 @@ function DepositCountdown({
       {String(hours).padStart(2, '0')}:{String(minutes).padStart(2, '0')}:
       {String(seconds).padStart(2, '0')} để đặt cọc
     </span>
-  )
-}
-
-/**
- * Thanh điều khiển của CĐT: mở (unlock) đợt thanh toán theo tiến độ xây dựng.
- * Hiển thị sau khi người dân đã ký HĐ (signedAt có).
- * Quy tắc nghiệp vụ (PAY.MD):
- *   - Đợt trước phải PAID thì mới được mở đợt sau.
- *   - Đợt đã PAID/CANCELLED thì nút bị disable.
- */
-function unlockIconForTrigger(trigger: string) {
-  switch (trigger) {
-    case 'CONSTRUCTION_ROUGH_FLOOR':
-      return Hammer
-    case 'ROOFING_COMPLETED':
-      return HardHat
-    case 'HANDOVER':
-      return KeyRound
-    case 'RED_BOOK_ISSUED':
-      return BookOpen
-    default:
-      return Unlock
-  }
-}
-
-function DeveloperUnlockBar({
-  projectId,
-  installments,
-  onUnlocked,
-}: {
-  projectId: string
-  installments: PaymentInstallment[]
-  onUnlocked: () => void
-}) {
-  const [busy, setBusy] = useState('')
-  const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
-
-  const phases = installments
-    .filter((i) => isManualUnlockTrigger(i.triggerEvent))
-    .slice()
-    .sort((a, b) => a.ordinal - b.ordinal)
-
-  const isPrevPaid = (ordinal: number): boolean => {
-    if (ordinal <= 1) return true
-    const prev = installments.find((i) => i.ordinal === ordinal - 1)
-    return !prev || prev.status === 'PAID'
-  }
-
-  const handleUnlock = async (inst: PaymentInstallment) => {
-    const trigger = inst.triggerEvent
-    if (!projectId || busy || !trigger) return
-    if (inst.status === 'PAID' || inst.status === 'CANCELLED') return
-    if (!isPrevPaid(inst.ordinal)) {
-      setMsg({
-        type: 'error',
-        text: `Đợt ${inst.ordinal - 1} chưa được thanh toán — không thể mở ${inst.label?.trim() || `đợt ${inst.ordinal}`}. Vui lòng chờ người dân hoàn tất thanh toán đợt trước.`,
-      })
-      return
-    }
-    setBusy(trigger)
-    setMsg(null)
-    try {
-      await contractApi.unlockPhase(projectId, trigger)
-      await onUnlocked()
-      setMsg({
-        type: 'success',
-        text: `Đã mở ${inst.label?.trim() || `đợt ${inst.ordinal}`}. Người dân hiện có thể thanh toán đợt này.`,
-      })
-    } catch (err) {
-      setMsg({ type: 'error', text: formatError(err) })
-    } finally {
-      setBusy('')
-    }
-  }
-
-  if (phases.length === 0) return null
-
-  return (
-    <div className="rounded-xl border border-indigo-200 bg-indigo-50/40 p-4 dark:border-indigo-800 dark:bg-indigo-950/20">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Unlock className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-          <h4 className="font-semibold text-slate-900 dark:text-slate-100">
-            Mở đợt thanh toán theo tiến độ (Chủ đầu tư)
-          </h4>
-        </div>
-        <span className="rounded-full bg-indigo-100 px-2.5 py-0.5 text-[11px] font-medium text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300">
-          Theo quy chế NOXH
-        </span>
-      </div>
-      <p className="mb-3 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-        Bấm mở khi công trình hoàn thành mốc thi công tương ứng. Theo quy định, <strong>đợt trước phải được người dân thanh toán xong</strong> mới có thể mở đợt tiếp theo.
-      </p>
-      <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
-        {phases.map((inst) => {
-          const trigger = inst.triggerEvent || ''
-          const Icon = unlockIconForTrigger(trigger)
-          const paid = inst.status === 'PAID'
-          const cancelled = inst.status === 'CANCELLED'
-          const locked = inst.status === 'LOCKED'
-          const prevPaid = isPrevPaid(inst.ordinal)
-          const disabled = !projectId || paid || cancelled || !prevPaid || !locked || !!busy
-          const label = inst.label?.trim() || `Đợt ${inst.ordinal}`
-          const sub = UNLOCK_PHASE_LABEL[trigger as UnlockPhaseTrigger] || trigger
-
-          let statusText = '⏳ Đang chờ thanh toán'
-          if (paid) statusText = '✓ Đã hoàn thành'
-          else if (cancelled) statusText = '✗ Đã hủy'
-          else if (locked && prevPaid) statusText = '✨ Sẵn sàng mở đợt'
-          else if (locked && !prevPaid) statusText = `🔒 Cần Đợt ${inst.ordinal - 1} đóng trước`
-
-          return (
-            <button
-              key={`${inst.installmentId}-${trigger}`}
-              type="button"
-              disabled={disabled}
-              title={
-                locked && !prevPaid
-                  ? `Cần người dân thanh toán Đợt ${inst.ordinal - 1} trước khi mở đợt này`
-                  : locked && prevPaid
-                    ? `Bấm để mở ${label} cho người dân thanh toán`
-                    : paid
-                      ? 'Đợt này đã thanh toán đủ'
-                      : 'Đợt này đã được mở'
-              }
-              onClick={() => void handleUnlock(inst)}
-              className={`flex flex-col items-start gap-1 rounded-lg border p-3 text-left text-sm transition shadow-xs ${
-                paid
-                  ? 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200'
-                  : locked && prevPaid
-                    ? 'border-indigo-400 bg-indigo-50/80 text-indigo-950 hover:bg-indigo-100 hover:border-indigo-500 dark:border-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-200 cursor-pointer font-medium'
-                    : disabled
-                      ? 'cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400 dark:border-slate-800 dark:bg-slate-800/40 dark:text-slate-500'
-                      : 'border-amber-200 bg-amber-50/50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200'
-              }`}
-            >
-              <div className="flex w-full items-center justify-between gap-1 font-semibold">
-                <span className="flex items-center gap-1.5">
-                  <Icon className="h-4 w-4 shrink-0" />
-                  {label}
-                </span>
-                {locked && prevPaid && (
-                  <span className="rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-xs">
-                    Mở ngay
-                  </span>
-                )}
-              </div>
-              <span className="text-xs opacity-80">{sub}</span>
-              <span className="text-[11px] font-medium mt-0.5">
-                {statusText}
-              </span>
-            </button>
-          )
-        })}
-      </div>
-      {msg && <Alert variant={msg.type === 'error' ? 'error' : 'success'} className="mt-3">{msg.text}</Alert>}
-    </div>
   )
 }
 
@@ -1160,7 +1001,6 @@ export function ContractDetailPage() {
       depositPaid: deposit1Paid,
     })
   const projectId = readProjectId() || appDetail?.projectId || ''
-  const canDeveloperUnlock = role === 'Housing Developer' && !!projectId
 
   return (
     <div>
@@ -1205,15 +1045,6 @@ export function ContractDetailPage() {
           >
             <Download className="mr-1.5 h-4 w-4" /> Tải PDF hợp đồng
           </Button>
-        )}
-
-        {/* CĐT: mở đợt theo tiến độ */}
-        {canDeveloperUnlock && (
-          <DeveloperUnlockBar
-            projectId={projectId}
-            installments={installments}
-            onUnlocked={() => void reload()}
-          />
         )}
 
         {/* Tiến độ thanh toán + Lịch thanh toán */}
