@@ -24,7 +24,6 @@ export const LiveZone: React.FC<Props> = ({
   busy,
 }) => {
   const [isSpinningLocal, setIsSpinningLocal] = useState(false)
-  const [winnerModalOpen, setWinnerModalOpen] = useState(false)
   const [revealedWinner, setRevealedWinner] = useState<LiveWinnerEntry | null>(null)
   const lastAnnouncedIdRef = useRef<string | null>(null)
 
@@ -53,7 +52,7 @@ export const LiveZone: React.FC<Props> = ({
     }
   }
 
-  // Theo dõi kết quả mới nhất từ Hub hoặc API để hiển thị chúc mừng
+  // Theo dõi kết quả mới nhất từ Hub hoặc API để cập nhật hiển thị
   useEffect(() => {
     const latest = normalizeWinner(state?.latestDrawResult)
     if (latest && latest.applicationId) {
@@ -62,7 +61,6 @@ export const LiveZone: React.FC<Props> = ({
         lastAnnouncedIdRef.current = key
         setRevealedWinner(latest)
         if (!isSpinningLocal) {
-          setWinnerModalOpen(true)
           lotteryAudio.playWinnerFanfare()
         }
       }
@@ -72,7 +70,6 @@ export const LiveZone: React.FC<Props> = ({
   const handleDrawWithEffects = () => {
     if (busy || !onDrawNext || isOutOfUnits) return
     setIsSpinningLocal(true)
-    setWinnerModalOpen(false)
     lotteryAudio.playSpin()
 
     onDrawNext()
@@ -84,7 +81,6 @@ export const LiveZone: React.FC<Props> = ({
     setTimeout(() => {
       lotteryAudio.playWinnerFanfare()
       setIsSpinningLocal(false)
-      setWinnerModalOpen(true)
     }, 1400)
   }
 
@@ -99,8 +95,6 @@ export const LiveZone: React.FC<Props> = ({
       <LotteryBallCage
         isSpinning={isSpinningLocal || !!busy}
         latestWinner={revealedWinner || normalizeWinner(state?.latestDrawResult) || (state?.recentWinners && state.recentWinners.length > 0 ? state.recentWinners[0] : null)}
-        winnerModalOpen={winnerModalOpen}
-        setWinnerModalOpen={setWinnerModalOpen}
         eligibleList={eligibleList}
         recentWinners={state?.recentWinners}
         onDrawNext={handleDrawWithEffects}

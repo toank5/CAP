@@ -113,7 +113,7 @@ export function parseInstallments(data: unknown): PaymentInstallment[] {
   if (typeof window !== 'undefined' && arr.length > 0 && !(window as any).__paymentsParsed) {
     // eslint-disable-next-line no-console
     console.info('[parseInstallments] raw sample (đợt đầu):', JSON.stringify(arr[0], null, 2))
-    ;(window as any).__paymentsParsed = true
+      ; (window as any).__paymentsParsed = true
   }
   return arr.map((it, idx) => {
     const x = it as Record<string, unknown>
