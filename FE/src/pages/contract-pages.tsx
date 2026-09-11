@@ -22,7 +22,7 @@ import { APPLICATION_STATUS } from '@/lib/constants'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Alert } from '@/components/ui/alert'
-import { PageCard, PageHeader } from '@/components/layout/page-header'
+import { PageCard } from '@/components/layout/page-header'
 import { SignContractSection } from '@/components/payment/payment-section'
 import { navigate } from '@/hooks/useHashRoute'
 import { formatError } from '@/lib/format-error'
@@ -157,7 +157,6 @@ export function ContractsPage() {
 
   return (
     <div>
-      <PageHeader routeId="contracts" />
       <PageCard className="p-6">
         <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
           {loading ? 'Đang tải...' : `${applications.length} hồ sơ có hợp đồng (chờ ký / đã ký / đã TT Đợt 1)`}
@@ -207,7 +206,6 @@ export function ContractsPage() {
 export function ContractCreatePage() {
   return (
     <div>
-      <PageHeader routeId="contract-create" />
       <PageCard className="p-6">
         <Alert variant="info">
           <p className="font-semibold">Hợp đồng được tạo tự động từ hồ sơ trúng</p>
