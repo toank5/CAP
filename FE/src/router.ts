@@ -421,7 +421,7 @@ export const routes: RouteConfig[] = [
     auth: true,
     roles: ['Housing Developer', 'Department Of Construction'],
     title: 'Chi tiết phiên bốc thăm',
-    subtitle: 'Theo dõi trạng thái, danh sách tham gia và log sự kiện.',
+    subtitle: 'Theo dõi trạng thái, danh sách tham gia và nhật ký sự kiện.',
     cta: '',
   },
   {
@@ -431,7 +431,7 @@ export const routes: RouteConfig[] = [
     auth: true,
     roles: ['Applicant'],
     title: 'Vào sảnh bốc thăm',
-    subtitle: 'Nhập mã vào sảnh từ thông báo để theo dõi. Bạn chỉ theo dõi, không tự bốc.',
+    subtitle: 'Nhập mã vào sảnh (mã xác thực) từ thông báo để theo dõi phiên quay số trực tiếp.',
     cta: '',
   },
   {
@@ -441,7 +441,7 @@ export const routes: RouteConfig[] = [
     auth: true,
     roles: ['Applicant', 'Housing Developer', 'Department Of Construction'],
     title: 'Sảnh quay số trực tiếp',
-    subtitle: 'Theo dõi tiến độ bốc hồ sơ trúng, danh sách và quỹ căn. Chủ đầu tư bốc tiếp; người dân chỉ xem.',
+    subtitle: 'Theo dõi tiến độ bốc hồ sơ trúng, danh sách ứng viên và quỹ căn hộ theo thời gian thực.',
     cta: '',
   },
   {
@@ -451,7 +451,7 @@ export const routes: RouteConfig[] = [
     auth: true,
     roles: ['Applicant'],
     title: 'Bốc thăm của tôi',
-    subtitle: 'Xem mã vào sảnh, kết quả trúng chưa trúng, trạng thái chủ đầu tư gán căn.',
+    subtitle: 'Theo dõi các phiên bốc thăm tham gia, mã vào sảnh và kết quả phân bổ căn hộ.',
     cta: '',
   },
   // ====== Contracts (mock cho BE chưa có) ======

@@ -7,8 +7,15 @@ import {
   lotteryApi,
   parseLotterySchedule,
   parseLiveState,
+  parseWinner,
+  parseLotteryResult,
+  parseEligibleList,
+  parseWaitlist,
+  maskCccd,
   type LiveStateDto,
+  type LiveWinnerEntry,
   type LotteryScheduleDto,
+  type WaitlistEntryDto,
 } from '@/api/lottery'
 import { housingProjectsApi } from '@/api/housing-projects'
 import type { HousingProjectSummaryDto } from '@/types'
@@ -21,7 +28,6 @@ import { LiveZone } from './LiveZone'
 import { WinnersZone } from './WinnersZone'
 import { ApartmentFundZone } from './ApartmentFundZone'
 import { ControlPanel } from './ControlPanel'
-import { LotteryStaffTabs } from './lottery-staff-tabs'
 import { lotteryAudio } from '@/lib/lottery-audio'
 import {
   RefreshCw,
@@ -29,6 +35,12 @@ import {
   Volume2,
   VolumeX,
   Zap,
+  KeyRound,
+  X,
+  Clock,
+  Building2,
+  Users,
+  CheckCircle2,
 } from 'lucide-react'
 
 const PROJECT_KEY = 'lotteryProjectId'
@@ -65,13 +77,14 @@ export const LotteryLivePage: React.FC = () => {
   const isSxd = role === 'Department Of Construction'
   const isApplicant = role === 'Applicant'
 
-  const [projectId, setProjectId] = useState<string>(() => loadStoredProjectId())
+  const [projectId, setProjectId] = useState<string>('')
   const [projectList, setProjectList] = useState<LiveEligibleProject[]>([])
   const [currentProject, setCurrentProject] = useState<LiveEligibleProject | null>(null)
   const [eligibleList, setEligibleList] = useState<import('@/api/lottery').LotteryEligibleEntry[]>([])
 
   const [schedule, setSchedule] = useState<LotteryScheduleDto | null>(null)
   const [liveState, setLiveState] = useState<LiveStateDto | null>(null)
+  const [waitlist, setWaitlist] = useState<WaitlistEntryDto[]>([])
   const [myAppId, setMyAppId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [hubError, setHubError] = useState('')
@@ -84,7 +97,14 @@ export const LotteryLivePage: React.FC = () => {
   const [batchModalOpen, setBatchModalOpen] = useState(false)
   const connectionRef = useRef<import('@microsoft/signalr').HubConnection | null>(null)
 
-  // 1. Tải danh sách dự án hợp lệ cho trường quay trực tiếp
+  // Quản lý mã vào sảnh cho Người dân
+  const [applicantOtpState, setApplicantOtpState] = useState(() => (loadStoredProjectId() ? loadApplicantOtp(loadStoredProjectId()) : ''))
+  const [liveOtpModalOpen, setLiveOtpModalOpen] = useState(false)
+  const [liveOtpInput, setLiveOtpInput] = useState('')
+  const [liveOtpError, setLiveOtpError] = useState('')
+  const [liveOtpBusy, setLiveOtpBusy] = useState(false)
+
+  // 1. Tải danh sách dự án hợp lệ cho trường quay trực tiếp (đã được Sở duyệt lịch bốc thăm)
   useEffect(() => {
     let cancelled = false
     void (async () => {
@@ -94,10 +114,10 @@ export const LotteryLivePage: React.FC = () => {
         const raw = data && typeof data === 'object' ? (data as Record<string, unknown>) : {}
         const list = (raw.items ?? raw.Items ?? []) as HousingProjectSummaryDto[]
 
-        // Lọc các dự án đã được Sở duyệt
+        // Lọc các dự án hợp lệ (không bị từ chối)
         const approvedProjects = list.filter((p) => {
           const s = normalizeStatus(p.status)
-          return s !== 'PENDING' && s !== 'REJECTED' && s !== 'CLOSED'
+          return !/REJECTED|TỪ CHỐI/.test(s)
         })
 
         // Tải lịch bốc thăm
@@ -133,7 +153,8 @@ export const LotteryLivePage: React.FC = () => {
         if (cancelled) return
         setProjectList(eligible)
 
-        // Chỉ auto-select nếu có dự án đang thực sự LIVE hoặc MỞ SẢNH CHỜ
+        const storedId = loadStoredProjectId()
+        const storedMatch = eligible.find((p) => p.id === storedId)
         const activeLive = eligible.find(
           (p) => p.sessionStatus === 'Live' || p.sessionStatus === 'WaitingLobby',
         )
@@ -142,11 +163,19 @@ export const LotteryLivePage: React.FC = () => {
           setProjectId(activeLive.id)
           persistProjectId(activeLive.id)
           setCurrentProject(activeLive)
+        } else if (storedMatch) {
+          setProjectId(storedMatch.id)
+          persistProjectId(storedMatch.id)
+          setCurrentProject(storedMatch)
         } else {
-          // Không có phiên Live nào đang chạy -> Giữ sảnh ở chế độ chờ (trống)
+          // Không có phiên Live nào đang chạy và dự án trong storage chưa duyệt lịch -> Giữ sảnh ở chế độ chờ (trống)
           setProjectId('')
           persistProjectId('')
           setCurrentProject(null)
+          setSchedule(null)
+          setLiveState(null)
+          setWaitlist([])
+          setEligibleList([])
         }
       } catch (err) {
         console.warn('[LotteryLivePage] Failed to fetch eligible live project list:', err)
@@ -179,6 +208,7 @@ export const LotteryLivePage: React.FC = () => {
     persistProjectId(newId)
     setSchedule(null)
     setLiveState(null)
+    setWaitlist([])
     setEligibleList([])
     setHubError('')
     setMsg(null)
@@ -186,7 +216,14 @@ export const LotteryLivePage: React.FC = () => {
 
   // 2. Load dữ liệu lịch & trạng thái Live
   const load = async (quiet = false) => {
-    if (!projectId) return
+    if (!projectId) {
+      setSchedule(null)
+      setLiveState(null)
+      setWaitlist([])
+      setEligibleList([])
+      if (!quiet) setLoading(false)
+      return
+    }
     if (!quiet) setLoading(true)
     try {
       const schedRes = await lotteryApi
@@ -197,9 +234,6 @@ export const LotteryLivePage: React.FC = () => {
       let loadedSchedule: LotteryScheduleDto | null = null
       if (schedRes.ok) {
         loadedSchedule = parseLotterySchedule(schedRes.data)
-        setSchedule(loadedSchedule)
-      } else {
-        setSchedule(null)
       }
 
       const isApproved =
@@ -208,8 +242,9 @@ export const LotteryLivePage: React.FC = () => {
           String(loadedSchedule?.sessionStatus),
         )
 
-      if (isApproved) {
-        const [liveRes, elRes] = await Promise.all([
+      if (loadedSchedule && isApproved) {
+        setSchedule(loadedSchedule)
+        const [liveRes, elRes, resultRes, waitlistRes] = await Promise.all([
           lotteryApi
             .getLiveState(projectId)
             .then((d) => ({ ok: true as const, data: d }))
@@ -218,18 +253,164 @@ export const LotteryLivePage: React.FC = () => {
             .getEligibleParticipants(projectId)
             .then((d) => ({ ok: true as const, data: d }))
             .catch(() => ({ ok: false as const, data: [] })),
+          lotteryApi
+            .getResult(projectId)
+            .then((d) => ({ ok: true as const, data: d }))
+            .catch(() => ({ ok: false as const, data: null })),
+          lotteryApi
+            .getWaitlist(projectId)
+            .then((d) => ({ ok: true as const, data: d }))
+            .catch(() => ({ ok: false as const, data: [] })),
         ])
 
-        if (liveRes.ok) {
-          const ls = parseLiveState(liveRes.data)
-          if (ls) setLiveState(ls)
+        let ls = liveRes.ok ? parseLiveState(liveRes.data) : null
+        const lotteryResult = resultRes.ok ? parseLotteryResult(resultRes.data) : null
+
+        const effectiveTotalUnits = Number(loadedSchedule.totalUnits || loadedSchedule.availableUnits || 2)
+
+        // Đồng bộ danh sách người trúng từ bảng kết quả nếu liveState chưa kịp cập nhật
+        if (lotteryResult && Array.isArray(lotteryResult.winners) && lotteryResult.winners.length > 0) {
+          const resultWinners: LiveWinnerEntry[] = lotteryResult.winners.map((w, idx) => ({
+            applicationId: w.applicationId,
+            applicationCode: w.applicationId.length <= 12 ? w.applicationId : w.applicationId.slice(0, 8).toUpperCase(),
+            applicantName: w.applicantName,
+            maskedCitizenId: maskCccd(w.citizenId),
+            stt: idx + 1,
+            result: w.lotteryResult || 'WON',
+            slotCode: w.slotCode,
+            drawnAt: lotteryResult.drawnAt || new Date().toISOString(),
+            remainingUnits: null,
+            priorityGroup: w.lotteryResult === 'PRIORITY_WON' ? 'MERIT_PERSON' : 'NONE',
+          }))
+
+          if (!ls) {
+            ls = {
+              projectId,
+              projectName: loadedSchedule.projectName,
+              sessionStatus: loadedSchedule.sessionStatus,
+              totalUnits: effectiveTotalUnits,
+              drawnUnitsCount: Math.min(resultWinners.length, effectiveTotalUnits),
+              remainingUnits: Math.max(0, effectiveTotalUnits - resultWinners.length),
+              recentWinners: resultWinners.slice(0, effectiveTotalUnits),
+              latestDrawResult: resultWinners[0] || null,
+              priorityWinnersCount: resultWinners.slice(0, effectiveTotalUnits).filter((w) => w.result === 'PRIORITY_WON').length,
+              randomWinnersCount: resultWinners.slice(0, effectiveTotalUnits).filter((w) => w.result === 'WON').length,
+            }
+          } else {
+            const currentWinners = ls.recentWinners ?? []
+            const map = new Map<string, LiveWinnerEntry>()
+            resultWinners.forEach((w) => map.set(w.applicationId, w))
+            currentWinners.forEach((w) => map.set(w.applicationId, w))
+            const merged = Array.from(map.values()).slice(0, effectiveTotalUnits)
+            ls.recentWinners = merged
+            ls.totalUnits = effectiveTotalUnits
+            ls.drawnUnitsCount = merged.length
+            ls.remainingUnits = Math.max(0, effectiveTotalUnits - merged.length)
+            if (!ls.latestDrawResult && merged.length > 0) {
+              ls.latestDrawResult = merged[0]
+            }
+            ls.priorityWinnersCount = merged.filter((w) => w.result === 'PRIORITY_WON' || (w.priorityGroup && w.priorityGroup !== 'None')).length
+            ls.randomWinnersCount = merged.filter((w) => w.result === 'WON' || (!w.priorityGroup || w.priorityGroup === 'None')).length
+          }
         }
-        if (elRes.ok && Array.isArray(elRes.data)) {
-          setEligibleList(elRes.data)
+
+        const parsedEligible = parseEligibleList(elRes.ok ? elRes.data : [])
+        setEligibleList(parsedEligible)
+
+        // Hợp nhất người trúng từ danh sách hồ sơ đủ điều kiện nếu có thông tin kết quả trúng thực sự
+        const eligibleWinners: LiveWinnerEntry[] = parsedEligible
+          .filter((p) => p.lotteryResult === 'WON' || p.lotteryResult === 'PRIORITY_WON')
+          .map((p, idx) => ({
+            applicationId: p.applicationId,
+            applicationCode: p.applicationId.length <= 12 ? p.applicationId : p.applicationId.slice(0, 8).toUpperCase(),
+            applicantName: p.applicantName,
+            maskedCitizenId: maskCccd(p.citizenId),
+            stt: idx + 1,
+            result: p.lotteryResult || 'WON',
+            slotCode: p.slotCode,
+            drawnAt: new Date().toISOString(),
+            remainingUnits: null,
+            priorityGroup: p.priorityGroup || (p.lotteryResult === 'PRIORITY_WON' ? 'MERIT_PERSON' : 'NONE'),
+          }))
+
+        if (eligibleWinners.length > 0) {
+          if (!ls) {
+            ls = {
+              projectId,
+              projectName: loadedSchedule.projectName,
+              sessionStatus: loadedSchedule.sessionStatus,
+              totalUnits: effectiveTotalUnits,
+              drawnUnitsCount: Math.min(eligibleWinners.length, effectiveTotalUnits),
+              remainingUnits: Math.max(0, effectiveTotalUnits - eligibleWinners.length),
+              recentWinners: eligibleWinners.slice(0, effectiveTotalUnits),
+              latestDrawResult: eligibleWinners[0] || null,
+              priorityWinnersCount: eligibleWinners.slice(0, effectiveTotalUnits).filter((w) => w.result === 'PRIORITY_WON').length,
+              randomWinnersCount: eligibleWinners.slice(0, effectiveTotalUnits).filter((w) => w.result === 'WON').length,
+            }
+          } else {
+            const currentWinners = ls.recentWinners ?? []
+            const map = new Map<string, LiveWinnerEntry>()
+            eligibleWinners.forEach((w) => map.set(w.applicationId, w))
+            currentWinners.forEach((w) => map.set(w.applicationId, w))
+            const merged = Array.from(map.values()).slice(0, effectiveTotalUnits)
+            ls.recentWinners = merged
+            ls.totalUnits = effectiveTotalUnits
+            ls.drawnUnitsCount = merged.length
+            ls.remainingUnits = Math.max(0, effectiveTotalUnits - merged.length)
+            if (!ls.latestDrawResult && merged.length > 0) {
+              ls.latestDrawResult = merged[0]
+            }
+            ls.priorityWinnersCount = merged.filter((w) => w.result === 'PRIORITY_WON' || (w.priorityGroup && w.priorityGroup !== 'None')).length
+            ls.randomWinnersCount = merged.filter((w) => w.result === 'WON' || (!w.priorityGroup || w.priorityGroup === 'None')).length
+          }
+        }
+
+        if (ls) {
+          if (effectiveTotalUnits > 0) {
+            ls.totalUnits = effectiveTotalUnits
+            if (ls.recentWinners && ls.recentWinners.length > effectiveTotalUnits) {
+              ls.recentWinners = ls.recentWinners.slice(0, effectiveTotalUnits)
+            }
+            ls.drawnUnitsCount = ls.recentWinners?.length ?? 0
+            ls.remainingUnits = Math.max(0, effectiveTotalUnits - ls.drawnUnitsCount)
+          }
+          ls.priorityWinnersCount = ls.recentWinners?.filter((w) => w.result === 'PRIORITY_WON' || (w.priorityGroup && w.priorityGroup !== 'None')).length ?? 0
+          ls.randomWinnersCount = ls.recentWinners?.filter((w) => w.result === 'WON' || (!w.priorityGroup || w.priorityGroup === 'None')).length ?? 0
+          setLiveState(ls)
+        } else {
+          setLiveState(null)
+        }
+
+        // Cập nhật danh sách dự bị (Waitlist)
+        const parsedWl = parseWaitlist(waitlistRes.ok ? waitlistRes.data : [])
+        if (parsedWl.length > 0) {
+          setWaitlist(parsedWl)
+        } else if (parsedEligible.length > 0 && ls && ls.recentWinners && ls.recentWinners.length > 0) {
+          const winnerIds = new Set(ls.recentWinners.map((w) => w.applicationId))
+          const nonWinners: WaitlistEntryDto[] = parsedEligible
+            .filter((e) => !winnerIds.has(e.applicationId) && e.lotteryResult !== 'WON' && e.lotteryResult !== 'PRIORITY_WON')
+            .sort((a, b) => (b.priorityScore ?? 0) - (a.priorityScore ?? 0))
+            .map((e, idx) => ({
+              applicationId: e.applicationId,
+              applicantName: e.applicantName,
+              citizenId: e.citizenId,
+              waitlistRank: idx + 1,
+              score: e.priorityScore,
+              status: 'WAITLIST',
+            }))
+          setWaitlist(nonWinners)
+        } else {
+          setWaitlist([])
         }
       } else {
+        // Dự án chưa được duyệt lịch bốc thăm
+        setSchedule(null)
         setLiveState(null)
+        setWaitlist([])
         setEligibleList([])
+        setProjectId('')
+        persistProjectId('')
+        setCurrentProject(null)
       }
     } finally {
       if (!quiet) setLoading(false)
@@ -263,6 +444,56 @@ export const LotteryLivePage: React.FC = () => {
     })()
   }, [projectId, isApplicant])
 
+  // Tự động kiểm tra / đồng bộ mã vào sảnh cho Người dân
+  useEffect(() => {
+    if (!projectId || !isApplicant) return
+    const current = loadApplicantOtp(projectId)
+    if (current) {
+      setApplicantOtpState(current)
+      setLiveOtpModalOpen(false)
+      return
+    }
+
+    if (schedule?.joinCode && schedule.joinCode.length >= 6) {
+      void (async () => {
+        try {
+          await lotteryApi.verifyOtp(projectId, schedule.joinCode!)
+          sessionStorage.setItem(`lotteryLobbyOtp:${projectId}`, schedule.joinCode!)
+          setApplicantOtpState(schedule.joinCode!)
+          setLiveOtpModalOpen(false)
+        } catch {
+          setLiveOtpInput(schedule.joinCode || '')
+          setLiveOtpModalOpen(true)
+        }
+      })()
+    } else {
+      setLiveOtpModalOpen(true)
+    }
+  }, [projectId, isApplicant, schedule?.joinCode])
+
+  const handleLiveOtpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!projectId || liveOtpBusy) return
+    if (!liveOtpInput || liveOtpInput.length < 6) {
+      setLiveOtpError('Vui lòng nhập đủ 6 chữ số mã vào sảnh.')
+      return
+    }
+
+    setLiveOtpBusy(true)
+    setLiveOtpError('')
+    try {
+      await lotteryApi.verifyOtp(projectId, liveOtpInput)
+      sessionStorage.setItem(`lotteryLobbyOtp:${projectId}`, liveOtpInput)
+      setApplicantOtpState(liveOtpInput)
+      setLiveOtpModalOpen(false)
+      setMsg({ type: 'success', text: 'Xác thực thành công. Đã kết nối với trường quay.' })
+    } catch (err) {
+      setLiveOtpError(formatError(err))
+    } finally {
+      setLiveOtpBusy(false)
+    }
+  }
+
   // 3. SignalR Hub
   useEffect(() => {
     if (!projectId) return
@@ -279,14 +510,14 @@ export const LotteryLivePage: React.FC = () => {
       return
     }
 
-    const applicantOtp = isApplicant ? loadApplicantOtp(projectId) : ''
+    const applicantOtp = isApplicant ? (applicantOtpState || loadApplicantOtp(projectId)) : ''
     if (isApplicant && !applicantOtp) return
 
     let cancelled = false
 
     const poll = window.setInterval(() => {
       void load(true)
-    }, 5000)
+    }, 4000)
 
     void (async () => {
       try {
@@ -297,8 +528,31 @@ export const LotteryLivePage: React.FC = () => {
             setLiveState((p) => (p ? { ...p, sessionStatus: s } : p))
             setSchedule((p) => (p ? { ...p, sessionStatus: s } : p))
           },
-          onDrawResult: () => {
+          onDrawResult: (data) => {
             lotteryAudio.playWinnerFanfare()
+            const drawn = parseWinner(data)
+            if (drawn && drawn.result !== 'LOST') {
+              setLiveState((prev) => {
+                const existing = prev?.recentWinners ?? []
+                const exists = existing.some((w) => w.applicationId === drawn.applicationId)
+                const updated = exists ? existing : [drawn, ...existing]
+                const total = prev?.totalUnits ?? schedule?.totalUnits ?? 0
+                const drawnCount = updated.length
+                return {
+                  ...(prev || {
+                    projectId,
+                    projectName: schedule?.projectName,
+                    sessionStatus: 'Live',
+                  }),
+                  latestDrawResult: drawn,
+                  recentWinners: updated,
+                  drawnUnitsCount: drawnCount,
+                  remainingUnits: total > 0 ? Math.max(0, total - drawnCount) : Math.max(0, (prev?.remainingUnits ?? 1) - 1),
+                  priorityWinnersCount: updated.filter((w) => w.result === 'PRIORITY_WON' || (w.priorityGroup && w.priorityGroup !== 'None')).length,
+                  randomWinnersCount: updated.filter((w) => w.result === 'WON' || (!w.priorityGroup || w.priorityGroup === 'None')).length,
+                }
+              })
+            }
             void load(true)
           },
           onLiveState: (state) => {
@@ -340,8 +594,34 @@ export const LotteryLivePage: React.FC = () => {
     setBusy(label)
     setMsg(null)
     try {
-      await fn()
-      await load()
+      const res = await fn()
+      // Tự động giải mã và nạp ngay kết quả người trúng nếu API trả về chi tiết lượt bốc
+      if (res && typeof res === 'object') {
+        const drawn = parseWinner(res)
+        if (drawn && drawn.result !== 'LOST') {
+          setLiveState((prev) => {
+            const existing = prev?.recentWinners ?? []
+            const exists = existing.some((w) => w.applicationId === drawn.applicationId)
+            const updated = exists ? existing : [drawn, ...existing]
+            const total = prev?.totalUnits ?? schedule?.totalUnits ?? 0
+            const drawnCount = updated.length
+            return {
+              ...(prev || {
+                projectId,
+                projectName: schedule?.projectName,
+                sessionStatus: 'Live',
+              }),
+              latestDrawResult: drawn,
+              recentWinners: updated,
+              drawnUnitsCount: drawnCount,
+              remainingUnits: total > 0 ? Math.max(0, total - drawnCount) : Math.max(0, (prev?.remainingUnits ?? 1) - 1),
+              priorityWinnersCount: updated.filter((w) => w.result === 'PRIORITY_WON' || (w.priorityGroup && w.priorityGroup !== 'None')).length,
+              randomWinnersCount: updated.filter((w) => w.result === 'WON' || (!w.priorityGroup || w.priorityGroup === 'None')).length,
+            }
+          })
+        }
+      }
+      await load(true)
       setMsg({ type: 'success', text: `${label} thành công.` })
     } catch (err) {
       setMsg({ type: 'error', text: formatError(err) })
@@ -370,7 +650,6 @@ export const LotteryLivePage: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <LotteryStaffTabs current="live" />
       {/* Top Studio Command Bar */}
       <div className="flex flex-col gap-4 rounded-3xl border border-slate-200/90 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -395,16 +674,18 @@ export const LotteryLivePage: React.FC = () => {
                     }`}
                 >
                   <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                  {sessionStatus === 'Live' && '🔴 TRỰC TIẾP TỪ TRƯỜNG QUAY'}
-                  {sessionStatus === 'WaitingLobby' && '⏳ SẢNH CHỜ MỞ'}
-                  {sessionStatus === 'Paused' && '⏸ TẠM DỪNG'}
-                  {sessionStatus === 'Finished' && '✓ KẾT THÚC'}
-                  {sessionStatus === 'Published' && '📢 ĐÃ CÔNG BỐ'}
-                  {!sessionStatus && '⚪ CHẾ ĐỘ CHỜ'}
+                  {sessionStatus === 'Live' && 'TRỰC TIẾP TỪ TRƯỜNG QUAY'}
+                  {sessionStatus === 'WaitingLobby' && 'SẢNH CHỜ MỞ'}
+                  {sessionStatus === 'Paused' && 'TẠM DỪNG'}
+                  {sessionStatus === 'Finished' && 'KẾT THÚC'}
+                  {sessionStatus === 'Published' && 'ĐÃ CÔNG BỐ'}
+                  {!sessionStatus && 'CHẾ ĐỘ CHỜ'}
                 </span>
               </div>
               <h1 className="mt-0.5 text-lg font-black text-slate-900 sm:text-xl">
-                {schedule?.projectName ?? liveState?.projectName ?? currentProject?.projectName ?? 'Sảnh Bốc Thăm Trực Tuyến'}
+                {projectId && (schedule?.projectName ?? liveState?.projectName ?? currentProject?.projectName)
+                  ? (schedule?.projectName ?? liveState?.projectName ?? currentProject?.projectName)
+                  : 'Sảnh Bốc Thăm Trực Tuyến'}
               </h1>
             </div>
           </div>
@@ -412,29 +693,36 @@ export const LotteryLivePage: React.FC = () => {
           {/* Right: Studio Metric Badges & Utilities */}
           <div className="flex flex-wrap items-center gap-2.5 text-xs">
             {/* Live Time */}
-            <span className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 font-mono font-semibold text-slate-700">
-              🕒 {now.toLocaleTimeString('vi-VN')}
+            <span className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 font-mono font-semibold text-slate-700">
+              <Clock className="h-3.5 w-3.5 text-slate-500" /> {now.toLocaleTimeString('vi-VN')}
             </span>
 
             {/* SXD Supervisor Presence */}
             <span className="flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 font-bold text-emerald-800">
-              🏛 Sở giám sát: {sxdOnline}
+              <Building2 className="h-3.5 w-3.5 text-emerald-600" /> Sở giám sát: {sxdOnline}
             </span>
 
             {/* Lobby Viewers */}
             <span className="flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3 py-1.5 font-bold text-blue-800">
-              👥 Khán phòng: {lobbyCount}
+              <Users className="h-3.5 w-3.5 text-blue-600" /> Khán phòng: {lobbyCount}
             </span>
 
             {/* Realtime Hub Status */}
             {projectId && (
               <span
-                className={`rounded-xl border px-3 py-1.5 font-bold ${hubConnected
+                className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 font-bold ${hubConnected
                   ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
                   : 'border-amber-200 bg-amber-50 text-amber-800'
                   }`}
               >
-                {hubConnected ? '✓ KẾT NỐI TRỰC TUYẾN' : '⏳ ĐANG ĐỒNG BỘ'}
+                {hubConnected ? (
+                  <>
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                    KẾT NỐI TRỰC TUYẾN
+                  </>
+                ) : (
+                  'ĐANG ĐỒNG BỘ'
+                )}
               </span>
             )}
 
@@ -480,11 +768,11 @@ export const LotteryLivePage: React.FC = () => {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => navigate('lottery-sessions')}
+              onClick={() => navigate(isApplicant ? 'my-lottery' : 'lottery-sessions')}
               className="text-xs"
             >
               <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-              Về quản lý phiên
+              {isApplicant ? 'Về Bốc thăm của tôi' : 'Về quản lý phiên'}
             </Button>
             <Button
               variant="outline"
@@ -500,6 +788,14 @@ export const LotteryLivePage: React.FC = () => {
         </div>
       </div>
 
+      {/* Thông báo khi sảnh ở chế độ chờ */}
+      {!projectId && !loading && (
+        <Alert variant="info" className="text-xs">
+          <strong>Chế độ chờ:</strong> Hiện chưa chọn phiên bốc thăm hoặc chưa có dự án nào đang mở sảnh quay số trực tiếp.
+          Theo quy định tại Điều 38 Nghị định số 100/2024/NĐ-CP, chỉ các dự án <strong>đã được Sở Xây dựng phê duyệt lịch bốc thăm</strong> mới hiển thị tại Trường quay trực tiếp. Bạn có thể chuyển sang mục <strong>«{isApplicant ? 'Bốc thăm của tôi' : 'Quản lý phiên'}»</strong> để kiểm tra.
+        </Alert>
+      )}
+
       {/* Thông báo thao tác */}
       {msg && <Alert variant={msg.type === 'error' ? 'error' : 'success'}>{msg.text}</Alert>}
 
@@ -510,35 +806,38 @@ export const LotteryLivePage: React.FC = () => {
         </Alert>
       )}
 
-      {/* 2-Column Grid Top: Live Candidate Shuffler Studio (Khu 1) & Realtime Prize Board (Khu 2) */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <LiveZone
-          state={liveState}
-          sessionStatus={sessionStatus}
-          isDev={isDev}
-          eligibleList={eligibleList}
-          onDrawNext={() => action('Bốc tiếp', () => lotteryApi.drawNext(projectId))}
-          onRunBatch={() => setBatchModalOpen(true)}
-          busy={busy === 'Bốc tiếp' || busy === 'Chạy bốc thăm tự động'}
-        />
-        <WinnersZone state={liveState} myAppId={myAppId} />
-      </div>
+      {/* Main Studio 2-Column Responsive Layout */}
+      <div className="grid gap-4 lg:grid-cols-12 items-start">
+        {/* Left Column: Live Shuffler Studio & Candidate Balls (Span 7) */}
+        <div className="lg:col-span-7 flex flex-col gap-4">
+          <LiveZone
+            state={liveState}
+            sessionStatus={sessionStatus}
+            isDev={isDev}
+            eligibleList={eligibleList}
+            onDrawNext={() => action('Bốc tiếp', () => lotteryApi.drawNext(projectId))}
+            onRunBatch={() => setBatchModalOpen(true)}
+            busy={busy === 'Bốc tiếp' || busy === 'Chạy bốc thăm tự động'}
+          />
+        </div>
 
-      {/* 2-Column Grid Bottom: Apartment Fund Vault (Khu 3) & Operator Deck (Khu 4) */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <ApartmentFundZone state={liveState} />
-        <ControlPanel
-          phase={phase}
-          session={schedule}
-          liveState={liveState}
-          isDev={isDev}
-          isSxd={isSxd}
-          isApplicant={isApplicant}
-          busy={busy}
-          onAction={action}
-          onRunBatch={() => setBatchModalOpen(true)}
-          projectId={projectId}
-        />
+        {/* Right Column: Realtime Winners Board, Fund Stats & Operator Deck (Span 5) */}
+        <div className="lg:col-span-5 flex flex-col gap-4 sticky top-4">
+          <WinnersZone state={liveState} myAppId={myAppId} waitlist={waitlist} />
+          <ApartmentFundZone state={liveState} />
+          <ControlPanel
+            phase={phase}
+            session={schedule}
+            liveState={liveState}
+            isDev={isDev}
+            isSxd={isSxd}
+            isApplicant={isApplicant}
+            busy={busy}
+            onAction={action}
+            onRunBatch={() => setBatchModalOpen(true)}
+            projectId={projectId}
+          />
+        </div>
       </div>
 
       {/* Modal xác nhận Chạy bốc thăm tự động (Batch Auto Run) */}
@@ -579,6 +878,83 @@ export const LotteryLivePage: React.FC = () => {
                 Xác nhận chạy ngay
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal xác thực mã vào sảnh cho Người dân */}
+      {isApplicant && liveOtpModalOpen && projectId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                  <KeyRound className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                    Xác thực mã vào sảnh
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{currentProject?.projectName || schedule?.projectName || 'Trường quay bốc thăm'}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate('my-lottery')}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <p className="mt-4 text-xs text-slate-600 leading-relaxed dark:text-slate-300">
+              Vui lòng nhập mã vào sảnh gồm 6 chữ số (xem trong thông báo hoặc phiếu hẹn bốc thăm) để kết nối và theo dõi trường quay trực tiếp.
+            </p>
+
+            {liveOtpError && (
+              <Alert variant="error" className="mt-3">
+                {liveOtpError}
+              </Alert>
+            )}
+
+            <form onSubmit={handleLiveOtpSubmit} className="mt-4 space-y-4">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Mã vào sảnh 6 chữ số
+                </label>
+                <input
+                  type="text"
+                  autoFocus
+                  maxLength={6}
+                  value={liveOtpInput}
+                  onChange={(e) => {
+                    setLiveOtpInput(e.target.value.replace(/\D/g, ''))
+                    setLiveOtpError('')
+                  }}
+                  placeholder="000000"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-center font-mono text-2xl font-bold tracking-widest text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate('my-lottery')}
+                >
+                  Quay lại
+                </Button>
+                <Button
+                  type="submit"
+                  variant="accent"
+                  size="sm"
+                  disabled={liveOtpBusy || liveOtpInput.length < 6}
+                >
+                  {liveOtpBusy ? 'Đang kết nối…' : 'Xác nhận và vào sảnh'}
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       )}

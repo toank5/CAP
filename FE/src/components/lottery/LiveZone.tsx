@@ -30,23 +30,24 @@ export const LiveZone: React.FC<Props> = ({
   const total = Math.max(0, rawTotal)
   const drawn = Math.min(rawDrawn, total)
   const remaining = Math.max(0, total - drawn)
-  const pct = total > 0 ? Math.min(100, Math.round((drawn / total) * 100)) : 0
+  const isOutOfUnits = total > 0 && remaining <= 0
+  const pct = total > 0 ? Math.round((drawn / total) * 100) : 0
 
   const handleDrawWithEffects = () => {
-    if (busy || !onDrawNext || remaining === 0) return
+    if (busy || !onDrawNext || isOutOfUnits) return
     setIsSpinningLocal(true)
     lotteryAudio.playSpin()
 
+    onDrawNext()
+
     setTimeout(() => {
       lotteryAudio.playBallDrop()
-    }, 450)
+    }, 500)
 
     setTimeout(() => {
       lotteryAudio.playWinnerFanfare()
       setIsSpinningLocal(false)
-    }, 900)
-
-    onDrawNext()
+    }, 1200)
   }
 
   const isLive = sessionStatus === 'Live'
@@ -95,13 +96,18 @@ export const LiveZone: React.FC<Props> = ({
 
           <Badge
             variant={isLive ? 'warning' : isFinished ? 'success' : 'default'}
-            className="font-bold text-xs"
+            className="flex items-center gap-1.5 font-bold text-xs"
           >
-            {isLive && '🔴 Đang trực tiếp'}
-            {isPaused && '⏸ Tạm dừng'}
-            {isLobby && '⏳ Sảnh chờ mở'}
-            {isFinished && '✓ Hoàn tất'}
-            {!sessionStatus && '⚪ Chế độ chờ'}
+            {isLive && (
+              <>
+                <span className="h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
+                Đang trực tiếp
+              </>
+            )}
+            {isPaused && 'Tạm dừng'}
+            {isLobby && 'Sảnh chờ mở'}
+            {isFinished && 'Hoàn tất'}
+            {!sessionStatus && 'Chế độ chờ'}
           </Badge>
         </div>
 

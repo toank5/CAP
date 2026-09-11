@@ -1,34 +1,60 @@
 /** Lời chú thích lịch thanh toán theo vai trò — không dùng giọng người dân cho chủ đầu tư. */
 
 export function isHousingDeveloperRole(role?: string | null): boolean {
-  return role === 'Housing Developer'
+  if (!role) {
+    role = typeof window !== 'undefined' ? (sessionStorage.getItem('userRole') || '') : ''
+  }
+  const r = (role || '').trim().toLowerCase()
+  return (
+    r === 'housing developer' ||
+    r === 'developer' ||
+    r === 'housingdeveloper' ||
+    r === 'housing_developer' ||
+    r.includes('developer') ||
+    r.includes('chủ đầu tư') ||
+    r === 'cdt'
+  )
 }
 
 export function isConstructionDeptRole(role?: string | null): boolean {
-  return role === 'Department Of Construction' || role === 'SXD Staff'
+  if (!role) {
+    role = typeof window !== 'undefined' ? (sessionStorage.getItem('userRole') || '') : ''
+  }
+  const r = (role || '').trim().toLowerCase()
+  return (
+    r === 'department of construction' ||
+    r === 'sxd staff' ||
+    r === 'sxd' ||
+    r.includes('construction') ||
+    r.includes('sở xây dựng')
+  )
 }
 
-function isStaffRole(role?: string | null): boolean {
-  return isHousingDeveloperRole(role) || isConstructionDeptRole(role) || role === 'System Administrator'
+export function isStaffRole(role?: string | null): boolean {
+  if (!role) {
+    role = typeof window !== 'undefined' ? (sessionStorage.getItem('userRole') || '') : ''
+  }
+  const r = (role || '').trim().toLowerCase()
+  return isHousingDeveloperRole(role) || isConstructionDeptRole(role) || r.includes('admin')
 }
 
 /** Chưa có lịch vì chưa gán căn. */
 export function emptyScheduleNoApartmentCopy(role?: string | null): { title: string; body: string } {
   if (isHousingDeveloperRole(role)) {
     return {
-      title: 'Chưa có lịch thanh toán',
-      body: 'Hồ sơ này chưa được gán căn nên hệ thống chưa sinh lịch. Hãy gán căn hộ cho hồ sơ; lịch sẽ được tạo theo cấu hình tiến độ bạn đã khai khi tạo dự án. Người dân đóng Đợt 1 (thanh toán lần đầu, gồm tiền đặt cọc) trước, rồi mới ký hợp đồng mua bán.',
+      title: 'Chưa phát sinh lịch thanh toán',
+      body: 'Hồ sơ này chưa được gán căn hộ cụ thể nên chưa có lịch thanh toán. Khi hồ sơ trúng bốc thăm / đủ điều kiện, hãy thực hiện bàn giao căn hộ; hệ thống sẽ tự động khởi tạo lịch thanh toán theo cấu hình đợt của dự án.',
     }
   }
   if (isStaffRole(role)) {
     return {
-      title: 'Chưa có lịch thanh toán',
-      body: 'Lịch được tạo sau khi chủ đầu tư gán căn hộ cho hồ sơ, theo cấu hình tiến độ của dự án. Người dân đóng Đợt 1 (thanh toán lần đầu, gồm tiền đặt cọc) trước khi ký hợp đồng mua bán.',
+      title: 'Chưa phát sinh lịch thanh toán',
+      body: 'Hồ sơ chưa được gán căn hộ. Lịch thanh toán sẽ được khởi tạo tự động sau khi Chủ đầu tư bàn giao căn hộ cho hồ sơ.',
     }
   }
   return {
     title: 'Chưa có lịch thanh toán',
-    body: 'Hệ thống sẽ tạo lịch theo cấu hình của chủ đầu tư sau khi chủ đầu tư gán căn hộ cho bạn. Bạn đóng Đợt 1 (thanh toán lần đầu, gồm tiền đặt cọc) trước, rồi mới ký hợp đồng mua bán.',
+    body: 'Hồ sơ đang trong quá trình xét duyệt / chờ bốc thăm. Sau khi có kết quả trúng và được Chủ đầu tư bàn giao căn hộ, hệ thống sẽ tự động hiển thị lịch thanh toán chi tiết.',
   }
 }
 
@@ -94,3 +120,4 @@ export function payStatusNotReadyError(role?: string | null): string {
   }
   return 'Hồ sơ chưa ở trạng thái cho phép thanh toán. Kiểm tra: đã được chủ đầu tư gán căn và đã đóng Đợt 1 chưa.'
 }
+

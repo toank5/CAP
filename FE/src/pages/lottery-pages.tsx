@@ -24,6 +24,7 @@ import {
   Pause,
   KeyRound,
   FileText,
+  ArrowUpCircle,
 } from 'lucide-react'
 import {
   lotteryApi,
@@ -314,16 +315,19 @@ export function LotterySessionsPage() {
     })
     try {
       const data = await housingProjectsApi.getById(project.id)
+      const dataAvailable = Number((data as Record<string, unknown>)?.availableUnits ?? project.availableUnits ?? 0)
       const apts = parseApartments(data).filter((a) => String(a.status).toUpperCase() === 'AVAILABLE')
       const fund = splitAvailableUnits(apts)
-      const fallback = Math.max(
-        Number(project.availableUnits) || 0,
-        Number(schedule?.availableUnits ?? schedule?.totalUnits) || 0,
-      )
-      const available = apts.length > 0 ? apts.length : fallback
+
+      // Số căn tối đa cho phép chính là availableUnits của dự án trong hệ thống
+      const maxLimit = dataAvailable > 0 ? dataAvailable : (Number(project.availableUnits) || (apts.length > 0 ? apts.length : 0))
+      const available = maxLimit > 0 ? maxLimit : apts.length
+      const priorityCount = Math.min(fund.priorityCount, available)
+      const standardCount = Math.max(0, available - priorityCount)
+
       setSchedFund({
-        priorityCount: fund.priorityCount,
-        standardCount: fund.standardCount,
+        priorityCount,
+        standardCount,
         available,
       })
       setSchedForm((f) => ({ ...f, totalUnits: String(available) }))
@@ -332,7 +336,7 @@ export function LotterySessionsPage() {
         Number(project.availableUnits) || 0,
         Number(schedule?.availableUnits ?? schedule?.totalUnits) || 0,
       )
-      setSchedFund({ priorityCount: 0, standardCount: 0, available: fallback })
+      setSchedFund({ priorityCount: 0, standardCount: fallback, available: fallback })
       setSchedForm((f) => ({ ...f, totalUnits: String(fallback) }))
     }
     setScheduleModalOpen(true)
@@ -354,6 +358,15 @@ export function LotterySessionsPage() {
       setSchedModalError('Thời gian bốc thăm phải ở tương lai.')
       return
     }
+    const numUnits = Number(schedForm.totalUnits)
+    if (!numUnits || numUnits <= 0) {
+      setSchedModalError('Số căn hộ bốc thăm phải lớn hơn 0.')
+      return
+    }
+    if (schedFund.available > 0 && numUnits > schedFund.available) {
+      setSchedModalError(`Số căn mở bốc thăm không được vượt số căn còn lại của dự án (${schedFund.available} căn).`)
+      return
+    }
     const iso = parsed.toISOString()
     setSchedSaving(true)
     try {
@@ -361,7 +374,7 @@ export function LotterySessionsPage() {
         lotteryDate: iso,
         lotteryLocation: schedForm.lotteryLocation.trim(),
         lotteryType: 'ONLINE',
-        totalUnits: schedFund.available > 0 ? schedFund.available : undefined,
+        totalUnits: numUnits,
         lotteryDescription: schedForm.notes.trim() || undefined,
         notes: schedForm.notes.trim() || undefined,
       })
@@ -512,8 +525,9 @@ export function LotterySessionsPage() {
             }`}
         >
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400">
-              🔴 Đang quay số / Mở sảnh
+            <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400">
+              <span className="h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
+              Đang quay số / Mở sảnh
             </p>
             <p className="mt-1 text-2xl font-black text-slate-900 dark:text-white">{stats.liveCount}</p>
             <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Phát trực tuyến công khai</p>
@@ -623,12 +637,13 @@ export function LotterySessionsPage() {
           <button
             type="button"
             onClick={() => setTab('live_group')}
-            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${tab === 'live_group'
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${tab === 'live_group'
               ? 'bg-rose-600 text-white'
               : 'bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-300'
               }`}
           >
-            🔴 Đang quay số ({stats.liveCount})
+            <span className="h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
+            Đang quay số ({stats.liveCount})
           </button>
           <button
             type="button"
@@ -638,7 +653,7 @@ export function LotterySessionsPage() {
               : 'bg-yellow-50 text-yellow-800 hover:bg-yellow-100 dark:bg-yellow-950/40 dark:text-yellow-300'
               }`}
           >
-            ⏳ Chờ duyệt lịch ({stats.awaitingCount})
+            Chờ duyệt lịch ({stats.awaitingCount})
           </button>
           <button
             type="button"
@@ -648,7 +663,7 @@ export function LotterySessionsPage() {
               : 'bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-300'
               }`}
           >
-            📅 Đã duyệt ({stats.notScheduledCount})
+            Đã duyệt ({stats.notScheduledCount})
           </button>
           {stats.projectPendingCount > 0 && (
             <button
@@ -659,7 +674,7 @@ export function LotterySessionsPage() {
                 : 'bg-amber-50 text-amber-800 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300'
                 }`}
             >
-              📋 Dự án chờ duyệt ({stats.projectPendingCount})
+              Dự án chờ duyệt ({stats.projectPendingCount})
             </button>
           )}
           <button
@@ -670,7 +685,7 @@ export function LotterySessionsPage() {
               : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300'
               }`}
           >
-            🏆 Đã công bố ({stats.finishedCount})
+            Đã công bố ({stats.finishedCount})
           </button>
         </div>
 
@@ -1196,16 +1211,28 @@ export function LotterySessionsPage() {
             />
           </FormField>
 
+          <FormField label="Số căn hộ đưa vào bốc thăm *" htmlFor="totalUnits">
+            <Input
+              id="totalUnits"
+              type="number"
+              min={1}
+              max={schedFund.available > 0 ? schedFund.available : undefined}
+              value={schedForm.totalUnits}
+              onChange={(e) => setSchedForm((f) => ({ ...f, totalUnits: e.target.value }))}
+              placeholder={`Tối đa ${schedFund.available} căn`}
+            />
+          </FormField>
+
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-200">
             <p>
               Căn ưu tiên: <strong>{schedFund.priorityCount}</strong>
               {' · '}
               Căn thường: <strong>{schedFund.standardCount}</strong>
               {' · '}
-              Tổng trống: <strong>{schedFund.available}</strong>
+              Tổng căn khả dụng của dự án: <strong>{schedFund.available}</strong>
             </p>
-            <p className="mt-2 font-semibold text-slate-900 dark:text-white">
-              Số căn hộ đưa vào bốc thăm: {schedFund.available}
+            <p className="mt-1 text-xs text-slate-500">
+              Quỹ căn mở bốc thăm tối đa là <strong>{schedFund.available} căn</strong> theo số lượng căn còn lại của dự án.
             </p>
           </div>
 
@@ -1339,7 +1366,8 @@ export function LotteryCreatePage() {
 }
 
 export function LotteryDetailPage() {
-  const projectId = loadProjectIdFromStorage()
+  const [projectId, setProjectId] = useState<string>(() => loadProjectIdFromStorage())
+  const [projectList, setProjectList] = useState<HousingProjectSummaryDto[]>([])
   const role = getRole()
   const isDev = role === 'Housing Developer'
   const isSxd = role === 'Department Of Construction'
@@ -1356,12 +1384,37 @@ export function LotteryDetailPage() {
   const [scheduleOpen, setScheduleOpen] = useState(false)
   const [schedForm, setSchedForm] = useState({
     lotteryDate: '',
-    lotteryLocation: 'Hội trường trực tuyến (demo)',
+    lotteryLocation: 'Hội trường trực tuyến & Cổng dịch vụ công',
     totalUnits: '0',
   })
   const [schedFund, setSchedFund] = useState({ priorityCount: 0, standardCount: 0, available: 0 })
   const [schedModalError, setSchedModalError] = useState('')
   const connectionRef = useRef<import('@microsoft/signalr').HubConnection | null>(null)
+
+  // Tải danh sách tất cả các dự án hợp lệ để hỗ trợ chuyển đổi nhanh
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const data = await housingProjectsApi.list({ pageIndex: 1, pageSize: 50 })
+        const raw = data && typeof data === 'object' ? (data as Record<string, unknown>) : {}
+        const list = (raw.items ?? raw.Items ?? []) as HousingProjectSummaryDto[]
+        const valid = list.filter((p) => !/REJECTED|TỪ CHỐI/.test(String(p.status ?? '').toUpperCase()))
+        if (!cancelled) {
+          setProjectList(valid)
+          if (!projectId && valid.length > 0) {
+            setProjectId(valid[0].id)
+            persistProjectId(valid[0].id)
+          }
+        }
+      } catch {
+        // ignore
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const reload = async (opts?: { quiet?: boolean }) => {
     if (!projectId) return
@@ -1391,17 +1444,22 @@ export function LotteryDetailPage() {
       }
       try {
         const projectData = await housingProjectsApi.getById(projectId)
+        const dataAvailable = Number((projectData as Record<string, unknown>)?.availableUnits ?? 0)
         const apts = parseApartments(projectData).filter((a) => String(a.status).toUpperCase() === 'AVAILABLE')
         const fund = splitAvailableUnits(apts)
-        const fallback = Number(sched?.availableUnits ?? sched?.totalUnits) || 0
+        const maxLimit = dataAvailable > 0 ? dataAvailable : (apts.length > 0 ? apts.length : Number(sched?.totalUnits || 0))
+        const available = maxLimit > 0 ? maxLimit : apts.length
+        const priorityCount = Math.min(fund.priorityCount, available)
+        const standardCount = Math.max(0, available - priorityCount)
+
         setSchedFund({
-          priorityCount: fund.priorityCount,
-          standardCount: fund.standardCount,
-          available: apts.length > 0 ? apts.length : fallback,
+          priorityCount,
+          standardCount,
+          available,
         })
       } catch {
         const fallback = Number(sched?.availableUnits ?? sched?.totalUnits) || 0
-        setSchedFund({ priorityCount: 0, standardCount: 0, available: fallback })
+        setSchedFund({ priorityCount: 0, standardCount: fallback, available: fallback })
       }
     } catch (err) {
       if (!opts?.quiet) setError(formatError(err))
@@ -1512,8 +1570,73 @@ export function LotteryDetailPage() {
   const phase = getLotteryPhase(schedule)
   const stepIdx = phaseStepIndex(phase)
   const sxdOnline = schedule?.sxdOnlineCount ?? 0
-  const winners = result?.winners ?? []
-  const totalUnits = schedule?.totalUnits ?? result?.totalUnits ?? 0
+  const effectiveTotalUnits = Number(schedFund.available || schedule?.totalUnits || result?.totalUnits || 2)
+  const rawWinners = result?.winners ?? []
+  const winners = rawWinners.slice(0, effectiveTotalUnits > 0 ? effectiveTotalUnits : 2)
+  const totalUnits = effectiveTotalUnits
+
+  const computeDisplayWaitlist = (): WaitlistEntryDto[] => {
+    const map = new Map<string, WaitlistEntryDto>()
+    const winnerIds = new Set(winners.map((w) => w.applicationId))
+
+    // 1. Nguồn từ API waitlist
+    waitlist.forEach((w) => {
+      if (!winnerIds.has(w.applicationId)) {
+        map.set(w.applicationId || w.citizenId, w)
+      }
+    })
+
+    // 2. Nguồn từ các hồ sơ trong rawWinners vượt quá số căn
+    rawWinners.slice(effectiveTotalUnits).forEach((w) => {
+      const key = w.applicationId || w.citizenId
+      if (!winnerIds.has(w.applicationId) && !map.has(key)) {
+        map.set(key, {
+          applicationId: w.applicationId,
+          applicantName: w.applicantName,
+          citizenId: w.citizenId,
+          waitlistRank: map.size + 1,
+          status: 'WAITLIST',
+        })
+      }
+    })
+
+      // 3. Nguồn từ losers trong kết quả
+      ; (result?.losers ?? []).forEach((w) => {
+        const key = w.applicationId || w.citizenId
+        if (!winnerIds.has(w.applicationId) && !map.has(key)) {
+          map.set(key, {
+            applicationId: w.applicationId,
+            applicantName: w.applicantName,
+            citizenId: w.citizenId,
+            waitlistRank: map.size + 1,
+            status: 'WAITLIST',
+          })
+        }
+      })
+
+    // 4. Nguồn từ eligible chưa trúng
+    eligible.forEach((e) => {
+      const key = e.applicationId || e.citizenId
+      if (!winnerIds.has(e.applicationId) && !map.has(key)) {
+        map.set(key, {
+          applicationId: e.applicationId,
+          applicantName: e.applicantName,
+          citizenId: e.citizenId,
+          score: e.priorityScore,
+          waitlistRank: map.size + 1,
+          status: 'WAITLIST',
+        })
+      }
+    })
+
+    const arr = Array.from(map.values())
+    return arr.map((item, idx) => ({
+      ...item,
+      waitlistRank: idx + 1,
+    }))
+  }
+
+  const displayWaitlist = computeDisplayWaitlist()
 
   const openScheduleModal = () => {
     const next = new Date(Date.now() + 86400000)
@@ -1523,7 +1646,7 @@ export function LotteryDetailPage() {
     setSchedModalError('')
     setSchedForm({
       lotteryDate: local,
-      lotteryLocation: schedule?.lotteryLocation || 'Hội trường trực tuyến (demo)',
+      lotteryLocation: schedule?.lotteryLocation || 'Hội trường trực tuyến & Cổng dịch vụ công',
       totalUnits: String(schedFund.available),
     })
     setScheduleOpen(true)
@@ -1545,13 +1668,22 @@ export function LotteryDetailPage() {
       setSchedModalError('Thời gian bốc thăm phải ở tương lai.')
       return
     }
+    const numUnits = Number(schedForm.totalUnits)
+    if (!numUnits || numUnits <= 0) {
+      setSchedModalError('Số căn hộ bốc thăm phải lớn hơn 0.')
+      return
+    }
+    if (schedFund.available > 0 && numUnits > schedFund.available) {
+      setSchedModalError(`Số căn mở bốc thăm không được vượt số căn còn lại của dự án (${schedFund.available} căn).`)
+      return
+    }
     setBusy('Lên lịch')
     try {
       await lotteryApi.schedule(projectId, {
         lotteryDate: parsed.toISOString(),
         lotteryLocation: schedForm.lotteryLocation.trim(),
         lotteryType: 'ONLINE',
-        totalUnits: schedFund.available > 0 ? schedFund.available : undefined,
+        totalUnits: numUnits,
       })
       setScheduleOpen(false)
       setMsg({ type: 'success', text: 'Lên lịch thành công.' })
@@ -1589,9 +1721,34 @@ export function LotteryDetailPage() {
       <PageHeader routeId="lottery-detail" />
       <LotteryStaffTabs current="steps" />
       <PageCard className="space-y-6 p-6">
-        <Button variant="ghost" className="mb-2" onClick={() => navigate('lottery-sessions')}>
-          ← Danh sách dự án
-        </Button>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-2 pb-3 border-b border-slate-200/80 dark:border-slate-800">
+          <Button variant="ghost" size="sm" onClick={() => navigate('lottery-sessions')}>
+            ← Danh sách dự án
+          </Button>
+
+          {projectList.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                🏢 Dự án đang thao tác:
+              </span>
+              <select
+                value={projectId}
+                onChange={(e) => {
+                  const newId = e.target.value
+                  setProjectId(newId)
+                  persistProjectId(newId)
+                }}
+                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-indigo-900 shadow-xs focus:border-indigo-500 focus:outline-hidden dark:border-slate-700 dark:bg-slate-800 dark:text-indigo-200"
+              >
+                {projectList.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.projectName} ({p.id.slice(0, 8).toUpperCase()})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
 
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -1827,7 +1984,7 @@ export function LotteryDetailPage() {
             {phase === 'finished' && (
               <>
                 <Alert variant="info">
-                  Phiên Finished — chỉ Sở được <strong>Công bố</strong> kết quả / biên bản.
+                  Phiên bốc thăm đã kết thúc — chỉ Sở Xây dựng có thẩm quyền <strong>Công bố</strong> kết quả / biên bản.
                 </Alert>
                 <div className="flex flex-wrap gap-2">
                   <Button variant="accent" disabled={!!busy} onClick={() => action('Công bố', () => lotteryApi.publishSession(projectId))}>
@@ -1849,59 +2006,59 @@ export function LotteryDetailPage() {
 
         {result && (
           <div className="grid gap-3 sm:grid-cols-4">
-            <Stat label="Tổng tham gia" value={result.allEntries?.length ?? eligible.length} icon={<Users className="h-4 w-4" />} />
-            <Stat label="Trúng" value={winners.length} tone="success" icon={<Trophy className="h-4 w-4" />} />
-            {(() => {
-              const losers = result.losers?.length ?? 0
-              return losers > 0 ? <Stat label="Trượt" value={losers} tone="danger" /> : null
-            })()}
-            {totalUnits > 0 && <Stat label="Căn" value={totalUnits} tone="warning" />}
+            <Stat label="Tổng tham gia" value={result.allEntries?.length ?? eligible.length ?? (winners.length + displayWaitlist.length)} icon={<Users className="h-4 w-4" />} />
+            <Stat label="Trúng quyền mua" value={winners.length} tone="success" icon={<Trophy className="h-4 w-4" />} />
+            <Stat label="Danh sách dự bị" value={displayWaitlist.length} tone="warning" icon={<Clock className="h-4 w-4" />} />
+            {totalUnits > 0 && <Stat label="Quỹ căn" value={totalUnits} />}
           </div>
         )}
 
         {result && winners.length > 0 && (
           <div>
-            <h3 className="mb-3 font-semibold">Danh sách trúng ({winners.length})</h3>
+            <h3 className="mb-3 font-semibold flex items-center gap-2">
+              🏆 Danh sách trúng ({winners.length})
+              <span className="text-xs font-normal text-slate-500">({totalUnits} căn hộ theo quyết định phê duyệt)</span>
+            </h3>
             <div className="grid gap-2">
-              {winners.map((w, i) => (
-                <div key={w.applicationId} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-emerald-200 bg-emerald-50/40 p-3 text-sm dark:border-emerald-800 dark:bg-emerald-950/30">
-                  <div>
-                    <p className="font-medium">{w.applicantName}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">CCCD: {w.citizenId}</p>
+              {winners.map((w, i) => {
+                const isPriority = w.lotteryResult === 'PRIORITY_WON' || (w.priorityGroup && w.priorityGroup !== 'None') || (i === 0 && schedFund.priorityCount > 0)
+                return (
+                  <div key={w.applicationId} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-emerald-200 bg-emerald-50/40 p-3 text-sm dark:border-emerald-800 dark:bg-emerald-950/30">
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200">
+                        {i === 0 ? '🥇' : i === 1 ? '🥈' : `#${i + 1}`}
+                      </span>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold">{w.applicantName}</p>
+                          {isPriority ? (
+                            <Badge variant="warning" className="text-[10px]">⭐ Cấp ưu tiên</Badge>
+                          ) : (
+                            <Badge variant="success" className="text-[10px]">🎲 Bốc thăm trúng</Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          CCCD: {w.citizenId} {w.slotCode ? `· Suất căn: ${w.slotCode}` : `· Căn hộ #${i + 1}`}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <Badge variant="success">Trúng #{i + 1}</Badge>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <Badge variant="success">Trúng #{i + 1}</Badge>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {result && (result.losers?.length ?? 0) > 0 && (
-          <div>
-            <h3 className="mb-3 font-semibold">Danh sách không trúng ({result.losers!.length})</h3>
-            <div className="grid gap-2">
-              {result.losers!.map((w, i) => (
-                <div key={w.applicationId} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50/40 p-3 text-sm dark:border-amber-800 dark:bg-amber-950/30">
-                  <div>
-                    <p className="font-medium">{w.applicantName}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">CCCD: {w.citizenId}</p>
-                  </div>
-                  <Badge variant="warning">Danh sách dự bị #{i + 1} — không hủy hồ sơ</Badge>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         )}
 
         {/* Danh sách dự bị (Waitlist) */}
-        {waitlist.length > 0 && (
+        {displayWaitlist.length > 0 && (
           <div className="space-y-3 rounded-xl border border-indigo-200 bg-indigo-50/40 p-4 dark:border-indigo-800 dark:bg-indigo-950/20">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className="font-bold text-indigo-950 dark:text-indigo-100">
-                  📋 Danh sách dự bị ({waitlist.length} ứng viên)
+                  📋 Danh sách dự bị ({displayWaitlist.length} ứng viên)
                 </h3>
                 <p className="text-xs text-indigo-800 dark:text-indigo-300">
                   Không trúng không bị hủy. Xếp hạng #1, #2, #3… Khi căn trả lại do hủy hợp đồng hoặc không nộp cọc, hệ thống đôn người đứng đầu — hạn xác nhận {WAITLIST_CONFIRM_HOURS_DEFAULT} giờ, không mở lại đợt bốc thăm.
@@ -1912,18 +2069,19 @@ export function LotteryDetailPage() {
                 <Button
                   variant="accent"
                   size="sm"
-                  disabled={!!busy || waitlist.length === 0}
+                  disabled={!!busy || displayWaitlist.length === 0}
                   onClick={() => {
                     void action('Đôn ứng viên danh sách dự bị', () => lotteryApi.promoteWaitlist(projectId))
                   }}
                 >
-                  🚀 Đôn thủ công người #1 (BE cũng tự đôn khi trả căn)
+                  <ArrowUpCircle className="mr-1.5 h-4 w-4" />
+                  Đôn thủ công người #1 (Hệ thống tự động đôn khi có người trả căn)
                 </Button>
               )}
             </div>
 
             <div className="grid gap-2 pt-2">
-              {waitlist.map((w, i) => (
+              {displayWaitlist.map((w, i) => (
                 <div
                   key={w.applicationId || i}
                   className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-indigo-100 bg-white p-3 text-sm shadow-xs dark:border-indigo-900 dark:bg-slate-900/60"
@@ -1969,7 +2127,7 @@ export function LotteryDetailPage() {
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h3 className="font-semibold">Danh sách đủ điều kiện ({eligible.length})</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Tự động từ hồ sơ APPROVED / APPROVED_BY_TIMEOUT — không cần xác nhận tay.
+                Tự động tổng hợp từ hồ sơ Đã duyệt / Duyệt tự động (quá hạn thẩm định) — không cần xác nhận tay.
               </p>
             </div>
             <div className="grid gap-2">
@@ -2009,12 +2167,25 @@ export function LotteryDetailPage() {
               onChange={(e) => setSchedForm((f) => ({ ...f, lotteryLocation: e.target.value }))}
             />
           </FormField>
+          <FormField label="Số căn hộ đưa vào bốc thăm *" htmlFor="detailTotalUnits">
+            <Input
+              id="detailTotalUnits"
+              type="number"
+              min={1}
+              max={schedFund.available > 0 ? schedFund.available : undefined}
+              value={schedForm.totalUnits}
+              onChange={(e) => setSchedForm((f) => ({ ...f, totalUnits: e.target.value }))}
+              placeholder={`Tối đa ${schedFund.available} căn`}
+            />
+          </FormField>
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-200">
-            Căn ưu tiên: <strong>{schedFund.priorityCount}</strong>
-            {' · '}Căn thường: <strong>{schedFund.standardCount}</strong>
-            {' · '}Tổng trống: <strong>{schedFund.available}</strong>
-            <p className="mt-2 font-semibold text-slate-900 dark:text-white">
-              Số căn hộ mở bốc thăm: {schedFund.available}
+            <p>
+              Căn ưu tiên: <strong>{schedFund.priorityCount}</strong>
+              {' · '}Căn thường: <strong>{schedFund.standardCount}</strong>
+              {' · '}Tổng căn khả dụng của dự án: <strong>{schedFund.available}</strong>
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              Quỹ căn mở bốc thăm tối đa là <strong>{schedFund.available} căn</strong> theo số lượng căn còn lại của dự án.
             </p>
           </div>
           {schedModalError && <Alert variant="error">{schedModalError}</Alert>}
@@ -2068,21 +2239,19 @@ export function LotteryLobbyPage() {
     try {
       if (isApplicant) {
         if (otp.length < 6) {
-          setMsg({ type: 'error', text: 'Vui lòng nhập đủ 6 số mã vào sảnh.' })
+          setMsg({ type: 'error', text: 'Vui lòng nhập đủ 6 chữ số mã vào sảnh.' })
           setBusy(false)
           return
         }
         await lotteryApi.verifyOtp(projectId, otp)
-        // Cache OTP theo projectId để LotteryLivePage dùng lại khi Applicant
-        // vào xem tiếp (qua "Xem sảnh Live" ở my-lottery hay tab mới) — không
-        // cần nhập lại OTP. TTL: tới khi phiên kết thúc / BE từ chối join.
         sessionStorage.setItem(`lotteryLobbyOtp:${projectId}`, otp)
       }
       await stopLotteryHub(connectionRef.current)
       await connectLotteryHub(projectId, isApplicant ? otp : undefined, {})
-      connectionRef.current = null // lobby page just verifies; live page handles Hub
+      connectionRef.current = null
       setJoined(true)
-      setMsg({ type: 'success', text: 'Xác thực thành công.' })
+      setMsg({ type: 'success', text: 'Xác thực thành công. Đang chuyển vào trường quay…' })
+      setTimeout(() => navigate('lottery-live'), 400)
     } catch (err) {
       setMsg({ type: 'error', text: formatError(err) })
     } finally {
@@ -2096,8 +2265,8 @@ export function LotteryLobbyPage() {
         <PageHeader routeId="lottery-lobby" />
         <PageCard className="p-6">
           <Alert variant="info">Vui lòng chọn dự án bốc thăm trước.</Alert>
-          <Button className="mt-3" variant="outline" onClick={() => navigate('lottery-sessions')}>
-            ← Danh sách dự án bốc thăm
+          <Button className="mt-3" variant="outline" onClick={() => navigate(isApplicant ? 'my-lottery' : 'lottery-sessions')}>
+            ← {isApplicant ? 'Danh sách bốc thăm của tôi' : 'Danh sách dự án bốc thăm'}
           </Button>
         </PageCard>
       </div>
@@ -2109,9 +2278,9 @@ export function LotteryLobbyPage() {
       <PageHeader routeId="lottery-lobby" />
       <PageCard className="space-y-4 p-6">
         <Alert variant="info">
-          Nhập <strong>mã vào sảnh 6 số</strong> từ thông báo sau khi Sở phê duyệt lịch để vào sảnh theo dõi.
-          Cán bộ chủ đầu tư / Sở Xây dựng vào trực tiếp không cần mã.
-          Bạn chỉ theo dõi — không tự bốc.
+          Nhập <strong>mã vào sảnh gồm 6 chữ số</strong> từ thông báo sau khi Sở Xây dựng phê duyệt lịch để vào theo dõi.
+          Cán bộ Chủ đầu tư / Sở Xây dựng vào trực tiếp không cần mã.
+          Người dân tham gia theo dõi tiến trình quay số trực tiếp.
         </Alert>
         {msg && (
           <Alert variant={msg.type === 'error' ? 'error' : msg.type === 'info' ? 'info' : 'success'}>
@@ -2119,10 +2288,12 @@ export function LotteryLobbyPage() {
           </Alert>
         )}
         {!joined && (
-          <div className="flex flex-wrap items-end gap-2">
+          <div className="flex flex-wrap items-end gap-3">
             {isApplicant && (
               <div>
-                <label className="mb-1 block text-xs text-slate-500 dark:text-slate-400">Mã vào sảnh 6 số (trong thông báo hoặc trang Bốc thăm của tôi)</label>
+                <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">
+                  Mã vào sảnh 6 chữ số (xem trong thông báo hoặc phiếu hẹn)
+                </label>
                 <input
                   className="rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-lg tracking-widest text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500"
                   value={otp}
@@ -2133,17 +2304,14 @@ export function LotteryLobbyPage() {
               </div>
             )}
             <Button variant="accent" disabled={busy || (isApplicant && otp.length < 6)} onClick={() => void join()}>
-              {busy ? 'Đang xác thực…' : isApplicant ? 'Xác nhận mã vào sảnh' : 'Vào sảnh (cán bộ)'}
+              {busy ? 'Đang xác thực…' : isApplicant ? 'Xác nhận và vào trường quay' : 'Vào sảnh giám sát'}
             </Button>
           </div>
         )}
         {joined && (
           <div className="space-y-3">
             <Alert variant="success">
-              Xác thực thành công.
-              {!isApplicant
-                ? ' Bạn là Cán bộ — có thể giám sát trực tiếp khi vào trường quay.'
-                : ' Mở trường quay để theo dõi kết quả bốc thăm trực tuyến.'}
+              Xác thực thành công. Đang kết nối trực tiếp với trường quay…
             </Alert>
             <div className="flex flex-wrap gap-2">
               <Button variant="accent" onClick={() => navigate('lottery-live')}>

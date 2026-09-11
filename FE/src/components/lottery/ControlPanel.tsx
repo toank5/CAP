@@ -16,6 +16,9 @@ import {
   Check,
   AlertTriangle,
   ArrowRight,
+  Sliders,
+  Radio,
+  CheckCircle2,
 } from 'lucide-react'
 import { navigate } from '@/hooks/useHashRoute'
 
@@ -56,13 +59,15 @@ export const ControlPanel: React.FC<Props> = ({
           Bàn Điều Khiển Sẵn Sàng
         </h3>
         <p className="mx-auto mt-1 max-w-md text-xs text-slate-500">
-          Chưa chọn phiên bốc thăm nào. Vui lòng chọn một dự án từ menu phía trên hoặc vào Trung tâm Quản lý Bốc thăm để mở sảnh điều hành.
+          {isApplicant
+            ? 'Chưa chọn phiên bốc thăm nào. Vui lòng chọn dự án từ menu phía trên hoặc quay lại danh sách bốc thăm của bạn.'
+            : 'Chưa chọn phiên bốc thăm nào. Vui lòng chọn một dự án từ menu phía trên hoặc vào Trung tâm Quản lý Bốc thăm để mở sảnh điều hành.'}
         </p>
         <button
-          onClick={() => navigate('lottery-sessions')}
+          onClick={() => navigate(isApplicant ? 'my-lottery' : 'lottery-sessions')}
           className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700 transition-all cursor-pointer shadow-xs"
         >
-          Đến Trung tâm Quản lý Bốc thăm
+          {isApplicant ? 'Về Bốc thăm của tôi' : 'Đến Trung tâm Quản lý Bốc thăm'}
           <ArrowRight className="h-3.5 w-3.5" />
         </button>
       </div>
@@ -148,10 +153,10 @@ export const ControlPanel: React.FC<Props> = ({
               <button
                 disabled={!!busy}
                 onClick={() => onAction('Công bố kết quả', () => lotteryApi.publishSession(projectId))}
-                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 px-4 py-2.5 text-xs font-black text-white shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
+                className="flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition-all cursor-pointer"
               >
                 <Send className="h-4 w-4" />
-                📢 CÔNG BỐ KẾT QUẢ CHÍNH THỨC
+                Công bố kết quả chính thức
               </button>
               <button
                 onClick={() => void lotteryApi.downloadMinutesBlob(projectId)}
@@ -174,7 +179,7 @@ export const ControlPanel: React.FC<Props> = ({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <div className="flex items-center gap-2">
-            <span className="text-lg">🎮</span>
+            <Sliders className="h-5 w-5 text-amber-600" />
             <h3 className="text-sm font-black uppercase tracking-wider text-slate-900">
               Bàn Điều Khiển Chủ Đầu Tư
             </h3>
@@ -200,7 +205,7 @@ export const ControlPanel: React.FC<Props> = ({
             </div>
             <button
               onClick={() => copyCode(session.joinCode || '')}
-              className="flex items-center gap-1 rounded-xl bg-amber-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-700 shadow-xs"
+              className="flex items-center gap-1 rounded-xl bg-amber-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-700 shadow-xs cursor-pointer"
             >
               {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
               {copied ? 'Đã sao chép' : 'Sao chép mã'}
@@ -224,10 +229,10 @@ export const ControlPanel: React.FC<Props> = ({
             <button
               disabled={!!busy}
               onClick={() => onAction('Mở sảnh chờ', () => lotteryApi.openLobby(projectId))}
-              className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-3 text-xs font-black text-white shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
+              className="flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-5 py-2.5 text-xs font-bold text-white shadow-sm transition-all cursor-pointer"
             >
               <Play className="h-4 w-4" />
-              ▶ MỞ SẢNH CHỜ TRỰC TUYẾN
+              Mở sảnh chờ trực tuyến
             </button>
           )}
 
@@ -235,10 +240,10 @@ export const ControlPanel: React.FC<Props> = ({
             <button
               disabled={!!busy || sxdCount === 0}
               onClick={() => onAction('Bắt đầu quay số', () => lotteryApi.startLive(projectId))}
-              className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-600 to-green-600 px-5 py-3 text-xs font-black text-white shadow-md hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
+              className="flex items-center gap-2 rounded-xl bg-rose-600 hover:bg-rose-700 px-5 py-2.5 text-xs font-bold text-white shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
             >
-              <Sparkles className="h-4 w-4" />
-              🔴 BẮT ĐẦU QUAY SỐ TRỰC TIẾP
+              <Radio className="h-4 w-4 animate-pulse" />
+              Bắt đầu quay số trực tiếp
             </button>
           )}
 
@@ -248,16 +253,16 @@ export const ControlPanel: React.FC<Props> = ({
                 <button
                   disabled={!!busy || sxdCount === 0}
                   onClick={onRunBatch}
-                  className="flex items-center gap-1.5 rounded-2xl border-2 border-indigo-200 bg-white px-4 py-2.5 text-xs font-bold text-indigo-700 hover:bg-indigo-50 transition-all cursor-pointer shadow-xs"
+                  className="flex items-center gap-1.5 rounded-xl border border-indigo-300 bg-indigo-50 px-4 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-100 transition-all cursor-pointer shadow-xs"
                 >
-                  <Zap className="h-3.5 w-3.5 text-amber-500" />
+                  <Zap className="h-3.5 w-3.5 text-indigo-600" />
                   Chạy tự động
                 </button>
               )}
               <button
                 disabled={!!busy}
                 onClick={() => onAction('Tạm dừng', () => lotteryApi.pauseSession(projectId))}
-                className="flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer shadow-xs"
+                className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer shadow-xs"
               >
                 <Pause className="h-3.5 w-3.5 text-amber-600" />
                 Tạm dừng phiên
@@ -265,10 +270,10 @@ export const ControlPanel: React.FC<Props> = ({
               <button
                 disabled={!!busy || sxdCount === 0}
                 onClick={() => onAction('Kết thúc phiên', () => lotteryApi.finishSession(projectId))}
-                className="flex items-center gap-1.5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition-all cursor-pointer shadow-xs"
+                className="flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 transition-all cursor-pointer shadow-xs"
               >
                 <Square className="h-3.5 w-3.5 text-rose-600" />
-                ⏹ Kết thúc phiên
+                Kết thúc phiên
               </button>
             </>
           )}
@@ -278,15 +283,15 @@ export const ControlPanel: React.FC<Props> = ({
               <button
                 disabled={!!busy || sxdCount === 0}
                 onClick={() => onAction('Tiếp tục quay số', () => lotteryApi.resumeSession(projectId))}
-                className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-600 to-green-600 px-5 py-2.5 text-xs font-black text-white shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
+                className="flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-5 py-2.5 text-xs font-bold text-white shadow-sm transition-all cursor-pointer"
               >
                 <Play className="h-4 w-4" />
-                ▶ TIẾP TỤC TRỰC TIẾP
+                Tiếp tục quay số
               </button>
               <button
                 disabled={!!busy}
                 onClick={() => onAction('Kết thúc phiên', () => lotteryApi.finishSession(projectId))}
-                className="flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer shadow-xs"
+                className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer shadow-xs"
               >
                 <Square className="h-3.5 w-3.5 text-rose-600" />
                 Kết thúc phiên
@@ -296,13 +301,15 @@ export const ControlPanel: React.FC<Props> = ({
 
           {phase === 'finished' && (
             <div className="flex items-center gap-2 text-xs font-bold text-emerald-700">
-              ✓ Phiên đã hoàn tất. Đang chờ Sở Xây dựng công bố chính thức.
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              Phiên đã hoàn tất. Đang chờ Sở Xây dựng công bố chính thức.
             </div>
           )}
 
           {phase === 'published' && (
             <div className="flex items-center gap-2 text-xs font-bold text-emerald-700">
-              ✅ Kết quả phiên bốc thăm đã được Sở Xây dựng công bố chính thức.
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              Kết quả phiên bốc thăm đã được Sở Xây dựng công bố chính thức.
             </div>
           )}
         </div>

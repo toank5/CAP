@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Calendar, ExternalLink, Sparkles, Trophy } from 'lucide-react'
+import { ArrowRight, Calendar, ExternalLink, KeyRound, Sparkles, Trophy, X } from 'lucide-react'
 import {
   lotteryApi,
   LOTTERY_STATUS_LABEL,
@@ -36,6 +36,14 @@ export function MyLotteryPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [info, setInfo] = useState('')
+  const [verifyModal, setVerifyModal] = useState<{
+    open: boolean
+    projectId: string
+    projectName: string
+    code: string
+    error?: string
+    busy?: boolean
+  } | null>(null)
 
   const loadPublicLive = async () => {
     setPublicLoading(true)
@@ -126,20 +134,58 @@ export function MyLotteryPage() {
     void loadPublicLive()
   }, [])
 
-  const enterLobby = (projectId: string) => {
+  const joinLiveStudio = async (projectId: string, defaultCode?: string | null, projectName?: string) => {
     sessionStorage.setItem('lotteryProjectId', projectId)
-    navigate('lottery-lobby')
-  }
-
-  const watchLive = (projectId: string) => {
-    sessionStorage.setItem('lotteryProjectId', projectId)
-    // Applicant: OTP đã verify được cache ở sessionStorage khi qua lottery-lobby.
-    // Nếu chưa có (lần đầu hoặc cache hết hạn), đá về lobby để nhập lại.
-    if (getRole() === 'Applicant' && !sessionStorage.getItem(`lotteryLobbyOtp:${projectId}`)) {
-      navigate('lottery-lobby')
+    const role = getRole()
+    if (role !== 'Applicant') {
+      navigate('lottery-live')
       return
     }
-    navigate('lottery-live')
+
+    const cachedOtp = sessionStorage.getItem(`lotteryLobbyOtp:${projectId}`)
+    if (cachedOtp) {
+      navigate('lottery-live')
+      return
+    }
+
+    // Nếu đã có sẵn mã vào sảnh từ cấu hình phiên, thử xác thực tự động
+    if (defaultCode && defaultCode.length >= 6) {
+      try {
+        await lotteryApi.verifyOtp(projectId, defaultCode)
+        sessionStorage.setItem(`lotteryLobbyOtp:${projectId}`, defaultCode)
+        navigate('lottery-live')
+        return
+      } catch {
+        // Mở modal nếu tự động chưa khớp
+      }
+    }
+
+    setVerifyModal({
+      open: true,
+      projectId,
+      projectName: projectName || 'Dự án bốc thăm',
+      code: defaultCode || '',
+    })
+  }
+
+  const handleVerifySubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!verifyModal || verifyModal.busy) return
+    const { projectId, code } = verifyModal
+    if (!code || code.length < 6) {
+      setVerifyModal((p) => (p ? { ...p, error: 'Vui lòng nhập đủ 6 chữ số mã vào sảnh.' } : p))
+      return
+    }
+
+    setVerifyModal((p) => (p ? { ...p, busy: true, error: undefined } : p))
+    try {
+      await lotteryApi.verifyOtp(projectId, code)
+      sessionStorage.setItem(`lotteryLobbyOtp:${projectId}`, code)
+      setVerifyModal(null)
+      navigate('lottery-live')
+    } catch (err) {
+      setVerifyModal((p) => (p ? { ...p, busy: false, error: formatError(err) } : p))
+    }
   }
 
   const myOwnResult = (row: Row) => {
@@ -203,7 +249,7 @@ export function MyLotteryPage() {
             </div>
             <p className="mb-3 text-xs text-amber-800 dark:text-amber-300">
               Theo Điều 36 Nghị định số 100 năm 2024 của Chính phủ, người dân được theo dõi trực tiếp phiên bốc thăm công khai.
-              Bấm <strong>Vào sảnh</strong> để nhập mã vào sảnh — hệ thống sẽ đưa bạn vào sảnh quay số.
+              Bấm <strong>Vào xem trực tiếp</strong> để kết nối trường quay quay số.
             </p>
             <div className="grid gap-2">
               {publicLive.map((sd) => {
@@ -239,10 +285,10 @@ export function MyLotteryPage() {
                       <Button
                         variant="accent"
                         size="sm"
-                        onClick={() => enterLobby(sd.projectId)}
+                        onClick={() => void joinLiveStudio(sd.projectId, sd.joinCode, sd.projectName)}
                       >
-                        <ExternalLink className="mr-1.5 h-4 w-4" />
-                        Vào sảnh (nhập mã)
+                        <Sparkles className="mr-1.5 h-4 w-4" />
+                        Vào xem trực tiếp
                       </Button>
                     </div>
                   </div>
@@ -259,6 +305,7 @@ export function MyLotteryPage() {
               const phase = row.schedule?.status ?? 'NOT_SCHEDULED'
               const isFinished = phase === 'Finished' || phase === 'Published' || phase === 'FINISHED'
               const isLive = phase === 'Live' || phase === 'RUNNING'
+              const isLobby = phase === 'WaitingLobby'
               const won = isWon(row)
               const hasSlot = !!own?.slotCode
 
@@ -298,14 +345,27 @@ export function MyLotteryPage() {
                       )}
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {!isFinished && (
-                        <Button variant="accent" size="sm" onClick={() => enterLobby(row.application.projectId)}>
-                          <ExternalLink className="mr-1.5 h-4 w-4" />
-                          Vào sảnh
-                        </Button>
-                      )}
-                      <Button variant="outline" size="sm" onClick={() => watchLive(row.application.projectId)}>
-                        Xem sảnh quay số
+                      <Button
+                        variant={isLive || isLobby ? 'accent' : 'outline'}
+                        size="sm"
+                        onClick={() => void joinLiveStudio(row.application.projectId, row.schedule?.joinCode, row.application.projectName)}
+                      >
+                        {isLive || isLobby ? (
+                          <>
+                            <Sparkles className="mr-1.5 h-4 w-4" />
+                            Vào xem trực tiếp
+                          </>
+                        ) : isFinished ? (
+                          <>
+                            <Trophy className="mr-1.5 h-4 w-4 text-amber-500" />
+                            Xem kết quả trường quay
+                          </>
+                        ) : (
+                          <>
+                            <ExternalLink className="mr-1.5 h-4 w-4" />
+                            Theo dõi sảnh quay số
+                          </>
+                        )}
                       </Button>
                     </div>
                   </div>
@@ -314,10 +374,10 @@ export function MyLotteryPage() {
                   {own && (
                     <div
                       className={`mt-3 rounded-lg border p-3 text-sm ${won
-                          ? 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200'
-                          : own.lotteryResult === 'LOST'
-                            ? 'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200'
-                            : 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/40'
+                        ? 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200'
+                        : own.lotteryResult === 'LOST'
+                          ? 'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200'
+                          : 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/40'
                         }`}
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -365,6 +425,84 @@ export function MyLotteryPage() {
           </div>
         )}
       </PageCard>
+
+      {/* Modal xác thực mã vào sảnh trực tiếp */}
+      {verifyModal?.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                  <KeyRound className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                    Xác thực mã vào sảnh
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{verifyModal.projectName}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setVerifyModal(null)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <p className="mt-4 text-xs text-slate-600 leading-relaxed dark:text-slate-300">
+              Nhập mã vào sảnh gồm 6 chữ số (xem trong thông báo hoặc phiếu hẹn bốc thăm) để kết nối trực tiếp với trường quay.
+            </p>
+
+            {verifyModal.error && (
+              <Alert variant="error" className="mt-3">
+                {verifyModal.error}
+              </Alert>
+            )}
+
+            <form onSubmit={handleVerifySubmit} className="mt-4 space-y-4">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Mã vào sảnh 6 chữ số
+                </label>
+                <input
+                  type="text"
+                  autoFocus
+                  maxLength={6}
+                  value={verifyModal.code}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '')
+                    setVerifyModal((p) => (p ? { ...p, code: val, error: undefined } : p))
+                  }}
+                  placeholder="000000"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-center font-mono text-2xl font-bold tracking-widest text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setVerifyModal(null)}
+                >
+                  Hủy bỏ
+                </Button>
+                <Button
+                  type="submit"
+                  variant="accent"
+                  size="sm"
+                  disabled={verifyModal.busy || verifyModal.code.length < 6}
+                >
+                  {verifyModal.busy ? 'Đang kết nối…' : 'Vào xem trực tiếp'}
+                  <ArrowRight className="ml-1.5 h-4 w-4" />
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

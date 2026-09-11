@@ -47,6 +47,7 @@ export interface LotteryScheduleDto {
 
 export interface LotteryEligibleEntry {
   applicationId: string
+  applicationCode?: string | null
   applicantId?: string
   applicantName: string
   citizenId: string
@@ -170,13 +171,13 @@ function num(v: unknown): number {
   return Number(v) || 0
 }
 
-function maskCccd(cid: string | null | undefined): string {
+export function maskCccd(cid: string | null | undefined): string {
   if (!cid) return ''
   if (cid.length < 4) return cid
   return cid.slice(0, 3) + '****' + cid.slice(-4)
 }
 
-function parseCandidate(raw: unknown): LiveNextCandidate | null {
+export function parseCandidate(raw: unknown): LiveNextCandidate | null {
   if (!raw || typeof raw !== 'object') return null
   const o = raw as Record<string, unknown>
   const id =
@@ -184,42 +185,61 @@ function parseCandidate(raw: unknown): LiveNextCandidate | null {
     (o.ApplicationId as string) ??
     (o.applicantId as string) ??
     (o.ApplicantId as string) ??
+    (o.id as string) ??
+    (o.Id as string) ??
     ''
   if (!id) return null
   return {
     applicationId: id,
-    applicationCode: (o.applicationCode ?? o.ApplicationCode ?? null) as string | null,
-    applicantName: (o.applicantName ?? o.ApplicantName ?? null) as string | null,
-    citizenId: (o.citizenId ?? o.CitizenId ?? null) as string | null,
+    applicationCode: (o.applicationCode ?? o.ApplicationCode ?? o.code ?? o.Code ?? null) as string | null,
+    applicantName: (o.applicantName ?? o.ApplicantName ?? o.fullName ?? o.FullName ?? o.name ?? o.Name ?? null) as string | null,
+    citizenId: (o.citizenId ?? o.CitizenId ?? o.idCard ?? o.IdCard ?? null) as string | null,
     priorityGroup: (o.priorityGroup ?? o.PriorityGroup ?? null) as string | null,
   }
 }
 
-function parseWinner(raw: unknown): LiveWinnerEntry | null {
+export function parseWinner(raw: unknown): LiveWinnerEntry | null {
   if (!raw || typeof raw !== 'object') return null
   const o = raw as Record<string, unknown>
   const id =
     (o.applicationId as string) ??
     (o.ApplicationId as string) ??
+    (o.applicantId as string) ??
+    (o.ApplicantId as string) ??
+    (o.id as string) ??
+    (o.Id as string) ??
+    (o.code as string) ??
+    (o.applicationCode as string) ??
     ''
   if (!id) return null
+
+  const rawResult = str(o.result ?? o.Result ?? o.lotteryResult ?? o.LotteryResult ?? '')
+  const slot = (o.slotCode ?? o.SlotCode ?? o.apartmentCode ?? o.ApartmentCode ?? o.unitCode ?? o.UnitCode ?? null) as string | null
+
+  // Phân định chính xác kết quả trúng
+  const isWon = rawResult === 'WON' || rawResult === 'PRIORITY_WON' || rawResult === 'WIN' || Boolean(slot)
+  const isLost = rawResult === 'LOST' || rawResult === 'FAIL' || rawResult === 'REJECTED' || rawResult === 'WAITLIST'
+  const finalResult = isWon ? (rawResult || 'WON') : isLost ? 'LOST' : ''
+
   return {
     applicationId: id,
-    applicationCode: (o.applicationCode ?? o.ApplicationCode ?? null) as string | null,
+    applicationCode: (o.applicationCode ?? o.ApplicationCode ?? o.code ?? o.Code ?? (id.length <= 12 ? id : id.slice(0, 8))) as string | null,
     applicantName:
       (o.applicantName as string) ??
       (o.ApplicantName as string) ??
       (o.fullName as string) ??
       (o.FullName as string) ??
+      (o.name as string) ??
+      (o.Name as string) ??
       '',
     maskedCitizenId:
       (o.maskedCitizenId as string | null) ??
       (o.MaskedCitizenId as string | null) ??
-      maskCccd(o.citizenId as string | undefined ?? o.CitizenId as string | undefined),
+      maskCccd((o.citizenId as string | undefined) ?? (o.CitizenId as string | undefined) ?? (o.idCard as string | undefined) ?? (o.IdCard as string | undefined)),
     stt: num(o.stt ?? o.STT ?? o.index ?? o.Index),
-    result: str(o.result ?? o.Result ?? o.lotteryResult ?? o.LotteryResult),
-    slotCode: (o.slotCode ?? o.SlotCode ?? null) as string | null,
-    drawnAt: (o.drawnAt ?? o.DrawnAt ?? null) as string | null,
+    result: finalResult,
+    slotCode: slot,
+    drawnAt: (o.drawnAt ?? o.DrawnAt ?? o.createdAt ?? o.CreatedAt ?? null) as string | null,
     remainingUnits:
       (o.remainingUnits ?? o.RemainingUnits ?? null) as number | null,
     priorityGroup: (o.priorityGroup ?? o.PriorityGroup ?? null) as string | null,
@@ -244,13 +264,47 @@ export function parseLiveState(raw: unknown): LiveStateDto | null {
   const nested = o0.data ?? o0.Data
   const o = (nested && typeof nested === 'object' ? nested : o0) as Record<string, unknown>
 
-  const recentWinners = (
+  const rawWinners = (
     o.recentWinners ??
     o.RecentWinners ??
     o.winners ??
     o.Winners ??
-    []
-  ) as unknown[]
+    o.drawResults ??
+    o.DrawResults
+  ) as unknown[] | undefined
+
+  let winners: LiveWinnerEntry[] = []
+  if (Array.isArray(rawWinners) && rawWinners.length > 0) {
+    winners = rawWinners
+      .map(parseWinner)
+      .filter((w): w is LiveWinnerEntry => w !== null && (w.result === 'WON' || w.result === 'PRIORITY_WON' || Boolean(w.slotCode)))
+  } else {
+    const rawAll = (o.results ?? o.Results ?? o.participants ?? o.Participants ?? o.allEntries ?? o.AllEntries ?? []) as unknown[]
+    if (Array.isArray(rawAll)) {
+      winners = rawAll
+        .map(parseWinner)
+        .filter((w): w is LiveWinnerEntry => w !== null && (w.result === 'WON' || w.result === 'PRIORITY_WON' || Boolean(w.slotCode)))
+    }
+  }
+
+  const totalUnits = num(o.totalUnits ?? o.TotalUnits)
+  if (totalUnits > 0 && winners.length > totalUnits) {
+    winners = winners.slice(0, totalUnits)
+  }
+
+  const drawnUnitsCount = num(o.drawnUnitsCount ?? o.DrawnUnitsCount ?? o.drawnCount) || winners.length
+  const remainingUnits =
+    num(o.remainingUnits ?? o.RemainingUnits) ||
+    (totalUnits > 0 ? Math.max(0, totalUnits - drawnUnitsCount) : 0)
+
+  const priorityWinnersCount =
+    num(o.priorityWinnersCount ?? o.PriorityWinnersCount) ||
+    winners.filter((w) => w.result === 'PRIORITY_WON' || (w.priorityGroup && w.priorityGroup !== 'None')).length
+
+  const randomWinnersCount =
+    num(o.randomWinnersCount ?? o.RandomWinnersCount) ||
+    winners.filter((w) => w.result === 'WON' || (!w.priorityGroup || w.priorityGroup === 'None')).length
+
   const apartmentFundStats = (
     o.apartmentFundStats ??
     o.ApartmentFundStats ??
@@ -258,30 +312,34 @@ export function parseLiveState(raw: unknown): LiveStateDto | null {
     []
   ) as unknown[]
 
+  const latest =
+    parseWinner(o.latestDrawResult ?? o.LatestDrawResult ?? o.latestResult ?? o.LatestResult) ||
+    (winners.length > 0 ? winners[0] : null)
+
   return {
     projectId: str(o.projectId ?? o.ProjectId) || undefined,
     projectName: (o.projectName ?? o.ProjectName ?? null) as string | null,
     developerName: (o.developerName ?? o.DeveloperName ?? null) as string | null,
     sessionStatus: str(o.sessionStatus ?? o.SessionStatus) || undefined,
-    totalUnits: num(o.totalUnits ?? o.TotalUnits),
-    drawnUnitsCount: num(o.drawnUnitsCount ?? o.DrawnUnitsCount ?? o.drawnCount),
-    remainingUnits: num(o.remainingUnits ?? o.RemainingUnits),
+    totalUnits,
+    drawnUnitsCount,
+    remainingUnits,
     totalEligibleParticipants: num(o.totalEligibleParticipants ?? o.TotalEligibleParticipants),
     sxdOnlineCount: num(o.sxdOnlineCount ?? o.SxdOnlineCount ?? o.sxdOnline ?? o.SxdOnline),
     lobbyCount: num(o.lobbyCount ?? o.LobbyCount),
-    priorityWinnersCount: num(o.priorityWinnersCount ?? o.PriorityWinnersCount),
-    randomWinnersCount: num(o.randomWinnersCount ?? o.RandomWinnersCount),
+    priorityWinnersCount,
+    randomWinnersCount,
     undrawnParticipantsCount: num(o.undrawnParticipantsCount ?? o.UndrawnParticipantsCount),
     winRatePercentage: num(o.winRatePercentage ?? o.WinRatePercentage),
     nextCandidate: parseCandidate(o.nextCandidate ?? o.NextCandidate ?? o.candidate ?? o.Candidate),
-    latestDrawResult: parseWinner(
-      o.latestDrawResult ?? o.LatestDrawResult ?? o.latestResult ?? o.LatestResult,
-    ),
-    recentWinners: recentWinners.map(parseWinner).filter((w): w is LiveWinnerEntry => w !== null),
+    latestDrawResult: latest,
+    recentWinners: winners,
     projectApartmentFundStat: parseFund(o.projectApartmentFundStat ?? o.ProjectApartmentFundStat ?? o.totalFund ?? {}),
-    apartmentFundStats: apartmentFundStats.map(parseFund),
+    apartmentFundStats: Array.isArray(apartmentFundStats) ? apartmentFundStats.map(parseFund) : [],
   }
 }
+
+
 
 function mapSessionToUiStatus(o: Record<string, unknown>): string {
   const session = String(o.sessionStatus ?? o.SessionStatus ?? '')
@@ -534,31 +592,75 @@ export function parseLotteryResult(data: unknown): LotteryResultDto | null {
   const nested = (o.data ?? o.Data) as Record<string, unknown> | undefined
   const src = nested && typeof nested === 'object' ? nested : o
 
-  const participants = (src.participants ?? src.Participants) as
-    | Array<Record<string, unknown>>
-    | undefined
+  const rawParticipants = (
+    src.participants ??
+    src.Participants ??
+    src.results ??
+    src.Results ??
+    src.drawResults ??
+    src.DrawResults ??
+    src.allEntries ??
+    src.AllEntries ??
+    src.items ??
+    src.Items ??
+    []
+  ) as Array<Record<string, unknown>>
 
-  if (Array.isArray(participants)) {
-    const mapped = participants.map((p) => ({
-      applicationId: String(p.applicationId ?? p.ApplicationId ?? ''),
-      applicantName: String(p.fullName ?? p.FullName ?? p.applicantName ?? ''),
-      citizenId: String(p.citizenId ?? p.CitizenId ?? ''),
-      lotteryResult: String(p.result ?? p.Result ?? ''),
-      slotCode: (p.slotCode ?? p.SlotCode) as string | null,
-    }))
-    return {
-      projectId: String(src.projectId ?? src.ProjectId ?? ''),
-      drawId: src.drawId ? String(src.drawId) : src.DrawId ? String(src.DrawId) : undefined,
-      drawnAt: (src.drawnAt ?? src.DrawnAt) as string | null,
-      totalUnits: Number(src.totalUnits ?? src.TotalUnits ?? 0),
-      winners: mapped.filter((m) => m.lotteryResult === 'WON' || m.lotteryResult === 'PRIORITY_WON'),
-      losers: mapped.filter((m) => m.lotteryResult === 'LOST'),
-      allEntries: mapped,
-      participants: mapped,
-    }
+  const rawWinners = (src.winners ?? src.Winners ?? []) as Array<Record<string, unknown>>
+  const rawLosers = (src.losers ?? src.Losers ?? []) as Array<Record<string, unknown>>
+
+  const mapEntry = (p: Record<string, unknown>): LotteryEligibleEntry => ({
+    applicationId: String(p.applicationId ?? p.ApplicationId ?? p.applicantId ?? p.ApplicantId ?? p.id ?? p.Id ?? ''),
+    applicantName: String(p.fullName ?? p.FullName ?? p.applicantName ?? p.ApplicantName ?? p.name ?? p.Name ?? ''),
+    citizenId: String(p.citizenId ?? p.CitizenId ?? p.idCard ?? p.IdCard ?? ''),
+    lotteryResult: String(p.result ?? p.Result ?? p.lotteryResult ?? p.LotteryResult ?? (p.isWinner ? 'WON' : '')),
+    slotCode: (p.slotCode ?? p.SlotCode ?? p.apartmentCode ?? p.ApartmentCode ?? null) as string | null,
+    priorityGroup: (p.priorityGroup ?? p.PriorityGroup ?? null) as string | null,
+  })
+
+  let allMapped: LotteryEligibleEntry[] = []
+  if (Array.isArray(rawParticipants) && rawParticipants.length > 0) {
+    allMapped = rawParticipants.map(mapEntry)
   }
 
-  return src as unknown as LotteryResultDto
+  let mappedWinners: LotteryEligibleEntry[] = []
+  if (Array.isArray(rawWinners) && rawWinners.length > 0) {
+    mappedWinners = rawWinners.map(mapEntry)
+  } else if (allMapped.length > 0) {
+    mappedWinners = allMapped.filter((m) => m.lotteryResult === 'WON' || m.lotteryResult === 'PRIORITY_WON' || (m.slotCode && m.lotteryResult !== 'LOST'))
+  }
+
+  let mappedLosers: LotteryEligibleEntry[] = []
+  if (Array.isArray(rawLosers) && rawLosers.length > 0) {
+    mappedLosers = rawLosers.map(mapEntry)
+  } else if (allMapped.length > 0) {
+    mappedLosers = allMapped.filter((m) => m.lotteryResult === 'LOST')
+  }
+
+  const parsedTotalUnits = Number(src.totalUnits ?? src.TotalUnits ?? src.availableUnits ?? src.AvailableUnits ?? 0)
+  let finalWinners = mappedWinners
+  let finalLosers = mappedLosers
+
+  if (parsedTotalUnits > 0 && finalWinners.length > parsedTotalUnits) {
+    const excess: LotteryEligibleEntry[] = finalWinners.slice(parsedTotalUnits).map((w) => ({
+      ...w,
+      lotteryResult: 'LOST',
+      slotCode: null,
+    }))
+    finalWinners = finalWinners.slice(0, parsedTotalUnits)
+    finalLosers = [...excess, ...finalLosers]
+  }
+
+  return {
+    projectId: String(src.projectId ?? src.ProjectId ?? ''),
+    drawId: src.drawId ? String(src.drawId) : src.DrawId ? String(src.DrawId) : undefined,
+    drawnAt: (src.drawnAt ?? src.DrawnAt ?? src.runAt ?? src.RunAt) as string | null,
+    totalUnits: parsedTotalUnits,
+    winners: finalWinners,
+    losers: finalLosers,
+    allEntries: allMapped.length > 0 ? allMapped : finalWinners.concat(finalLosers),
+    participants: allMapped.length > 0 ? allMapped : finalWinners.concat(finalLosers),
+  }
 }
 
 export function parseLotterySchedule(data: unknown): LotteryScheduleDto | null {
@@ -582,9 +684,10 @@ export function parseLotterySchedule(data: unknown): LotteryScheduleDto | null {
     isLotteryApproved: (o.isLotteryApproved ?? o.IsLotteryApproved) as boolean | null,
     approvedAt: (o.lotteryApprovedAt ?? o.LotteryApprovedAt ?? o.approvedAt) as string | null,
     lotteryApprovedAt: (o.lotteryApprovedAt ?? o.LotteryApprovedAt) as string | null,
-    sessionStatus: (o.sessionStatus ?? o.SessionStatus) as string | null,
+    notes: (o.notes ?? o.Notes) as string | null,
+    sessionStatus: (o.sessionStatus ?? o.SessionStatus) as string | undefined,
     joinCode: (o.joinCode ?? o.JoinCode) as string | null,
-    sxdOnlineCount: Number(o.sxdOnlineCount ?? o.SxdOnlineCount ?? 0),
+    sxdOnlineCount: (o.sxdOnlineCount ?? o.SxdOnlineCount ?? 0) as number,
     supervisorId: (() => {
       const v = o.supervisorId ?? o.SupervisorId
       return v == null ? null : String(v)
@@ -596,13 +699,30 @@ export function parseLotterySchedule(data: unknown): LotteryScheduleDto | null {
 }
 
 export function parseEligibleList(data: unknown): LotteryEligibleEntry[] {
-  if (Array.isArray(data)) return data as LotteryEligibleEntry[]
-  if (data && typeof data === 'object') {
+  let list: unknown[] = []
+  if (Array.isArray(data)) list = data
+  else if (data && typeof data === 'object') {
     const o = data as Record<string, unknown>
-    const items = o.items ?? o.Items ?? o.data ?? o.Data
-    if (Array.isArray(items)) return items as LotteryEligibleEntry[]
+    const items = o.items ?? o.Items ?? o.data ?? o.Data ?? o.participants ?? o.Participants ?? o.eligibleParticipants
+    if (Array.isArray(items)) list = items
   }
-  return []
+  return list
+    .map((p) => {
+      if (!p || typeof p !== 'object') return { applicationId: '', applicantName: '', citizenId: '' }
+      const o = p as Record<string, unknown>
+      return {
+        applicationId: String(o.applicationId ?? o.ApplicationId ?? o.applicantId ?? o.ApplicantId ?? o.id ?? o.Id ?? ''),
+        applicantId: String(o.applicantId ?? o.ApplicantId ?? ''),
+        applicantName: String(o.applicantName ?? o.ApplicantName ?? o.fullName ?? o.FullName ?? o.name ?? o.Name ?? ''),
+        citizenId: String(o.citizenId ?? o.CitizenId ?? o.idCard ?? o.IdCard ?? ''),
+        priorityGroup: (o.priorityGroup ?? o.PriorityGroup ?? null) as string | null,
+        applicationStatus: String(o.applicationStatus ?? o.ApplicationStatus ?? o.status ?? o.Status ?? ''),
+        priorityScore: Number(o.priorityScore ?? o.PriorityScore ?? 0),
+        lotteryResult: (o.lotteryResult ?? o.LotteryResult ?? o.result ?? o.Result ?? null) as string | null,
+        slotCode: (o.slotCode ?? o.SlotCode ?? o.apartmentCode ?? o.ApartmentCode ?? null) as string | null,
+      }
+    })
+    .filter((e) => e.applicationId || e.applicantName)
 }
 
 export const parseLotterySession = parseLotteryResult

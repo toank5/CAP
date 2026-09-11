@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, FileSignature, Inbox, Sparkles } from 'lucide-react'
+import { CheckCircle2, FileSignature, Gavel, Inbox } from 'lucide-react'
 import {
   housingProjectsApi,
   parseApartments,
@@ -236,9 +236,9 @@ export function DeveloperDecisionPanel({ projectId }: { projectId: string }) {
           decisionType === 'KEEP_OPEN'
             ? undefined
             : buildAssignments(appsToAssign).map((x) => ({
-                applicationId: x.applicationId,
-                apartmentId: x.apartmentId,
-              })),
+              applicationId: x.applicationId,
+              apartmentId: x.apartmentId,
+            })),
       })
 
       if (decisionType === 'CLOSE_AND_SIGN') {
@@ -350,7 +350,7 @@ export function DeveloperDecisionPanel({ projectId }: { projectId: string }) {
               onClick={() => void execute('CLOSE_AND_SIGN')}
             >
               <FileSignature className="mr-1.5 h-4 w-4" />
-              {busy === 'CLOSE_AND_SIGN' ? 'Đang chốt…' : 'Cấp căn → ký hợp đồng'}
+              {busy === 'CLOSE_AND_SIGN' ? 'Đang chốt…' : 'Cấp căn & Chuyển ký hợp đồng'}
             </Button>
             <Button variant="outline" disabled={!!busy} onClick={() => void execute('KEEP_OPEN')}>
               <Inbox className="mr-1.5 h-4 w-4" />
@@ -400,7 +400,7 @@ export function DeveloperDecisionPanel({ projectId }: { projectId: string }) {
                 <CheckCircle2 className="mr-1.5 h-4 w-4" />
                 {busy === 'PROCESS_PRIORITY_AND_LOTTERY'
                   ? 'Đang xử lý…'
-                  : 'Cấp căn điểm cao → chuẩn bị bốc thăm'}
+                  : 'Cấp căn ưu tiên & Mở bốc thăm'}
               </Button>
             )}
             <Button
@@ -412,8 +412,8 @@ export function DeveloperDecisionPanel({ projectId }: { projectId: string }) {
                 navigate('lottery-detail')
               }}
             >
-              <Sparkles className="mr-1.5 h-4 w-4" />
-              Bốc thăm
+              <Gavel className="mr-1.5 h-4 w-4" />
+              Quản lý phiên bốc thăm
             </Button>
           </div>
         </div>

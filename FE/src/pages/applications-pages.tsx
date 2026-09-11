@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   X,
   FilePlus,
+  FileEdit,
   Scale,
   ShieldCheck,
   UserCheck,
@@ -1488,29 +1489,32 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="border-amber-400 text-amber-700 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950/30"
+                  className="font-medium text-amber-700 border-slate-300 hover:border-amber-400 hover:bg-amber-50 dark:text-amber-300 dark:border-slate-700 dark:hover:bg-amber-950/30"
                   disabled={!!acting}
                   onClick={() => setRequestDocsModalOpen(true)}
                 >
-                  🟡 Yêu cầu bổ sung
+                  <FileEdit className="mr-1.5 h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                  Yêu cầu bổ sung
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="border-rose-400 text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950/30"
+                  className="font-medium text-rose-700 border-slate-300 hover:border-rose-400 hover:bg-rose-50 dark:text-rose-300 dark:border-slate-700 dark:hover:bg-rose-950/30"
                   disabled={!!acting}
                   onClick={() => setRejectModalOpen(true)}
                 >
-                  🔴 Từ chối
+                  <XCircle className="mr-1.5 h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
+                  Từ chối
                 </Button>
                 <Button
                   variant="accent"
                   size="sm"
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/20"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-xs"
                   disabled={!!acting}
                   onClick={() => setSubmitSxdModalOpen(true)}
                 >
-                  🟢 Đạt sơ duyệt → Trình SXD
+                  <Send className="mr-1.5 h-3.5 w-3.5" />
+                  Đạt sơ duyệt & Trình Sở
                 </Button>
               </>
             )}
@@ -1518,16 +1522,30 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
             {/* SXD ACTIONS */}
             {isSxd && app.applicationStatus === 'PENDING_SXD_REVIEW' && (
               <>
-                <Button variant="accent" size="sm" disabled={!!acting} onClick={() => void sxdReview('APPROVE')}>
+                <Button
+                  variant="accent"
+                  size="sm"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-xs"
+                  disabled={!!acting}
+                  onClick={() => void sxdReview('APPROVE')}
+                >
+                  <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
                   Phê duyệt
                 </Button>
-                <Button variant="outline" size="sm" disabled={!!acting} onClick={() => void sxdReview('REJECT', true)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="font-medium text-rose-700 border-slate-300 hover:border-rose-400 hover:bg-rose-50 dark:text-rose-300 dark:border-slate-700"
+                  disabled={!!acting}
+                  onClick={() => void sxdReview('REJECT', true)}
+                >
+                  <XCircle className="mr-1.5 h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
                   Từ chối
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="border-amber-400 text-amber-700 dark:text-amber-300"
+                  className="font-medium text-amber-700 border-slate-300 hover:border-amber-400 hover:bg-amber-50 dark:text-amber-300 dark:border-slate-700"
                   disabled={!!acting}
                   onClick={async () => {
                     const note = window.prompt('Yêu cầu CĐT bổ sung giấy tờ — nhập nội dung:')
@@ -1598,8 +1616,14 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
             )}
 
             {(app.receiptUrl || app.applicationStatus !== 'DRAFT') && (
-              <Button variant="outline" size="sm" onClick={() => setReceiptOpen(true)} className="bg-white/90 shadow-sm hover:bg-white dark:bg-slate-800">
-                <Printer className="mr-1.5 h-4 w-4 text-blue-600 dark:text-blue-400" /> Phiếu tiếp nhận
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setReceiptOpen(true)}
+                className="font-medium text-slate-700 border-slate-300 hover:bg-slate-50 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800"
+              >
+                <Printer className="mr-1.5 h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
+                Phiếu tiếp nhận
               </Button>
             )}
           </div>

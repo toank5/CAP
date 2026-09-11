@@ -98,13 +98,17 @@ export const LotteryBallCage: React.FC<Props> = ({
   // 1. Chuẩn hóa danh sách ứng viên (1-1 với bóng thực tế)
   const candidates = useMemo(() => {
     if (eligibleList && eligibleList.length > 0) {
-      return eligibleList.map((e, idx) => ({
-        id: e.applicationId,
-        code: e.applicationId.slice(0, 8).toUpperCase(),
-        name: e.applicantName,
-        priority: formatPriorityGroup(e.priorityGroup),
-        numStr: String(idx + 1).padStart(2, '0'),
-      }))
+      return eligibleList.map((e, idx) => {
+        const id = e.applicationId || e.applicantId || `cand-${idx}`
+        const code = e.applicationCode || (id.length > 8 && !id.startsWith('D1000001') ? id.slice(0, 8).toUpperCase() : `HS-${String(idx + 1).padStart(2, '0')}`)
+        return {
+          id,
+          code,
+          name: e.applicantName,
+          priority: formatPriorityGroup(e.priorityGroup),
+          numStr: String(idx + 1).padStart(2, '0'),
+        }
+      })
     }
 
     if (recentWinners && recentWinners.length > 0) {
@@ -288,18 +292,16 @@ export const LotteryBallCage: React.FC<Props> = ({
 
         <div className="flex items-center gap-2">
           <span
-            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${
-              isSpinning
-                ? 'bg-rose-100 text-rose-700 border border-rose-200'
-                : canDraw
+            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${isSpinning
+              ? 'bg-rose-100 text-rose-700 border border-rose-200'
+              : canDraw
                 ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                 : 'bg-slate-100 text-slate-600 border border-slate-200'
-            }`}
+              }`}
           >
             <span
-              className={`h-2 w-2 rounded-full ${
-                isSpinning ? 'bg-rose-600 animate-ping' : canDraw ? 'bg-emerald-600' : 'bg-slate-400'
-              }`}
+              className={`h-2 w-2 rounded-full ${isSpinning ? 'bg-rose-600 animate-ping' : canDraw ? 'bg-emerald-600' : 'bg-slate-400'
+                }`}
             />
             {isSpinning ? '⚡ Đang đảo bóng...' : canDraw ? 'Sẵn sàng' : 'Chưa mở'}
           </span>
@@ -683,11 +685,10 @@ export const LotteryBallCage: React.FC<Props> = ({
             <button
               onClick={canDraw ? onDrawNext : undefined}
               disabled={!canDraw || !!busy || isSpinning}
-              className={`px-9 py-3 sm:py-3.5 min-w-[200px] max-w-[250px] flex items-center justify-center gap-2 rounded-2xl font-black text-sm sm:text-base tracking-widest uppercase transition-all select-none ${
-                canDraw
-                  ? 'bg-gradient-to-r from-amber-400 via-rose-500 to-amber-500 border-2 border-yellow-200 text-white shadow-xl shadow-rose-500/35 hover:scale-105 active:scale-95 cursor-pointer'
-                  : 'bg-emerald-950/80 border border-emerald-800/70 text-emerald-200/40 opacity-40 cursor-not-allowed shadow-none'
-              }`}
+              className={`px-9 py-3 sm:py-3.5 min-w-[200px] max-w-[250px] flex items-center justify-center gap-2 rounded-2xl font-black text-sm sm:text-base tracking-widest uppercase transition-all select-none ${canDraw
+                ? 'bg-gradient-to-r from-amber-400 via-rose-500 to-amber-500 border-2 border-yellow-200 text-white shadow-xl shadow-rose-500/35 hover:scale-105 active:scale-95 cursor-pointer'
+                : 'bg-emerald-950/80 border border-emerald-800/70 text-emerald-200/40 opacity-40 cursor-not-allowed shadow-none'
+                }`}
             >
               {isSpinning || busy ? (
                 <>
@@ -734,22 +735,25 @@ export const LotteryBallCage: React.FC<Props> = ({
           <div className="mt-3 flex flex-col gap-2.5">
             {candidates.map((c, idx) => {
               const palette = REALISTIC_BALL_PALETTES[idx % REALISTIC_BALL_PALETTES.length]
-              const isDrawn = recentWinners.some((w) => w.applicationCode === c.code)
+              const isDrawn = recentWinners.some(
+                (w) =>
+                  (w.applicationId && c.id && w.applicationId === c.id) ||
+                  (w.applicantName && c.name && w.applicantName.trim().toLowerCase() === c.name.trim().toLowerCase()),
+              )
               const isHovered = highlightBallIdx === idx
               return (
                 <div
                   key={c.id || idx}
                   onMouseEnter={() => setHighlightBallIdx(idx)}
                   onMouseLeave={() => setHighlightBallIdx(null)}
-                  className={`flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 rounded-2xl border p-3 sm:px-4 sm:py-3 transition-all cursor-pointer ${
-                    isHovered
-                      ? 'border-amber-400 bg-amber-50/80 shadow-md ring-2 ring-amber-300/60'
-                      : isDrawn
+                  className={`flex items-center justify-between gap-3 rounded-2xl border p-3 sm:px-4 sm:py-3 transition-all cursor-pointer ${isHovered
+                    ? 'border-amber-400 bg-amber-50/80 shadow-md ring-2 ring-amber-300/60'
+                    : isDrawn
                       ? 'border-emerald-200 bg-emerald-50/70'
                       : 'border-slate-200 bg-slate-50/70 hover:bg-white'
-                  }`}
+                    }`}
                 >
-                  {/* Quả bóng & Thông tin hồ sơ (Hiển thị trọn vẹn trên 1 dòng) */}
+                  {/* Quả bóng & Thông tin hồ sơ (Hiển thị 2 dòng gọn gàng, không bị khuất chữ) */}
                   <div className="flex items-center gap-3.5 min-w-0 flex-1">
                     <div
                       className="flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-full shadow-md border-2 border-white"
@@ -758,15 +762,17 @@ export const LotteryBallCage: React.FC<Props> = ({
                       <span className="text-xs sm:text-sm font-black text-white">{c.numStr}</span>
                     </div>
 
-                    <div className="min-w-0 flex-1 flex flex-wrap sm:flex-nowrap items-center gap-x-3 gap-y-1">
-                      <span className="font-black text-slate-900 text-sm sm:text-base uppercase tracking-wide whitespace-nowrap">
-                        {c.name}
-                      </span>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="font-mono text-[11px] font-bold text-slate-700 bg-slate-200/80 px-2 py-0.5 rounded-md whitespace-nowrap">
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-black text-slate-900 text-sm sm:text-base uppercase tracking-wide">
+                          {c.name}
+                        </span>
+                        <span className="font-mono text-[11px] font-bold text-slate-700 bg-slate-200/80 px-2 py-0.5 rounded-md">
                           {c.code}
                         </span>
-                        <span className="text-[11px] font-medium text-amber-900 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-200 whitespace-nowrap">
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[11px] font-medium text-amber-950 bg-amber-100/90 px-2.5 py-0.5 rounded-md border border-amber-200 inline-block leading-tight">
                           {c.priority}
                         </span>
                       </div>
@@ -774,7 +780,7 @@ export const LotteryBallCage: React.FC<Props> = ({
                   </div>
 
                   {/* Trạng thái trúng */}
-                  <div className="shrink-0 self-center">
+                  <div className="shrink-0 self-center pl-2">
                     {isDrawn ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-black text-emerald-800 border border-emerald-300 shadow-xs whitespace-nowrap">
                         ✓ ĐÃ TRÚNG
