@@ -20,7 +20,6 @@ const MARITAL_STATUS_OPTIONS = [
   { value: 'SINGLE', label: 'Độc thân' },
   { value: 'MARRIED', label: 'Đã kết hôn' },
   { value: 'DIVORCED', label: 'Đã ly hôn' },
-  { value: 'WIDOWED', label: 'Góa' },
 ]
 
 const DEFAULT_HOUSEHOLD_RELATIONS: DocumentTypeDto[] = [
@@ -41,7 +40,6 @@ function maritalHouseholdHint(status: string) {
   if (status === 'MARRIED') return 'Đã kết hôn: bắt buộc khai vợ/chồng đang sống cùng. Chỉ một người vợ/chồng.'
   if (status === 'SINGLE') return 'Độc thân: không khai vợ/chồng. Có thể khai cha mẹ, anh chị em; khai con nếu đang nuôi con.'
   if (status === 'DIVORCED') return 'Đã ly hôn: không khai vợ/chồng cũ. Có thể khai con và người đang sống cùng.'
-  if (status === 'WIDOWED') return 'Góa: không khai vợ/chồng. Có thể khai con và người đang sống cùng.'
   return 'Chọn tình trạng hôn nhân trước. Danh sách quan hệ sẽ khớp với tình trạng đó.'
 }
 
@@ -103,7 +101,15 @@ const selectClassName = (invalid?: boolean) =>
   }`
 
 function sanitizeMoney(value: string) {
-  return value.replace(/[^\d]/g, '')
+  const digits = value.replace(/[^\d]/g, '').replace(/^0+(?=\d)/, '')
+  if (!digits) return ''
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+}
+
+function parseMoney(value: string | number | null | undefined): number {
+  if (value == null || value === '') return 0
+  const digits = String(value).replace(/[^\d]/g, '')
+  return digits ? Number(digits) : 0
 }
 
 function sanitizeDecimal(value: string) {
@@ -164,7 +170,7 @@ function toHouseholdDraft(member: UserHouseholdMemberDto): HouseholdMemberDraft 
     dateOfBirth: member.dateOfBirth ? new Date(member.dateOfBirth).toISOString().slice(0, 10) : '',
     relationship: member.relationship ?? '',
     occupation: member.occupation ?? '',
-    monthlyIncome: member.monthlyIncome == null ? '' : String(member.monthlyIncome),
+    monthlyIncome: member.monthlyIncome == null ? '' : sanitizeMoney(String(member.monthlyIncome)),
     isDependent: member.isDependent,
     dependentReason: member.dependentReason ?? '',
     note: member.note ?? '',
@@ -323,7 +329,7 @@ export function ProfilePage() {
       spouseFullName: String(u.spouseFullName ?? u.SpouseFullName ?? prev.spouseFullName ?? ''),
       spouseMonthlyIncome: (() => {
         const value = u.spouseMonthlyIncome ?? u.SpouseMonthlyIncome
-        return value == null || value === '' ? prev.spouseMonthlyIncome ?? '' : String(value)
+        return value == null || value === '' ? (prev.spouseMonthlyIncome ? sanitizeMoney(prev.spouseMonthlyIncome) : '') : sanitizeMoney(String(value))
       })(),
       occupation: String(u.occupation ?? u.Occupation ?? prev.occupation ?? ''),
       workPlace: String(u.workPlace ?? u.WorkPlace ?? prev.workPlace ?? ''),
@@ -331,7 +337,7 @@ export function ProfilePage() {
       permanentAddress: ekycAddress || String(u.permanentAddress ?? u.PermanentAddress ?? prev.permanentAddress ?? ''),
       monthlyIncome: (() => {
         const value = u.monthlyIncome ?? u.MonthlyIncome
-        return value == null || value === '' ? prev.monthlyIncome ?? '' : String(value)
+        return value == null || value === '' ? (prev.monthlyIncome ? sanitizeMoney(prev.monthlyIncome) : '') : sanitizeMoney(String(value))
       })(),
       housingStatus: String(u.housingStatus ?? u.HousingStatus ?? prev.housingStatus ?? ''),
       averageHousingAreaPerPerson: (() => {
@@ -431,9 +437,10 @@ export function ProfilePage() {
     if (!citizenInfo.workPlace?.trim()) nextErrors.workPlace = 'Bắt buộc nhập nơi làm việc.'
     if (!resolvedPermanent) nextErrors.permanentAddress = 'Chưa có địa chỉ thường trú từ CCCD. Vui lòng xác minh danh tính.'
     if (!resolvedCurrent) nextErrors.currentResidence = 'Bắt buộc nhập chỗ đang ở. Nếu ở đúng hộ khẩu, chọn “Giống địa chỉ thường trú”.'
-    if (!citizenInfo.monthlyIncome && citizenInfo.monthlyIncome !== '0') nextErrors.monthlyIncome = 'Bắt buộc nhập thu nhập hàng tháng.'
-    else if (Number(citizenInfo.monthlyIncome) < 0) nextErrors.monthlyIncome = 'Thu nhập không được âm.'
-    else if (Number(citizenInfo.monthlyIncome) > 15000000) nextErrors.monthlyIncome = 'Thu nhập hàng tháng không được vượt quá 15.000.000 VNĐ (điều kiện NOXH).'
+    const monthlyIncomeNum = parseMoney(citizenInfo.monthlyIncome)
+    if (!citizenInfo.monthlyIncome.trim() && citizenInfo.monthlyIncome.trim() !== '0') nextErrors.monthlyIncome = 'Bắt buộc nhập thu nhập hàng tháng.'
+    else if (monthlyIncomeNum < 0) nextErrors.monthlyIncome = 'Thu nhập không được âm.'
+    else if (monthlyIncomeNum > 15000000) nextErrors.monthlyIncome = 'Thu nhập hàng tháng không được vượt quá 15.000.000 VNĐ (điều kiện NOXH).'
 
     if (!citizenInfo.housingStatus) nextErrors.housingStatus = 'Bắt buộc chọn thực trạng nhà ở.'
     if (citizenInfo.housingStatus === 'SMALL_HOUSE') {
@@ -467,7 +474,7 @@ export function ProfilePage() {
       !member.fullName.trim() || !member.relationship ||
       (member.citizenId.trim() && !/^\d{9}(\d{3})?$/.test(member.citizenId.trim())) ||
       (member.isDependent && !member.dependentReason) ||
-      (!member.isDependent && member.monthlyIncome !== '' && Number(member.monthlyIncome) < 0),
+      (!member.isDependent && member.monthlyIncome.trim() !== '' && parseMoney(member.monthlyIncome) < 0),
     )
     if (invalidMember) {
       setMsg({ type: 'error', text: 'Vui lòng nhập đủ họ tên, quan hệ; CCCD phải có 9 hoặc 12 số và người phụ thuộc phải có lý do.' })
@@ -491,12 +498,12 @@ export function ProfilePage() {
         phoneNumber: phoneDraft || null,
         maritalStatus: citizenInfo.maritalStatus || null,
         spouseFullName: spouseMember ? spouseMember.fullName.trim() : null,
-        spouseMonthlyIncome: spouseMember && spouseMember.monthlyIncome !== '' ? Number(spouseMember.monthlyIncome) : null,
+        spouseMonthlyIncome: spouseMember && spouseMember.monthlyIncome.trim() !== '' ? parseMoney(spouseMember.monthlyIncome) : null,
         occupation: citizenInfo.occupation || null,
         workPlace: citizenInfo.workPlace || null,
         currentResidence: resolvedCurrent || null,
         permanentAddress: resolvedPermanent || null,
-        monthlyIncome: citizenInfo.monthlyIncome ? Number(citizenInfo.monthlyIncome) : null,
+        monthlyIncome: citizenInfo.monthlyIncome.trim() ? parseMoney(citizenInfo.monthlyIncome) : null,
         housingStatus: citizenInfo.housingStatus || null,
         averageHousingAreaPerPerson:
           citizenInfo.housingStatus === 'SMALL_HOUSE' && citizenInfo.averageHousingAreaPerPerson
@@ -520,7 +527,7 @@ export function ProfilePage() {
           dateOfBirth: member.dateOfBirth ? new Date(member.dateOfBirth).toISOString() : null,
           relationship: member.relationship,
           occupation: member.isDependent ? null : member.occupation.trim() || null,
-          monthlyIncome: member.isDependent || member.monthlyIncome === '' ? null : Number(member.monthlyIncome),
+          monthlyIncome: member.isDependent || member.monthlyIncome.trim() === '' ? null : parseMoney(member.monthlyIncome),
           isDependent: member.isDependent,
           dependentReason: member.isDependent ? member.dependentReason : null,
           hasMeritService: Boolean(member.hasMeritService),
@@ -922,7 +929,7 @@ export function ProfilePage() {
                         <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
                           {citizenInfo.maritalStatus === 'MARRIED'
                             ? 'Cần khai vợ/chồng. Có thể thêm con và người sống cùng.'
-                            : 'Chưa khai thành viên sống cùng. Độc thân / ly hôn / góa không khai vợ/chồng.'}
+                            : 'Chưa khai thành viên sống cùng. Độc thân / đã ly hôn không khai vợ/chồng.'}
                         </p>
                       )}
                       <div className="space-y-3">
@@ -950,7 +957,7 @@ export function ProfilePage() {
                               {!member.isDependent && (
                                 <>
                                   <FormField label="Nghề nghiệp" htmlFor={`member-occupation-${index}`}><Input id={`member-occupation-${index}`} value={member.occupation} onChange={(event) => setHouseholdMembers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, occupation: event.target.value } : item))} /></FormField>
-                                  <FormField label="Thu nhập hàng tháng (VNĐ)" htmlFor={`member-income-${index}`}><Input id={`member-income-${index}`} inputMode="numeric" min={0} value={member.monthlyIncome} onChange={(event) => setHouseholdMembers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, monthlyIncome: sanitizeMoney(event.target.value) } : item))} /></FormField>
+                                  <FormField label="Thu nhập hàng tháng (VNĐ)" htmlFor={`member-income-${index}`}><Input id={`member-income-${index}`} inputMode="numeric" placeholder="Ví dụ: 10,000,000" value={member.monthlyIncome} onChange={(event) => setHouseholdMembers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, monthlyIncome: sanitizeMoney(event.target.value) } : item))} /></FormField>
                                 </>
                               )}
                             </div>
@@ -1017,7 +1024,7 @@ export function ProfilePage() {
                             <Input
                               id="monthlyIncome"
                               inputMode="numeric"
-                              min={0}
+                              placeholder="Ví dụ: 12,000,000"
                               value={citizenInfo.monthlyIncome}
                               aria-invalid={Boolean(validationErrors.monthlyIncome)}
                               className={validationErrors.monthlyIncome ? 'border-red-400' : undefined}
@@ -1318,7 +1325,7 @@ function PolicySummary({
         <SummaryItem label="Tình trạng hôn nhân" value={label(MARITAL_STATUS_OPTIONS, citizenInfo.maritalStatus)} />
         <SummaryItem label="Nghề nghiệp" value={citizenInfo.occupation} />
         <SummaryItem label="Nơi làm việc" value={citizenInfo.workPlace} />
-        <SummaryItem label="Thu nhập hàng tháng" value={`${Number(citizenInfo.monthlyIncome).toLocaleString('vi-VN')} VNĐ`} />
+        <SummaryItem label="Thu nhập hàng tháng" value={`${parseMoney(citizenInfo.monthlyIncome).toLocaleString('vi-VN')} VNĐ`} />
         <SummaryItem label="Địa chỉ thường trú" value={permanent} className="sm:col-span-2" />
         <SummaryItem label="Chỗ ở hiện tại" value={citizenInfo.currentResidence || (permanent ? 'Giống địa chỉ thường trú' : '')} className="sm:col-span-2" />
         <SummaryItem label="Thực trạng nhà ở" value={label(HOUSING_STATUS_OPTIONS, citizenInfo.housingStatus)} />

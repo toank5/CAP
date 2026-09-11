@@ -147,23 +147,19 @@ const SpotlightProjectCard = memo(function SpotlightProjectCard({
     <article className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm transition hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
       <div className="grid md:grid-cols-12 gap-0 items-stretch">
         {/* Left: Compact Feature Image (5 cols) */}
-        <div className="relative aspect-[16/10] md:aspect-auto md:min-h-[260px] md:max-h-[310px] md:col-span-5 overflow-hidden bg-slate-900 group">
+        <div className="relative aspect-[16/10] md:aspect-auto md:min-h-[260px] md:col-span-5 overflow-hidden bg-slate-950 group flex items-center justify-center">
           <img
             src={house.imageUrl}
             alt={house.name}
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            className="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
             loading="lazy"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent" />
 
-          {/* Floating Badges on Image */}
-          <div className="absolute left-3 top-3 flex flex-wrap items-center gap-1.5">
+          {/* Floating Badge on Image */}
+          <div className="absolute left-3 top-3">
             <span className="flex items-center gap-1 rounded-full bg-emerald-600/95 px-2.5 py-0.5 text-[11px] font-bold text-white shadow-sm backdrop-blur-md">
               <Sparkles className="h-3 w-3 text-amber-300" />
               DỰ ÁN TIÊU BIỂU
-            </span>
-            <span className="rounded-full bg-slate-900/80 px-2.5 py-0.5 text-[11px] font-semibold text-white backdrop-blur-md">
-              {house.status}
             </span>
           </div>
 
@@ -179,31 +175,31 @@ const SpotlightProjectCard = memo(function SpotlightProjectCard({
           >
             <Heart className={`h-4 w-4 ${fav ? 'fill-white' : ''}`} />
           </button>
-
-          {/* Location bottom overlay */}
-          <div className="absolute bottom-2.5 left-3 right-3 truncate text-xs font-medium text-white drop-shadow">
-            <span className="inline-flex items-center gap-1 truncate">
-              <MapPin className="h-3.5 w-3.5 shrink-0 text-rose-400" />
-              <span className="truncate">{house.address || house.location}</span>
-            </span>
-          </div>
         </div>
 
         {/* Right: Project Info & Actions (7 cols) */}
         <div className="flex flex-col justify-between p-5 md:col-span-7 md:p-6">
           <div>
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
                 <Building2 className="h-3.5 w-3.5" />
                 Nhà ở xã hội tiêu chuẩn
               </span>
+              <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-300">
+                {house.status}
+              </span>
             </div>
 
-            <h3 className="mt-1 text-lg font-bold text-slate-900 sm:text-xl dark:text-white line-clamp-1">
+            <h3 className="mt-1.5 text-lg font-bold text-slate-900 sm:text-xl dark:text-white line-clamp-1">
               {house.name}
             </h3>
 
-            <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+            <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+              <MapPin className="h-3.5 w-3.5 shrink-0 text-rose-500" />
+              <span className="truncate font-medium">{house.address || house.location}</span>
+            </div>
+
+            <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
               {house.description || 'Dự án nhà ở xã hội quy hoạch xanh, kết nối giao thông đồng bộ, hỗ trợ chính sách an cư bền vững.'}
             </p>
 

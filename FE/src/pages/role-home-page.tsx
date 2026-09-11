@@ -72,17 +72,21 @@ function ApplicantSetupNotices() {
       const members = findArray(householdResult) as Array<Record<string, unknown>>
       const hasSpouse = members.some((member) => (member.relationship ?? member.Relationship) === 'SPOUSE')
       const maritalStatus = String(value('maritalStatus') ?? '')
+      const housing = String(value('housingStatus') ?? '')
+      const income = value('monthlyIncome') ?? value('MonthlyIncome') ?? value('estimatedMonthlyIncome') ?? value('EstimatedMonthlyIncome')
+      const permanent = String(value('permanentAddress') ?? value('address') ?? '').trim()
+      const current = String(value('currentResidence') ?? permanent).trim()
+
       const declarationComplete = Boolean(
         maritalStatus &&
         String(value('occupation') ?? '').trim() &&
         String(value('workPlace') ?? '').trim() &&
-        String(value('currentResidence') ?? '').trim() &&
-        String(value('permanentAddress') ?? '').trim() &&
-        value('monthlyIncome') != null &&
-        value('housingStatus') &&
-        value('averageHousingAreaPerPerson') != null &&
+        (current || permanent) &&
+        income != null && income !== '' &&
+        housing &&
+        (housing !== 'SMALL_HOUSE' || value('averageHousingAreaPerPerson') != null) &&
         value('priorityGroup') &&
-        (maritalStatus !== 'MARRIED' || hasSpouse),
+        (maritalStatus !== 'MARRIED' || hasSpouse || Boolean(value('spouseFullName'))),
       )
       setEkycPending(verified !== true)
       setDeclarationPending(!declarationComplete)

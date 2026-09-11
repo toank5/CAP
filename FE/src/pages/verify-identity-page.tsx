@@ -1,14 +1,18 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
+  ArrowLeft,
   CheckCircle2,
   ChevronRight,
   IdCard,
   Info,
   Loader2,
   ScanFace,
+  ShieldAlert,
+  ShieldCheck,
   Upload,
   User,
+  FileCheck,
 } from 'lucide-react'
 import { ekycApi, parseFaceMatch, parseOcr } from '@/api/ekyc'
 import { usersApi } from '@/api/users'
@@ -29,7 +33,7 @@ import {
 } from '@/lib/ekyc-helpers'
 import { formatError } from '@/lib/format-error'
 import { setCachedVerified } from '@/lib/verification'
-import { isLoggedIn, roleHome } from '@/router'
+import { getRole, isLoggedIn, roleHome } from '@/router'
 import { useUserProfile } from '@/providers/user-profile-provider'
 import type { OcrResultDto } from '@/types'
 
@@ -316,374 +320,450 @@ export function VerifyIdentityPage() {
     }
   }
 
-  const summary = useMemo(
-    () => (
-      <div className="rounded-2xl border border-primary/15 bg-primary/5 p-4 dark:border-accent/30 dark:bg-accent/10">
-        <p className="text-xs font-bold uppercase tracking-widest text-primary dark:text-accent">
-          Thông tin đã xác thực
-        </p>
-        <div className="mt-2 grid gap-1 text-sm dark:text-slate-200">
-          <p>
-            <span className="text-slate-500 dark:text-slate-400">Họ tên:</span> {form.fullName || '—'}
-          </p>
-          <p>
-            <span className="text-slate-500 dark:text-slate-400">CCCD:</span> {form.citizenId || '—'}
-          </p>
-          <p>
-            <span className="text-slate-500 dark:text-slate-400">Ngày sinh:</span> {form.dob || '—'}
-          </p>
-          <p>
-            <span className="text-slate-500 dark:text-slate-400">Địa chỉ:</span> {form.address || '—'}
-          </p>
-          <p>
-            <span className="text-slate-500 dark:text-slate-400">Khuôn mặt:</span>{' '}
-            {ekyc.face ? `✓ Khớp${faceSimilarity != null ? ` (${formatSimilarity(faceSimilarity)})` : ''}` : '—'}
-          </p>
+  return (
+    <div className="min-h-[calc(100vh-64px)] w-full bg-gradient-to-br from-slate-50 to-slate-100 px-4 py-6 dark:from-slate-900 dark:to-slate-800 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-6xl space-y-6">
+        {/* Top Navigation Bar with Back Button */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4 dark:border-slate-800">
+          <button
+            type="button"
+            onClick={() => navigate(isLoggedIn() ? roleHome(getRole()) : 'landing')}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 shadow-xs transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+          >
+            <ArrowLeft className="h-4 w-4 text-slate-500" />
+            Quay lại màn chính
+          </button>
+
+          <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800 border border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-300">
+            <ShieldCheck className="h-4 w-4 text-emerald-600" />
+            Cổng Định Danh Điện Tử eKYC Quốc Gia
+          </div>
+        </div>
+
+        {/* Hero Notice Banner */}
+        <div className="rounded-2xl border border-blue-200 bg-blue-50/90 p-5 text-sm text-slate-700 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-slate-300 shadow-xs">
+          <div className="flex items-start gap-3.5">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#003D7A] text-white shadow-xs">
+              <Info className="h-5 w-5" />
+            </div>
+            <div className="space-y-1">
+              <h2 className="text-base font-bold text-[#003D7A] dark:text-white">
+                Xác minh danh tính bắt buộc cho hồ sơ Nhà ở Xã hội
+              </h2>
+              <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+                Theo quy định của ứng dụng nhà nước và Sở Xây dựng, mỗi Căn cước công dân (CCCD) chỉ được đăng ký một tài khoản duy nhất. Vui lòng chuẩn bị ảnh CCCD mặt trước rõ nét và sẵn sàng chụp selfie. Thông tin từ CCCD sẽ tự động được lưu vào tài khoản của bạn sau khi xác minh thành công.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* 2-Column Responsive Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Left Column: Verification Steps & Main Cards (8 cols) */}
+          <div className="lg:col-span-7 xl:col-span-8 space-y-5">
+            {/* Step Navigation Tabs */}
+            <ol className="grid grid-cols-2 gap-3">
+              {[
+                { id: 1 as Step, label: 'Ảnh CCCD & OCR', icon: IdCard },
+                { id: 2 as Step, label: 'Khuôn mặt sinh trắc học', icon: ScanFace },
+              ].map((s) => {
+                const isActive = s.id === step
+                const isDone = (s.id === 1 && ekyc.citizenOk) || (s.id === 2 && ekyc.face)
+                const Icon = s.icon
+                return (
+                  <li
+                    key={s.id}
+                    className={`flex items-center gap-3 rounded-2xl border p-3.5 text-left transition shadow-xs ${isActive
+                        ? 'border-primary bg-primary/10 text-primary dark:bg-accent/10 ring-2 ring-primary/20'
+                        : isDone
+                          ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-300'
+                          : 'border-slate-200 bg-white text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400'
+                      }`}
+                  >
+                    <span
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl font-bold ${isActive
+                          ? 'bg-primary text-white shadow-xs'
+                          : isDone
+                            ? 'bg-emerald-500 text-white shadow-xs'
+                            : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                        }`}
+                    >
+                      {isDone ? <CheckCircle2 className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
+                    </span>
+                    <div className="min-w-0">
+                      <span className="block text-xs font-bold uppercase tracking-wider">Bước {s.id}</span>
+                      <span className="block text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">{s.label}</span>
+                    </div>
+                  </li>
+                )
+              })}
+            </ol>
+
+            {/* Step Content */}
+            <AnimatePresence mode="wait">
+              {step === 1 && (
+                <motion.section
+                  key="s1"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.18 }}
+                >
+                  <Card className="shadow-sm border-slate-200 dark:border-slate-800">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        <IdCard className="h-5 w-5 text-primary" />
+                        Bước 1 — Xác thực ảnh CCCD &amp; Trích xuất thông tin
+                      </CardTitle>
+                      <CardDescription>Upload ảnh Căn cước công dân mặt trước rõ nét (định dạng JPG, PNG, WEBP ≤ 5 MB).</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <FormField label="Chọn ảnh CCCD mặt trước" htmlFor="cccd-file">
+                        <input
+                          ref={idInputRef}
+                          id="cccd-file"
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          className="block w-full text-sm file:mr-3 file:rounded-xl file:border-0 file:bg-primary/10 file:px-4 file:py-2 file:text-xs file:font-bold file:text-primary hover:file:bg-primary/20 dark:file:bg-accent/20 dark:file:text-accent cursor-pointer"
+                          disabled={isBusy}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0]
+                            if (f) selectIdCard(f)
+                            e.target.value = ''
+                          }}
+                        />
+                      </FormField>
+
+                      {idCardPreview && (
+                        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-2 dark:border-slate-700 dark:bg-slate-900/50">
+                          <img
+                            src={idCardPreview}
+                            alt="Ảnh CCCD"
+                            className="max-h-64 w-full rounded-xl bg-white object-contain dark:bg-slate-800"
+                          />
+                        </div>
+                      )}
+
+                      <div className="flex flex-wrap gap-2.5 pt-1">
+                        <Button
+                          type="button"
+                          variant="accent"
+                          disabled={!idCardFile || isBusy || cooldownLocked}
+                          onClick={() => void runOcr()}
+                          className="cursor-pointer"
+                        >
+                          {busy === 'ocr' ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Đang đọc CCCD…
+                            </>
+                          ) : (
+                            'Đọc thông tin CCCD (OCR)'
+                          )}
+                        </Button>
+                        <Button type="button" variant="outline" disabled={isBusy} onClick={enableManualEntry} className="cursor-pointer">
+                          Nhập tay (bỏ qua OCR)
+                        </Button>
+                      </div>
+
+                      <CooldownBanner />
+
+                      {ocrResult && (
+                        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 text-sm dark:border-emerald-900/50 dark:bg-emerald-950/30">
+                          <p className="flex items-center gap-1.5 font-bold text-emerald-800 dark:text-emerald-300">
+                            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                            Kết quả nhận diện OCR tự động
+                          </p>
+                          <ul className="mt-2.5 grid gap-2 text-xs text-slate-700 dark:text-slate-300 sm:grid-cols-2">
+                            <li className="rounded-lg bg-white/70 p-2 dark:bg-slate-900/50 border border-emerald-100 dark:border-emerald-900/30">
+                              <span className="text-slate-400 block font-medium">Họ tên:</span>
+                              <strong className="text-slate-900 dark:text-white font-bold">{ocrResult.name || '—'}</strong>
+                            </li>
+                            <li className="rounded-lg bg-white/70 p-2 dark:bg-slate-900/50 border border-emerald-100 dark:border-emerald-900/30">
+                              <span className="text-slate-400 block font-medium">Số CCCD:</span>
+                              <strong className="text-slate-900 dark:text-white font-bold">{ocrResult.id || '—'}</strong>
+                            </li>
+                            <li className="rounded-lg bg-white/70 p-2 dark:bg-slate-900/50 border border-emerald-100 dark:border-emerald-900/30">
+                              <span className="text-slate-400 block font-medium">Ngày sinh:</span>
+                              <strong className="text-slate-900 dark:text-white font-bold">{ocrResult.dob || '—'}</strong>
+                            </li>
+                            <li className="rounded-lg bg-white/70 p-2 dark:bg-slate-900/50 border border-emerald-100 dark:border-emerald-900/30">
+                              <span className="text-slate-400 block font-medium">Địa chỉ thường trú:</span>
+                              <strong className="text-slate-900 dark:text-white font-bold">{ocrResult.address || ocrResult.home || '—'}</strong>
+                            </li>
+                          </ul>
+                        </div>
+                      )}
+
+                      {(manualEntry || ocrResult) && (
+                        <div className="space-y-3.5 rounded-2xl border border-slate-200 bg-slate-50/50 p-4 dark:border-slate-700 dark:bg-slate-900/40">
+                          <p className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                            Xác nhận thông tin công dân {manualEntry && !ocrResult ? '(Nhập tay)' : ''}
+                          </p>
+                          <FormField label="Họ và tên" htmlFor="s1-fullName">
+                            <Input
+                              id="s1-fullName"
+                              value={form.fullName}
+                              onChange={(e) => {
+                                setForm((f) => ({ ...f, fullName: e.target.value }))
+                                if (ekyc.citizenOk) setEkyc((s) => ({ ...s, citizenOk: false }))
+                              }}
+                            />
+                          </FormField>
+                          <FormField label="Số CCCD (9 hoặc 12 số)" htmlFor="s1-citizenId">
+                            <Input
+                              id="s1-citizenId"
+                              value={form.citizenId}
+                              maxLength={12}
+                              inputMode="numeric"
+                              onChange={(e) => {
+                                const v = e.target.value.replace(/\D/g, '')
+                                setForm((f) => ({ ...f, citizenId: v }))
+                                if (ekyc.citizenOk) setEkyc((s) => ({ ...s, citizenOk: false }))
+                              }}
+                            />
+                          </FormField>
+                          <FormField label="Ngày sinh" htmlFor="s1-dob">
+                            <Input
+                              id="s1-dob"
+                              type="date"
+                              value={form.dob}
+                              onChange={(e) => {
+                                setForm((f) => ({ ...f, dob: e.target.value }))
+                                if (ekyc.citizenOk) setEkyc((s) => ({ ...s, citizenOk: false }))
+                              }}
+                            />
+                          </FormField>
+                          <FormField label="Địa chỉ thường trú" htmlFor="s1-address">
+                            <Input
+                              id="s1-address"
+                              value={form.address}
+                              onChange={(e) => {
+                                setForm((f) => ({ ...f, address: e.target.value }))
+                                if (ekyc.citizenOk) setEkyc((s) => ({ ...s, citizenOk: false }))
+                              }}
+                            />
+                          </FormField>
+                          {manualEntry && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={isBusy}
+                              onClick={() => void verifyManualCitizen()}
+                              className="cursor-pointer"
+                            >
+                              Kiểm tra số CCCD
+                            </Button>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="flex justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
+                        <Button
+                          type="button"
+                          variant="accent"
+                          disabled={!step1Ready || isBusy}
+                          onClick={() => {
+                            setMsg(null)
+                            setStep(2)
+                          }}
+                          className="cursor-pointer"
+                        >
+                          Tiếp tục xác thực khuôn mặt <ChevronRight className="ml-1 h-4 w-4" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.section>
+              )}
+
+              {step === 2 && (
+                <motion.section
+                  key="s2"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.18 }}
+                >
+                  <Card className="shadow-sm border-slate-200 dark:border-slate-800">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        <ScanFace className="h-5 w-5 text-primary" />
+                        Bước 2 — Xác thực khuôn mặt sinh trắc học
+                      </CardTitle>
+                      <CardDescription>Chụp ảnh selfie trực tiếp từ camera hoặc upload ảnh chân dung để so khớp với ảnh CCCD.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <CameraCapture mode="photo" onPhoto={(file) => queueSelfie(file)} />
+
+                      <div className="text-center text-xs text-slate-400">hoặc tải lên file ảnh selfie</div>
+                      <input
+                        ref={selfieInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="block w-full text-sm file:mr-3 file:rounded-xl file:border-0 file:bg-primary/10 file:px-4 file:py-2 file:text-xs file:font-bold file:text-primary hover:file:bg-primary/20 dark:file:bg-accent/20 dark:file:text-accent cursor-pointer"
+                        disabled={isBusy}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0]
+                          if (f) queueSelfie(f)
+                          e.target.value = ''
+                        }}
+                      />
+
+                      {selfiePreview && (
+                        <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/40">
+                          <img
+                            src={selfiePreview}
+                            alt="Selfie"
+                            className="h-20 w-20 rounded-full border-2 border-white object-cover shadow-sm dark:border-slate-800"
+                          />
+                          <div className="text-sm">
+                            <p
+                              className={`font-bold ${ekyc.face ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-700 dark:text-slate-300'
+                                }`}
+                            >
+                              {ekyc.face ? '✓ Đã xác thực khớp khuôn mặt' : 'Chưa xác thực khuôn mặt'}
+                            </p>
+                            {faceSimilarity != null && (
+                              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                Độ khớp ảnh CCCD: <strong className="font-bold text-slate-900 dark:text-white">{formatSimilarity(faceSimilarity)}</strong>
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="pt-1">
+                        <Button
+                          type="button"
+                          variant="accent"
+                          disabled={!pendingSelfie || isBusy}
+                          onClick={() => void runFaceMatch()}
+                          className="cursor-pointer"
+                        >
+                          {busy === 'face' ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Đang so khớp khuôn mặt…
+                            </>
+                          ) : (
+                            'So khớp khuôn mặt sinh trắc học'
+                          )}
+                        </Button>
+                      </div>
+
+                      <div className="flex flex-wrap justify-between gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+                        <Button type="button" variant="outline" disabled={isBusy} onClick={() => setStep(1)} className="cursor-pointer">
+                          ← Quay lại bước 1
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="accent"
+                          disabled={!step2Ready || isBusy}
+                          onClick={() => void saveVerifiedInfo()}
+                          className="bg-emerald-600 hover:bg-emerald-700 cursor-pointer"
+                        >
+                          {busy === 'save' ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Đang lưu…
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="mr-2 h-4 w-4" /> Lưu thông tin &amp; Hoàn tất định danh
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.section>
+              )}
+            </AnimatePresence>
+
+            {msg && (
+              <Alert
+                variant={
+                  msg.type === 'error' ? 'error' : msg.type === 'warning' ? 'warning' : msg.type === 'info' ? 'info' : 'success'
+                }
+              >
+                {msg.text}
+              </Alert>
+            )}
+          </div>
+
+          {/* Right Column: User Session, Summary & Guidelines (4 cols) */}
+          <div className="lg:col-span-5 xl:col-span-4 space-y-5">
+            {/* User Session Info Card */}
+            <Card className="shadow-xs border-slate-200 dark:border-slate-800">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-sm">
+                  <User className="h-4 w-4 text-primary" />
+                  Tài khoản đang thực hiện
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Vai trò: <strong className="font-semibold text-slate-800 dark:text-slate-200">{roleLabel || 'Người dùng'}</strong>
+                </CardDescription>
+              </CardHeader>
+            </Card>
+
+            {/* Real-time Verified Summary */}
+            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4.5 dark:border-accent/30 dark:bg-accent/10 shadow-xs space-y-3">
+              <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-primary dark:text-accent">
+                <FileCheck className="h-4 w-4" />
+                Thông tin đã đối soát
+              </p>
+              <div className="grid gap-2 text-xs dark:text-slate-200">
+                <div className="flex justify-between border-b border-primary/10 pb-1.5 dark:border-accent/20">
+                  <span className="text-slate-500 dark:text-slate-400">Họ và tên:</span>
+                  <span className="font-bold text-slate-900 dark:text-white text-right">{form.fullName || '—'}</span>
+                </div>
+                <div className="flex justify-between border-b border-primary/10 pb-1.5 dark:border-accent/20">
+                  <span className="text-slate-500 dark:text-slate-400">Số CCCD:</span>
+                  <span className="font-bold text-slate-900 dark:text-white text-right">{form.citizenId || '—'}</span>
+                </div>
+                <div className="flex justify-between border-b border-primary/10 pb-1.5 dark:border-accent/20">
+                  <span className="text-slate-500 dark:text-slate-400">Ngày sinh:</span>
+                  <span className="font-bold text-slate-900 dark:text-white text-right">{form.dob || '—'}</span>
+                </div>
+                <div className="flex justify-between border-b border-primary/10 pb-1.5 dark:border-accent/20">
+                  <span className="text-slate-500 dark:text-slate-400">Địa chỉ:</span>
+                  <span className="font-bold text-slate-900 dark:text-white text-right truncate max-w-[180px]">{form.address || '—'}</span>
+                </div>
+                <div className="flex justify-between pt-0.5">
+                  <span className="text-slate-500 dark:text-slate-400">Sinh trắc khuôn mặt:</span>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400 text-right">
+                    {ekyc.face ? `✓ Khớp${faceSimilarity != null ? ` (${formatSimilarity(faceSimilarity)})` : ''}` : 'Chưa hoàn tất'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Legal & Shooting Guidelines Card */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-4.5 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 shadow-xs space-y-3">
+              <p className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white uppercase tracking-wider text-[11px]">
+                <ShieldAlert className="h-4 w-4 text-amber-500" />
+                Lưu ý quan trọng khi định danh
+              </p>
+              <ul className="space-y-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                <li className="flex items-start gap-2">
+                  <span className="text-emerald-500 font-bold">•</span>
+                  <span><strong>Chụp thẳng góc CCCD:</strong> Không bị lóa bóng đèn, không che khuất số và mã QR.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-emerald-500 font-bold">•</span>
+                  <span><strong>Chụp selfie rõ mặt:</strong> Không đeo kính râm, khẩu trang hoặc đội mũ che kín mặt.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-emerald-500 font-bold">•</span>
+                  <span>Dữ liệu được đối soát tự động phục vụ thẩm định hồ sơ theo Nghị định 100/2024/NĐ-CP.</span>
+                </li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
-    ),
-    [form.fullName, form.citizenId, form.dob, form.address, ekyc.face, faceSimilarity],
-  )
-
-  return (
-    <div className="min-h-[calc(100vh-64px)] w-full bg-gradient-to-br from-slate-50 to-slate-100 px-4 py-6 dark:from-slate-900 dark:to-slate-800">
-      <div className="mx-auto max-w-4xl space-y-4">
-      <div className="rounded-2xl border border-blue-200 bg-blue-50/80 p-4 text-sm text-slate-700 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-slate-300">
-        <p className="flex items-start gap-2 font-semibold text-[#003D7A] dark:text-white">
-          <Info className="mt-0.5 h-4 w-4 shrink-0" />
-          Xác minh danh tính bắt buộc
-        </p>
-        <p className="mt-2 text-xs leading-relaxed">
-          Theo quy định của ứng dụng nhà nước, mỗi CCCD chỉ được đăng ký một tài khoản. Vui lòng chuẩn bị ảnh CCCD mặt trước rõ nét
-          và sẵn sàng chụp selfie. Thông tin từ CCCD sẽ tự động được lưu vào tài khoản của bạn sau khi xác minh thành công.
-        </p>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <User className="h-5 w-5 text-primary" />
-            Vai trò: {roleLabel || '—'}
-          </CardTitle>
-          <CardDescription>Bạn đang đăng nhập với vai trò này. Quy trình áp dụng cho tất cả người dùng.</CardDescription>
-        </CardHeader>
-      </Card>
-
-      <ol className="grid grid-cols-2 gap-2">
-        {[
-          { id: 1 as Step, label: 'CCCD', icon: IdCard },
-          { id: 2 as Step, label: 'Khuôn mặt', icon: ScanFace },
-        ].map((s) => {
-          const isActive = s.id === step
-          const isDone = (s.id === 1 && ekyc.citizenOk) || (s.id === 2 && ekyc.face)
-          const Icon = s.icon
-          return (
-            <li
-              key={s.id}
-              className={`flex flex-col items-center gap-1 rounded-2xl border px-3 py-3 text-center text-xs font-semibold transition ${
-                isActive
-                  ? 'border-primary bg-primary/10 text-primary dark:bg-accent/10'
-                  : isDone
-                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-300'
-                    : 'border-slate-200 bg-white text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400'
-              }`}
-            >
-              <span
-                className={`flex h-8 w-8 items-center justify-center rounded-full ${
-                  isActive
-                    ? 'bg-primary text-white'
-                    : isDone
-                      ? 'bg-emerald-500 text-white'
-                      : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
-                }`}
-              >
-                {isDone ? <CheckCircle2 className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
-              </span>
-              <span className="leading-tight">Bước {s.id}</span>
-              <span className="text-[10px] font-medium opacity-80">{s.label}</span>
-            </li>
-          )
-        })}
-      </ol>
-
-      <AnimatePresence mode="wait">
-        {step === 1 && (
-          <motion.section
-            key="s1"
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.18 }}
-          >
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <IdCard className="h-5 w-5 text-primary" />
-                  Bước 1 — Xác thực CCCD
-                </CardTitle>
-                <CardDescription>Upload ảnh CCCD mặt trước rõ nét (≤ 5 MB).</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <FormField label="Chọn ảnh CCCD" htmlFor="cccd-file">
-                  <input
-                    ref={idInputRef}
-                    id="cccd-file"
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    className="block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-primary hover:file:bg-primary/20 dark:file:bg-accent/20 dark:file:text-accent"
-                    disabled={isBusy}
-                    onChange={(e) => {
-                      const f = e.target.files?.[0]
-                      if (f) selectIdCard(f)
-                      e.target.value = ''
-                    }}
-                  />
-                </FormField>
-
-                {idCardPreview && (
-                  <img
-                    src={idCardPreview}
-                    alt="Ảnh CCCD"
-                    className="max-h-56 w-full rounded-xl border border-slate-200 bg-white object-contain dark:border-slate-700"
-                  />
-                )}
-
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="accent"
-                    disabled={!idCardFile || isBusy || cooldownLocked}
-                    onClick={() => void runOcr()}
-                  >
-                    {busy === 'ocr' ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Đang đọc CCCD…
-                      </>
-                    ) : (
-                      'Đọc thông tin CCCD (OCR)'
-                    )}
-                  </Button>
-                  <Button type="button" variant="outline" disabled={isBusy} onClick={enableManualEntry}>
-                    Nhập tay (bỏ qua OCR)
-                  </Button>
-                </div>
-
-                <CooldownBanner />
-
-                {ocrResult && (
-                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm dark:border-emerald-900/50 dark:bg-emerald-950/30">
-                    <p className="font-semibold text-emerald-800 dark:text-emerald-300">Kết quả OCR</p>
-                    <ul className="mt-2 grid gap-1 text-slate-700 dark:text-slate-300 sm:grid-cols-2">
-                      <li>
-                        <span className="text-slate-500 dark:text-slate-400">Họ tên:</span> {ocrResult.name || '—'}
-                      </li>
-                      <li>
-                        <span className="text-slate-500 dark:text-slate-400">Số CCCD:</span> {ocrResult.id || '—'}
-                      </li>
-                      <li>
-                        <span className="text-slate-500 dark:text-slate-400">Ngày sinh:</span> {ocrResult.dob || '—'}
-                      </li>
-                      <li className="sm:col-span-2">
-                        <span className="text-slate-500 dark:text-slate-400">Địa chỉ:</span>{' '}
-                        {ocrResult.address || ocrResult.home || '—'}
-                      </li>
-                    </ul>
-                  </div>
-                )}
-
-                {(manualEntry || ocrResult) && (
-                  <div className="space-y-3 rounded-xl border-t border-slate-200 pt-4 dark:border-slate-700">
-                    <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                      Thông tin từ CCCD {manualEntry && !ocrResult ? '(nhập tay — vui lòng kiểm tra)' : ''}
-                    </p>
-                    <FormField label="Họ và tên" htmlFor="s1-fullName">
-                      <Input
-                        id="s1-fullName"
-                        value={form.fullName}
-                        onChange={(e) => {
-                          setForm((f) => ({ ...f, fullName: e.target.value }))
-                          if (ekyc.citizenOk) setEkyc((s) => ({ ...s, citizenOk: false }))
-                        }}
-                      />
-                    </FormField>
-                    <FormField label="Số CCCD (9 hoặc 12 số)" htmlFor="s1-citizenId">
-                      <Input
-                        id="s1-citizenId"
-                        value={form.citizenId}
-                        maxLength={12}
-                        inputMode="numeric"
-                        onChange={(e) => {
-                          const v = e.target.value.replace(/\D/g, '')
-                          setForm((f) => ({ ...f, citizenId: v }))
-                          if (ekyc.citizenOk) setEkyc((s) => ({ ...s, citizenOk: false }))
-                        }}
-                      />
-                    </FormField>
-                    <FormField label="Ngày sinh" htmlFor="s1-dob">
-                      <Input
-                        id="s1-dob"
-                        type="date"
-                        value={form.dob}
-                        onChange={(e) => {
-                          setForm((f) => ({ ...f, dob: e.target.value }))
-                          if (ekyc.citizenOk) setEkyc((s) => ({ ...s, citizenOk: false }))
-                        }}
-                      />
-                    </FormField>
-                    <FormField label="Địa chỉ thường trú" htmlFor="s1-address">
-                      <Input
-                        id="s1-address"
-                        value={form.address}
-                        onChange={(e) => {
-                          setForm((f) => ({ ...f, address: e.target.value }))
-                          if (ekyc.citizenOk) setEkyc((s) => ({ ...s, citizenOk: false }))
-                        }}
-                      />
-                    </FormField>
-                    {manualEntry && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={isBusy}
-                        onClick={() => void verifyManualCitizen()}
-                      >
-                        Kiểm tra số CCCD
-                      </Button>
-                    )}
-                  </div>
-                )}
-
-                <div className="flex justify-end pt-2">
-                  <Button
-                    type="button"
-                    variant="accent"
-                    disabled={!step1Ready || isBusy}
-                    onClick={() => {
-                      setMsg(null)
-                      setStep(2)
-                    }}
-                  >
-                    Tiếp tục xác thực khuôn mặt <ChevronRight className="ml-1 h-4 w-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.section>
-        )}
-
-        {step === 2 && (
-          <motion.section
-            key="s2"
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.18 }}
-          >
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <ScanFace className="h-5 w-5 text-primary" />
-                  Bước 2 — Xác thực khuôn mặt
-                </CardTitle>
-                <CardDescription>Chụp selfie hoặc upload ảnh. Hệ thống sẽ so khớp với ảnh CCCD ở bước 1.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {summary}
-
-                <CameraCapture mode="photo" onPhoto={(file) => queueSelfie(file)} />
-
-                <div className="text-center text-xs text-slate-400">hoặc upload ảnh selfie</div>
-                <input
-                  ref={selfieInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-primary hover:file:bg-primary/20 dark:file:bg-accent/20 dark:file:text-accent"
-                  disabled={isBusy}
-                  onChange={(e) => {
-                    const f = e.target.files?.[0]
-                    if (f) queueSelfie(f)
-                    e.target.value = ''
-                  }}
-                />
-
-                {selfiePreview && (
-                  <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/40">
-                    <img
-                      src={selfiePreview}
-                      alt="Selfie"
-                      className="h-20 w-20 rounded-full border-2 border-white object-cover shadow dark:border-slate-800"
-                    />
-                    <div className="text-sm">
-                      <p
-                        className={`font-semibold ${
-                          ekyc.face ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-700 dark:text-slate-300'
-                        }`}
-                      >
-                        {ekyc.face ? '✓ Đã xác thực' : 'Chưa xác thực'}
-                      </p>
-                      {faceSimilarity != null && (
-                        <p className="text-slate-500 dark:text-slate-400">Độ khớp: {formatSimilarity(faceSimilarity)}</p>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                <Button
-                  type="button"
-                  variant="accent"
-                  disabled={!pendingSelfie || isBusy}
-                  onClick={() => void runFaceMatch()}
-                >
-                  {busy === 'face' ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Đang xác thực…
-                    </>
-                  ) : (
-                    'Xác thực khuôn mặt'
-                  )}
-                </Button>
-
-                <div className="flex flex-wrap justify-between gap-2 pt-2">
-                  <Button type="button" variant="outline" disabled={isBusy} onClick={() => setStep(1)}>
-                    ← Quay lại
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="accent"
-                    disabled={!step2Ready || isBusy}
-                    onClick={() => void saveVerifiedInfo()}
-                  >
-                    {busy === 'save' ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Đang lưu…
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="mr-2 h-4 w-4" /> Lưu thông tin &amp; hoàn tất
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.section>
-        )}
-      </AnimatePresence>
-
-      {msg && (
-        <Alert
-          variant={
-            msg.type === 'error' ? 'error' : msg.type === 'warning' ? 'warning' : msg.type === 'info' ? 'info' : 'success'
-          }
-        >
-          {msg.text}
-        </Alert>
-      )}
-    </div>
     </div>
   )
 }

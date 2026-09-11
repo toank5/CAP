@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { AppShell } from '@/components/layout/app-shell'
 import { PaymentNotice } from '@/components/layout/payment-notice'
 import { EkycNotice } from '@/components/layout/ekyc-notice'
+import { EkycGateModal } from '@/components/layout/ekyc-gate-modal'
 import { useHashRoute } from '@/hooks/useHashRoute'
 import { getCachedVerified, refreshVerifiedCache, setCachedVerified } from '@/lib/verification'
 import { Loader2 } from 'lucide-react'
@@ -183,6 +184,7 @@ export function App() {
     <AppShell>
       {showPaymentNotice && <PaymentNotice />}
       {showEkycNotice && <EkycNotice />}
+      <EkycGateModal />
       <AnimatePresence mode="wait">
         <motion.div
           key={route}

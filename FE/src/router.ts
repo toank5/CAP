@@ -767,7 +767,6 @@ export const AUTH_FORM_ROUTES = new Set<RouteId>([
   'login',
   'register',
   'verify-otp',
-  'verify-identity',
   'resend-otp',
   'forgot-password',
   'reset-password',

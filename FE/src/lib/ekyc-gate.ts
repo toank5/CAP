@@ -1,18 +1,39 @@
-import { navigate } from '@/router'
 import {
   getCachedVerified,
   refreshVerifiedCache,
 } from '@/lib/verification'
 
+type EkycGateListener = (state: { open: boolean; projectId?: string }) => void
+const listeners = new Set<EkycGateListener>()
+
+export function subscribeEkycGate(fn: EkycGateListener) {
+  listeners.add(fn)
+  return () => {
+    listeners.delete(fn)
+  }
+}
+
+export function openEkycGateModal(projectId?: string) {
+  if (projectId) {
+    sessionStorage.setItem('createApplicationProjectId', projectId)
+    sessionStorage.setItem('projectId', projectId)
+  }
+  listeners.forEach((fn) => fn({ open: true, projectId }))
+}
+
+export function closeEkycGateModal() {
+  listeners.forEach((fn) => fn({ open: false }))
+}
+
 /**
  * Hard gate trước khi đăng ký / tạo hồ sơ.
- * Quy tắc đồng bộ mobile: chỉ chặn đúng lúc nộp hồ sơ, không khóa cả app.
+ * Quy tắc đồng bộ: khi chưa eKYC thì mở modal hướng dẫn định danh thay vì window.confirm.
  *
  * @returns true nếu đã eKYC — được tiếp tục
  */
 export async function ensureVerifiedForApplication(options?: {
   projectId?: string
-  /** true = chỉ kiểm tra, không confirm/navigate (dùng khi mount trang) */
+  /** true = chỉ kiểm tra, không mở modal (dùng khi mount trang) */
   silent?: boolean
 }): Promise<boolean> {
   if (options?.projectId) {
@@ -28,11 +49,10 @@ export async function ensureVerifiedForApplication(options?: {
 
   if (options?.silent) return false
 
-  const goVerify = window.confirm(
-    'Bạn cần xác minh danh tính (eKYC) trước khi đăng ký hồ sơ nhà ở xã hội.\n\nXác minh ngay bây giờ?',
-  )
-  if (goVerify) navigate('verify-identity')
+  // Mở modal thông báo định danh eKYC
+  openEkycGateModal(options?.projectId)
   return false
 }
 
 export { refreshVerifiedCache as refreshVerifiedStatus }
+
