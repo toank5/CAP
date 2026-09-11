@@ -54,7 +54,7 @@ export function Modal({
           exit={{ opacity: 0 }}
           transition={{ duration: 0.18 }}
           onClick={onClose}
-          className="fixed inset-0 z-50 flex items-stretch justify-center bg-slate-900/60 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto"
         >
           <motion.div
             key="dialog"
@@ -64,8 +64,8 @@ export function Modal({
             transition={{ type: 'spring', stiffness: 320, damping: 26 }}
             onClick={(e) => e.stopPropagation()}
             className={`relative flex w-full flex-col ${maxW} ${
-              fullHeight ? 'h-[calc(100vh-2rem)]' : ''
-            } overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-slate-900 dark:border dark:border-slate-700`}
+              fullHeight ? 'h-[calc(100vh-2rem)]' : 'max-h-[90vh]'
+            } my-auto overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-slate-900 dark:border dark:border-slate-700`}
           >
             {title && (
               <div className="flex items-start gap-4 border-b border-slate-100 px-6 py-4 dark:border-slate-800">
@@ -95,7 +95,7 @@ export function Modal({
                 <X className="h-4 w-4" />
               </button>
             )}
-            <div className={`${fullHeight ? 'min-h-0 flex-1' : ''} px-6 py-5`}>
+            <div className={`${fullHeight ? 'min-h-0 flex-1' : ''} overflow-y-auto px-6 py-5`}>
               {children}
             </div>
           </motion.div>
