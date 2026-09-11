@@ -79,32 +79,10 @@ import {
 } from '@/lib/housing-search'
 import type { ApartmentDto, CreateApartmentDto, CreateHousingProjectRequestDto, HousingProjectDto } from '@/types'
 
-function getTotalCount(data: unknown): number {
-  if (!data || typeof data !== 'object') return 0
-  const o = data as Record<string, unknown>
-  if (typeof o.totalCount === 'number') return o.totalCount
-  const nested = (o.data ?? o.Data) as Record<string, unknown> | undefined
-  if (nested && typeof nested.totalCount === 'number') return nested.totalCount
-  return 0
-}
-
-function getTotalPages(data: unknown, pageSize = 12): number {
-  if (!data || typeof data !== 'object') return 1
-  const o = data as Record<string, unknown>
-  if (typeof o.totalPages === 'number' && o.totalPages > 0) return o.totalPages
-  const nested = (o.data ?? o.Data) as Record<string, unknown> | undefined
-  if (nested && typeof nested.totalPages === 'number' && nested.totalPages > 0) return nested.totalPages
-  // Fallback: tính từ totalCount
-  const totalCount = (nested?.totalCount ?? o.totalCount) as number | undefined
-  if (typeof totalCount === 'number' && totalCount > 0) {
-    return Math.max(1, Math.ceil(totalCount / pageSize))
-  }
-  return 1
-}
-
 export function ProjectsPage() {
-  const [all, setAll] = useState<HousingProjectDto[]>([])
+  const [rawProjects, setRawProjects] = useState<HousingProjectDto[]>([])
   const [filter, setFilter] = useState<HousingSearchFilter>({ ...EMPTY_HOUSING_SEARCH })
+  const [activeTab, setActiveTab] = useState<'all' | 'approved' | 'pending' | 'rejected'>('all')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [flashSuccess, setFlashSuccess] = useState<string | null>(null)
@@ -112,34 +90,26 @@ export function ProjectsPage() {
   const [showCreateProject, setShowCreateProject] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
   const [pageIndex, setPageIndex] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [totalCount, setTotalCount] = useState(0)
   const [notice, setNotice] = useState<string | null>(null)
   const { isWishlisted, toggle } = useWishlist()
   const isApplicant = getRole() === 'Applicant'
   const isSxd = getRole() === 'Department Of Construction' || getRole() === 'SXD Staff'
   const PAGE_SIZE = 12
 
-  const load = async (nextFilter: HousingSearchFilter, page = 1) => {
+  const load = async (nextFilter: HousingSearchFilter = filter) => {
     setLoading(true)
     setError('')
     try {
-      const data = await housingProjectsApi.list({ ...toApiFilter(nextFilter), pageIndex: page, pageSize: PAGE_SIZE })
-      const items = sortHousingProjects(
-        applyClientFilters(extractProjects(data), nextFilter).filter(
-          (p) => (p.availableUnits ?? 0) > 0,
-        ),
-        nextFilter.sort,
-      )
-      setAll(items)
-      setPageIndex(page)
-      setTotalCount(getTotalCount(data))
-      setTotalPages(getTotalPages(data, PAGE_SIZE))
+      const data = await housingProjectsApi.list({
+        ...toApiFilter(nextFilter),
+        pageIndex: 1,
+        pageSize: 200,
+      })
+      const extracted = extractProjects(data)
+      setRawProjects(extracted)
     } catch (err) {
       setError(formatError(err))
-      setAll([])
-      setTotalPages(1)
-      setTotalCount(0)
+      setRawProjects([])
     } finally {
       setLoading(false)
     }
@@ -147,7 +117,17 @@ export function ProjectsPage() {
 
   const refreshProjects = () => setReloadKey((k) => k + 1)
 
-  useEffect(() => { void load(EMPTY_HOUSING_SEARCH) }, [reloadKey])
+  useEffect(() => {
+    void load(EMPTY_HOUSING_SEARCH)
+  }, [reloadKey])
+
+  useEffect(() => {
+    const handler = () => {
+      void load(filter)
+    }
+    window.addEventListener('fecaps:project-status-changed', handler)
+    return () => window.removeEventListener('fecaps:project-status-changed', handler)
+  }, [filter])
 
   useEffect(() => {
     const name = sessionStorage.getItem(FLASH_CREATE_PROJECT_KEY)
@@ -178,7 +158,69 @@ export function ProjectsPage() {
     if (added) setNotice(`Đã thêm "${house.name}" vào danh sách quan tâm.`)
   }
 
-  const cards = useMemo(() => all.map(mapProjectToCard), [all])
+  // Phân nhóm dự án theo trạng thái
+  const { allList, approvedList, pendingList, rejectedList, counts } = useMemo(() => {
+    const pending: HousingProjectDto[] = []
+    const approved: HousingProjectDto[] = []
+    const rejected: HousingProjectDto[] = []
+
+    rawProjects.forEach((p) => {
+      if (isPending(p)) {
+        pending.push(p)
+      } else if (isRejected(p)) {
+        rejected.push(p)
+      } else {
+        approved.push(p)
+      }
+    })
+
+    return {
+      allList: rawProjects,
+      approvedList: approved,
+      pendingList: pending,
+      rejectedList: rejected,
+      counts: {
+        all: rawProjects.length,
+        approved: approved.length,
+        pending: pending.length,
+        rejected: rejected.length,
+      },
+    }
+  }, [rawProjects])
+
+  // Lọc theo Tab đang chọn
+  const currentBaseList = useMemo(() => {
+    switch (activeTab) {
+      case 'pending':
+        return pendingList
+      case 'approved':
+        return approvedList
+      case 'rejected':
+        return rejectedList
+      case 'all':
+      default:
+        return isApplicant ? approvedList : allList
+    }
+  }, [activeTab, pendingList, approvedList, rejectedList, allList, isApplicant])
+
+  // Áp dụng bộ lọc người dùng
+  const filteredProjects = useMemo(() => {
+    const filtered = applyClientFilters(currentBaseList, filter, {
+      allowUnapproved: activeTab !== 'approved' && !isApplicant,
+    })
+    return sortHousingProjects(filtered, filter.sort)
+  }, [currentBaseList, filter, activeTab, isApplicant])
+
+  useEffect(() => {
+    setPageIndex(1)
+  }, [activeTab, filter])
+
+  const totalFiltered = filteredProjects.length
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE))
+  const paginatedProjects = useMemo(() => {
+    const start = (pageIndex - 1) * PAGE_SIZE
+    return filteredProjects.slice(start, start + PAGE_SIZE)
+  }, [filteredProjects, pageIndex, PAGE_SIZE])
 
   return (
     <div className="space-y-6">
@@ -201,7 +243,7 @@ export function ProjectsPage() {
             <div className="flex flex-wrap items-center gap-2 pt-2">
               <span className="inline-flex items-center gap-1 rounded-lg bg-white/80 px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-sm border border-slate-100 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700">
                 <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                {loading ? 'Đang tải...' : `${totalCount || cards.length} dự án khả dụng`}
+                {loading ? 'Đang tải...' : `${counts.all} dự án trên hệ thống`}
               </span>
               <span className="inline-flex items-center gap-1 rounded-lg bg-white/80 px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-sm border border-slate-100 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700">
                 <MapPin className="h-3 w-3 text-rose-500" />
@@ -233,7 +275,7 @@ export function ProjectsPage() {
             <div>
               <p className="font-semibold text-emerald-800 dark:text-emerald-300">Tạo dự án thành công!</p>
               <p className="mt-0.5 text-xs text-emerald-700 dark:text-emerald-400">
-                Dự án <strong>{flashSuccess}</strong> đã được thêm vào hệ thống.
+                Dự án <strong>{flashSuccess}</strong> đã được thêm vào hệ thống và đang ở trạng thái <strong>Chờ SXD duyệt</strong>.
               </p>
             </div>
           </div>
@@ -270,17 +312,128 @@ export function ProjectsPage() {
         </Alert>
       )}
 
-      {/* 3. Search & Filter Bar */}
+      {/* 3. Dedicated Tabs for CĐT & SXD */}
+      {!isApplicant && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3 dark:border-slate-800">
+          <button
+            type="button"
+            onClick={() => setActiveTab('all')}
+            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-bold transition-all ${
+              activeTab === 'all'
+                ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/30'
+                : 'bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-700'
+            }`}
+          >
+            <Layers className="h-4 w-4" />
+            Tất cả dự án
+            <span
+              className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold ${
+                activeTab === 'all'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
+              }`}
+            >
+              {counts.all}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('approved')}
+            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-bold transition-all ${
+              activeTab === 'approved'
+                ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/30'
+                : 'bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-700'
+            }`}
+          >
+            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+            Đã duyệt / Công khai
+            <span
+              className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold ${
+                activeTab === 'approved'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+              }`}
+            >
+              {counts.approved}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('pending')}
+            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-bold transition-all ${
+              activeTab === 'pending'
+                ? 'bg-amber-600 text-white shadow-sm shadow-amber-600/30'
+                : 'bg-white text-amber-700 hover:bg-amber-50 hover:text-amber-800 border border-amber-200 dark:bg-slate-800 dark:text-amber-400 dark:border-amber-900/50 dark:hover:bg-amber-950/20'
+            }`}
+          >
+            <Clock className={`h-4 w-4 ${counts.pending > 0 ? 'text-amber-500 animate-pulse' : 'text-amber-400'}`} />
+            Chờ SXD duyệt
+            <span
+              className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold ${
+                activeTab === 'pending'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200'
+              }`}
+            >
+              {counts.pending}
+            </span>
+          </button>
+
+          {counts.rejected > 0 && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('rejected')}
+              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-bold transition-all ${
+                activeTab === 'rejected'
+                  ? 'bg-rose-600 text-white shadow-sm shadow-rose-600/30'
+                  : 'bg-white text-rose-700 hover:bg-rose-50 hover:text-rose-800 border border-rose-200 dark:bg-slate-800 dark:text-rose-400 dark:border-rose-900/50 dark:hover:bg-rose-950/20'
+              }`}
+            >
+              <AlertTriangle className="h-4 w-4 text-rose-500" />
+              Bị từ chối
+              <span
+                className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold ${
+                  activeTab === 'rejected'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-rose-100 text-rose-800 dark:bg-rose-900/60 dark:text-rose-200'
+                }`}
+              >
+                {counts.rejected}
+              </span>
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* 4. Pending tab info note */}
+      {!isApplicant && activeTab === 'pending' && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 dark:border-amber-900/50 dark:bg-amber-950/30 flex items-start gap-3 text-xs sm:text-sm text-amber-900 dark:text-amber-200 shadow-sm">
+          <Clock className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+          <div>
+            <p className="font-bold text-amber-950 dark:text-amber-100">Danh sách dự án chờ Sở Xây Dựng thẩm định & phê duyệt</p>
+            <p className="mt-0.5 text-xs text-amber-800 dark:text-amber-300/90 leading-relaxed">
+              Các dự án này do Chủ đầu tư vừa khởi tạo hoặc cập nhật hồ sơ, chưa được công bố công khai cho người dân. Sau khi Sở Xây Dựng phê duyệt, dự án sẽ chuyển sang trạng thái <strong>Sắp mở bán</strong> (công khai 30 ngày) rồi chính thức mở tiếp nhận hồ sơ.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* 5. Search & Filter Bar */}
       <HousingSearchForm
         value={filter}
         onChange={setFilter}
         loading={loading}
-        onSubmit={(next) => { void load(next) }}
+        onSubmit={(next) => {
+          setFilter(next)
+          void load(next)
+        }}
       />
 
       {error && <Alert variant="error">{error}</Alert>}
 
-      {/* 4. Projects Cards Grid */}
+      {/* 6. Projects Cards Grid */}
       {loading ? (
         <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -298,8 +451,15 @@ export function ProjectsPage() {
             </div>
           ))}
         </div>
-      ) : cards.length === 0 ? (
-        isApplicant ? (
+      ) : paginatedProjects.length === 0 ? (
+        activeTab === 'pending' ? (
+          <EmptyState
+            title="Không có dự án nào đang chờ duyệt"
+            description="Tất cả dự án đã được Sở Xây Dựng phê duyệt hoặc chưa có dự án mới khởi tạo."
+            actionLabel={!isApplicant ? "Tạo dự án mới" : undefined}
+            onAction={!isApplicant ? () => setShowCreateProject(true) : undefined}
+          />
+        ) : isApplicant ? (
           <EmptyState
             title="Không tìm thấy dự án phù hợp"
             description="Thử điều chỉnh hoặc đặt lại bộ lọc để xem các dự án nhà ở xã hội đang mở."
@@ -315,9 +475,10 @@ export function ProjectsPage() {
       ) : (
         <div className="space-y-6">
           <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-            {cards.map((house) => {
-              const project = all.find((p) => p.id === house.id)
-              const isPending = project?.status === 'Đang chờ' || project?.status === 'Pending' || project?.status === 'PENDING'
+            {paginatedProjects.map((p) => {
+              const house = mapProjectToCard(p)
+              const isProjPending = isPending(p)
+              const isProjRejected = isRejected(p)
               return (
                 <HouseCard
                   key={house.id}
@@ -325,16 +486,29 @@ export function ProjectsPage() {
                   fav={isWishlisted(house.id)}
                   onToggleFavorite={() => { void handleToggleFavorite(house) }}
                   actionButton={
-                    isSxd && isPending ? (
+                    isSxd && isProjPending ? (
                       <Button
                         size="sm"
-                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold"
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm"
                         onClick={() => {
                           sessionStorage.setItem('projectId', house.id)
                           navigate('project-detail')
                         }}
                       >
                         Duyệt dự án
+                      </Button>
+                    ) : !isApplicant && (isProjPending || isProjRejected) ? (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="w-full rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-700"
+                        onClick={() => {
+                          sessionStorage.setItem('projectId', house.id)
+                          navigate('project-detail')
+                        }}
+                      >
+                        <Edit3 className="mr-1 h-3.5 w-3.5 text-slate-500" />
+                        Quản lý dự án
                       </Button>
                     ) : undefined
                   }
@@ -343,13 +517,13 @@ export function ProjectsPage() {
             })}
           </div>
 
-          {/* 5. Pagination */}
+          {/* 7. Pagination */}
           {totalPages > 1 && (
             <div className="mt-8 flex flex-col items-center justify-between gap-4 border-t border-slate-100 pt-6 sm:flex-row dark:border-slate-800">
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Hiển thị <span className="font-semibold text-slate-700 dark:text-slate-200">{(pageIndex - 1) * PAGE_SIZE + 1}–{Math.min(pageIndex * PAGE_SIZE, totalCount)}</span> trong tổng số <span className="font-semibold text-slate-700 dark:text-slate-200">{totalCount}</span> dự án
+                Hiển thị <span className="font-semibold text-slate-700 dark:text-slate-200">{(pageIndex - 1) * PAGE_SIZE + 1}–{Math.min(pageIndex * PAGE_SIZE, totalFiltered)}</span> trong tổng số <span className="font-semibold text-slate-700 dark:text-slate-200">{totalFiltered}</span> dự án phù hợp
               </p>
-              <Pagination pageIndex={pageIndex} totalPages={totalPages} onPageChange={(p) => void load(filter, p)} />
+              <Pagination pageIndex={pageIndex} totalPages={totalPages} onPageChange={(p) => setPageIndex(p)} />
             </div>
           )}
         </div>
@@ -389,7 +563,10 @@ export function ProjectsPage() {
       <CreateProjectModal
         open={showCreateProject}
         onClose={() => setShowCreateProject(false)}
-        onCreated={refreshProjects}
+        onCreated={() => {
+          setActiveTab('pending')
+          refreshProjects()
+        }}
       />
     </div>
   )

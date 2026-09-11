@@ -153,8 +153,8 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
             variant="outline"
             size="sm"
             className={`h-10 rounded-xl px-3 text-xs font-semibold gap-1.5 transition ${showAdvanced
-                ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
-                : 'border-slate-200 text-slate-700 hover:border-emerald-300 hover:text-emerald-700 dark:border-slate-700 dark:text-slate-200'
+              ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+              : 'border-slate-200 text-slate-700 hover:border-emerald-300 hover:text-emerald-700 dark:border-slate-700 dark:text-slate-200'
               }`}
             onClick={() => setShowAdvanced((v) => !v)}
           >
@@ -190,8 +190,8 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
             submit(next)
           }}
           className={`rounded-full px-3 py-1 text-xs font-bold transition active:scale-95 ${isFilterAll
-              ? 'bg-emerald-600 text-white shadow-sm'
-              : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+            ? 'bg-emerald-600 text-white shadow-sm'
+            : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
             }`}
         >
           Tất cả
@@ -204,8 +204,8 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
             submit(next)
           }}
           className={`rounded-full px-3 py-1 text-xs font-bold transition active:scale-95 ${isFilterOpen
-              ? 'bg-emerald-600 text-white shadow-sm'
-              : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+            ? 'bg-emerald-600 text-white shadow-sm'
+            : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
             }`}
         >
           Đang mở đăng ký
@@ -218,8 +218,8 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
             submit(next)
           }}
           className={`rounded-full px-3 py-1 text-xs font-bold transition active:scale-95 ${isFilterUpcoming
-              ? 'bg-emerald-600 text-white shadow-sm'
-              : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+            ? 'bg-emerald-600 text-white shadow-sm'
+            : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
             }`}
         >
           Sắp mở bán
@@ -236,8 +236,8 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
             submit(next)
           }}
           className={`rounded-full px-3 py-1 text-xs font-bold transition active:scale-95 ${isFilterUnder15B
-              ? 'bg-emerald-600 text-white shadow-sm'
-              : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+            ? 'bg-emerald-600 text-white shadow-sm'
+            : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
             }`}
         >
           Giá dưới 1.5 tỷ
@@ -254,8 +254,8 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
             submit(next)
           }}
           className={`rounded-full px-3 py-1 text-xs font-bold transition active:scale-95 ${isFilterMediumArea
-              ? 'bg-emerald-600 text-white shadow-sm'
-              : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+            ? 'bg-emerald-600 text-white shadow-sm'
+            : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
             }`}
         >
           Diện tích 50–70 m²
@@ -289,6 +289,7 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
               placeholder="VD: 500"
               value={locked.minPriceMillion}
               onChange={(e) => set({ minPriceMillion: e.target.value })}
+              onBlur={() => submit()}
             />
           </div>
           <div>
@@ -300,6 +301,7 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
               placeholder="VD: 2000"
               value={locked.maxPriceMillion}
               onChange={(e) => set({ maxPriceMillion: e.target.value })}
+              onBlur={() => submit()}
             />
           </div>
           <div>
@@ -311,6 +313,7 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
               placeholder="VD: 45"
               value={locked.minArea}
               onChange={(e) => set({ minArea: e.target.value })}
+              onBlur={() => submit()}
             />
           </div>
           <div>
@@ -322,6 +325,7 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
               placeholder="VD: 90"
               value={locked.maxArea}
               onChange={(e) => set({ maxArea: e.target.value })}
+              onBlur={() => submit()}
             />
           </div>
           <div>
@@ -333,6 +337,7 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
               placeholder="VD: 1"
               value={locked.minAvailable}
               onChange={(e) => set({ minAvailable: e.target.value })}
+              onBlur={() => submit()}
             />
           </div>
           <div>
@@ -343,17 +348,22 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
                 value={locked.statusCode || locked.statusId}
                 onChange={(e) => {
                   const v = e.target.value
-                  if (v === 'OPEN' || v === 'UPCOMING' || v === 'CLOSED') {
-                    set({ statusCode: v, statusId: '' })
+                  let next: HousingSearchFilter
+                  if (v === 'OPEN' || v === 'UPCOMING' || v === 'CLOSED' || v === 'PENDING' || v === 'REJECTED') {
+                    next = { ...locked, statusCode: v, statusId: '' }
                   } else {
-                    set({ statusId: v, statusCode: '' })
+                    next = { ...locked, statusId: v, statusCode: '' }
                   }
+                  onChange(next)
+                  submit(next)
                 }}
               >
                 <option value="">Tất cả</option>
-                <option value="OPEN">Đang mở</option>
-                <option value="UPCOMING">Sắp mở</option>
-                <option value="CLOSED">Đã đóng</option>
+                <option value="OPEN">Đang mở đăng ký</option>
+                <option value="UPCOMING">Sắp mở bán</option>
+                <option value="PENDING">Chờ SXD duyệt</option>
+                <option value="CLOSED">Đã kết thúc</option>
+                <option value="REJECTED">Bị từ chối</option>
                 {statuses.map((s) => (
                   <option key={s.id} value={s.id}>{s.label}</option>
                 ))}

@@ -134,7 +134,11 @@ export function matchesOpenStatus(statusLabel: string): boolean {
   )
 }
 
-export function applyClientFilters(projects: HousingProjectDto[], filter: HousingSearchFilter): HousingProjectDto[] {
+export function applyClientFilters(
+  projects: HousingProjectDto[],
+  filter: HousingSearchFilter,
+  options?: { allowUnapproved?: boolean },
+): HousingProjectDto[] {
   const minAvailable = parseNum(filter.minAvailable) ?? 0
   const minM = parseNum(filter.minPriceMillion)
   const maxM = parseNum(filter.maxPriceMillion)
@@ -153,37 +157,49 @@ export function applyClientFilters(projects: HousingProjectDto[], filter: Housin
       const pw = (p.ward || '').toLowerCase()
       const pd = (p.district || '').toLowerCase()
       // Exact match — đồng bộ CRUD lưu District = Ward = tên phường v2
-      if (pw !== ward && pd !== ward) return false
+      if (pw !== ward && pd !== ward && !loc.includes(ward)) return false
     }
 
-    const price = p.maxPrice ?? p.minPrice ?? 0
-    if (minM != null && price > 0 && price < minM * 1_000_000) return false
-    if (maxM != null && price > maxM * 1_000_000) return false
+    const minP = p.minPrice ?? 0
+    const maxP = p.maxPrice ?? minP
+    if (minM != null) {
+      const targetMin = minM * 1_000_000
+      if (maxP > 0 && maxP < targetMin) return false
+    }
+    if (maxM != null) {
+      const targetMax = maxM * 1_000_000
+      if (minP > 0 && minP > targetMax) return false
+    }
 
-    const area = p.maxArea ?? p.minArea ?? 0
-    if (minArea != null && area > 0 && area < minArea) return false
-    if (maxArea != null && area > maxArea) return false
+    const minA = p.minArea ?? 0
+    const maxA = p.maxArea ?? minA
+    if (minArea != null && maxA > 0 && maxA < minArea) return false
+    if (maxArea != null && minA > 0 && minA > maxArea) return false
 
     if (p.availableUnits != null && p.availableUnits < minAvailable) return false
 
     const effective = effectiveProjectStatus(p)
-    if (!filter.statusCode && !filter.statusId) {
+    const rawStatus = (p.status || '').toUpperCase()
+
+    if (!filter.statusCode && !filter.statusId && !options?.allowUnapproved) {
       if (effective === 'PENDING' || effective === 'REJECTED') return false
     }
 
     if (filter.statusId && p.housingProjectStatusId !== filter.statusId) return false
     if (filter.statusCode) {
-      const label = String(p.status || '')
       const want = filter.statusCode.toUpperCase()
       if (want === 'OPEN' || want === 'OPEN_FOR_REGISTRATION') {
-        if (label && !matchesOpenStatus(label)) return false
+        if (effective !== 'OPEN' && !matchesOpenStatus(p.status || '')) return false
       } else if (want === 'UPCOMING') {
-        if (label && !/upcoming|sắp mở/i.test(label)) return false
+        if (effective !== 'UPCOMING' && !/upcoming|sắp mở/i.test(p.status || '')) return false
       } else if (want === 'CLOSED') {
-        if (label && !/closed|đã đóng|đóng đăng ký/i.test(label)) return false
-      } else if (label) {
-        const code = label.toUpperCase()
-        if (!code.includes(want) && code !== want) return false
+        if (effective !== 'CLOSED' && effective !== 'FULL' && !/closed|đã đóng|đóng đăng ký|hết căn/i.test(p.status || '')) return false
+      } else if (want === 'PENDING') {
+        if (effective !== 'PENDING' && !/pending|chờ|thẩm định|nháp/i.test(p.status || '')) return false
+      } else if (want === 'REJECTED') {
+        if (effective !== 'REJECTED' && !/reject|từ chối/i.test(p.status || '')) return false
+      } else {
+        if (effective !== want && !rawStatus.includes(want)) return false
       }
     }
 

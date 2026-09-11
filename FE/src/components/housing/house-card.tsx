@@ -60,9 +60,24 @@ export const HouseCard = memo(function HouseCard({
 
         {/* Top Floating Status Badge */}
         <div className="absolute left-3 top-3">
-          <span className="rounded-full bg-emerald-600/90 px-2.5 py-0.5 text-[11px] font-bold text-white shadow-sm backdrop-blur-md">
-            {house.status}
-          </span>
+          {(() => {
+            const s = (house.status || '').toLowerCase()
+            let badgeStyle = 'bg-emerald-600/95 text-white'
+            if (s.includes('chờ') || s.includes('pending') || s.includes('nháp') || s.includes('thẩm định')) {
+              badgeStyle = 'bg-amber-600/95 text-white border border-amber-400/30'
+            } else if (s.includes('từ chối') || s.includes('reject')) {
+              badgeStyle = 'bg-rose-600/95 text-white border border-rose-400/30'
+            } else if (s.includes('sắp') || s.includes('upcoming')) {
+              badgeStyle = 'bg-sky-600/95 text-white border border-sky-400/30'
+            } else if (s.includes('đóng') || s.includes('closed') || s.includes('hết')) {
+              badgeStyle = 'bg-slate-700/95 text-slate-100 border border-slate-500/30'
+            }
+            return (
+              <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold shadow-sm backdrop-blur-md ${badgeStyle}`}>
+                {house.status}
+              </span>
+            )
+          })()}
         </div>
 
         {/* Favorite Button */}
