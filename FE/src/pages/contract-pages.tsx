@@ -384,10 +384,10 @@ function DeveloperUnlockBar({
               disabled={disabled}
               onClick={() => void handleUnlock(inst)}
               className={`flex flex-col items-start gap-1 rounded-lg border p-3 text-left text-sm transition ${paid
-                  ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30'
-                  : disabled
-                    ? 'cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400 dark:border-slate-700 dark:bg-slate-800/40'
-                    : 'border-indigo-200 bg-white hover:border-indigo-400 hover:bg-indigo-50 dark:border-indigo-800 dark:bg-slate-900 dark:hover:bg-indigo-950/40'
+                ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30'
+                : disabled
+                  ? 'cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400 dark:border-slate-700 dark:bg-slate-800/40'
+                  : 'border-indigo-200 bg-white hover:border-indigo-400 hover:bg-indigo-50 dark:border-indigo-800 dark:bg-slate-900 dark:hover:bg-indigo-950/40'
                 }`}
             >
               <span className="flex items-center gap-2 font-semibold">
@@ -574,12 +574,12 @@ function InstallmentRow({
         <div className="flex min-w-0 flex-1 items-start gap-3">
           <div
             className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-base font-bold ${isPaid
-                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-                : isOverdue
-                  ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
-                  : isLocked
-                    ? 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
-                    : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+              : isOverdue
+                ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
+                : isLocked
+                  ? 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                  : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
               }`}
             aria-hidden
           >
@@ -645,12 +645,12 @@ function InstallmentRow({
         <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
           <div
             className={`h-full rounded-full ${isPaid
-                ? 'bg-emerald-500'
-                : isOverdue
-                  ? 'bg-rose-500'
-                  : isLocked
-                    ? 'bg-slate-300 dark:bg-slate-600'
-                    : 'bg-amber-400'
+              ? 'bg-emerald-500'
+              : isOverdue
+                ? 'bg-rose-500'
+                : isLocked
+                  ? 'bg-slate-300 dark:bg-slate-600'
+                  : 'bg-amber-400'
               }`}
             style={{ width: `${phasePct}%` }}
           />

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   CheckCircle2, Clock, AlertTriangle, XCircle, Lock, Calendar, Banknote,
   TrendingUp, CircleDot, PenLine, Download, History, Home, FileText, Loader2, RefreshCw,
+  ChevronUp, Eye,
 } from 'lucide-react'
 import {
   INSTALLMENT_STATUS_LABEL,
@@ -990,7 +991,7 @@ interface SignContractSectionProps {
   canSign: boolean
   signing: boolean
   onSign: () => void
-  applicationStatus: string
+  applicationStatus?: string
   applicationId: string
 }
 
@@ -1000,6 +1001,7 @@ export function SignContractSection({
   onSign,
   applicationId,
 }: SignContractSectionProps) {
+  const [showPdf, setShowPdf] = useState(false)
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   const [pdfLoading, setPdfLoading] = useState(false)
   const [pdfError, setPdfError] = useState<string | null>(null)
@@ -1011,7 +1013,6 @@ export function SignContractSection({
     if (!applicationId) return
     setPdfLoading(true)
     setPdfError(null)
-    setAgreed(false)
     try {
       const blob = await fetchContractPdfBlob(applicationId)
       const url = URL.createObjectURL(blob)
@@ -1029,83 +1030,73 @@ export function SignContractSection({
   }
 
   useEffect(() => {
-    if (!canSign || !applicationId) return
-    void loadPdf()
+    if (showPdf && !pdfUrl && !pdfLoading && applicationId) {
+      void loadPdf()
+    }
+  }, [showPdf, applicationId, pdfUrl, pdfLoading])
+
+  useEffect(() => {
     return () => {
       if (pdfUrlRef.current) {
         URL.revokeObjectURL(pdfUrlRef.current)
         pdfUrlRef.current = null
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- load when hồ sơ / quyền ký đổi
-  }, [canSign, applicationId])
+  }, [])
 
   if (!canSign) return null
+
+  const handleTogglePdf = () => {
+    const next = !showPdf
+    setShowPdf(next)
+    if (next && !pdfUrl && !pdfLoading) {
+      void loadPdf()
+    }
+  }
 
   const handleSign = () => {
     if (!agreed || signing) return
     const ok = window.confirm(
-      'Bạn đồng ý với toàn bộ điều khoản hợp đồng mua bán nhà ở xã hội? Hệ thống sẽ ghi nhận chữ ký điện tử.',
+      'Bạn xác nhận đồng ý với toàn bộ điều khoản hợp đồng mua bán nhà ở xã hội? Hệ thống sẽ ghi nhận chữ ký điện tử của bạn.',
     )
     if (ok) onSign()
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-amber-200 bg-white dark:border-amber-800 dark:bg-slate-900">
-      <div className="border-b border-amber-100 bg-amber-50/70 px-4 py-3 dark:border-amber-900 dark:bg-amber-950/30">
-        <h4 className="flex items-center gap-2 font-semibold text-slate-900 dark:text-slate-100">
-          <FileText className="h-4 w-4 text-amber-700 dark:text-amber-400" />
-          Hợp đồng mua bán nhà ở xã hội
-        </h4>
-        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-          Đọc toàn bộ điều khoản bên dưới, rồi xác nhận đồng ý trước khi ký. Sau khi ký, đợt thanh toán tiếp theo sẽ mở trên lịch.
-        </p>
-      </div>
-
-      <div className="relative min-h-[420px] bg-slate-200 dark:bg-slate-800">
-        {pdfLoading && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-white/90 dark:bg-slate-900/90">
-            <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-            <p className="text-sm text-slate-600 dark:text-slate-400">Đang tải hợp đồng…</p>
+    <div className="overflow-hidden rounded-xl border border-amber-200 bg-white shadow-sm dark:border-amber-800 dark:bg-slate-900 transition-all">
+      {/* Compact Main Bar */}
+      <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between bg-amber-50/60 dark:bg-amber-950/20">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300">
+            <FileText className="h-5 w-5" />
           </div>
-        )}
-        {pdfError && !pdfLoading && (
-          <div className="flex min-h-[420px] flex-col items-center justify-center gap-3 px-6 text-center">
-            <AlertTriangle className="h-10 w-10 text-rose-500" />
-            <p className="font-semibold text-slate-800 dark:text-slate-100">Không thể tải hợp đồng</p>
-            <p className="max-w-md text-sm text-slate-600 dark:text-slate-400">{pdfError}</p>
-            <Button variant="outline" size="sm" onClick={() => void loadPdf()}>
-              <RefreshCw className="mr-1.5 h-4 w-4" />
-              Thử lại
-            </Button>
+          <div>
+            <div className="flex items-center gap-2">
+              <h4 className="font-semibold text-slate-900 dark:text-slate-100">
+                Ký hợp đồng mua bán NOXH
+              </h4>
+              <Badge variant="warning">Cần ký điện tử</Badge>
+            </div>
+            <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400">
+              Mẫu số 01 – Quy định theo TT 05/2024/TT-BXD. Vui lòng kiểm tra văn bản và đồng ý điều khoản trước khi ký.
+            </p>
           </div>
-        )}
-        {pdfUrl && !pdfError && (
-          <iframe
-            title="Nội dung hợp đồng mua bán nhà ở xã hội"
-            src={pdfUrl}
-            className="h-[min(72vh,720px)] w-full border-0 bg-white"
-          />
-        )}
-      </div>
+        </div>
 
-      <div className="space-y-3 border-t border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-        <label className="flex cursor-pointer items-start gap-3 text-sm text-slate-700 dark:text-slate-300">
-          <input
-            type="checkbox"
-            className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-600"
-            checked={agreed}
-            onChange={(e) => setAgreed(e.target.checked)}
-          />
-          <span>Tôi đã đọc và đồng ý điều khoản hợp đồng mua bán nhà ở xã hội.</span>
-        </label>
-        <div className="flex flex-wrap items-center gap-3">
-          <Button variant="accent" disabled={!agreed || signing} onClick={handleSign}>
-            <PenLine className="mr-1.5 h-4 w-4" />
-            {signing ? 'Đang ký...' : 'Đồng ý và ký hợp đồng'}
-          </Button>
+        <div className="flex items-center gap-2 self-end sm:self-center">
           <Button
             variant="outline"
+            size="sm"
+            onClick={handleTogglePdf}
+            className="text-xs font-medium"
+          >
+            {showPdf ? <ChevronUp className="mr-1.5 h-3.5 w-3.5" /> : <Eye className="mr-1.5 h-3.5 w-3.5" />}
+            {showPdf ? 'Thu gọn văn bản' : 'Xem toàn văn HĐ'}
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
             disabled={downloading}
             onClick={async () => {
               setDownloading(true)
@@ -1117,9 +1108,81 @@ export function SignContractSection({
                 setDownloading(false)
               }
             }}
+            className="text-xs font-medium"
           >
             <Download className="mr-1.5 h-4 w-4" />
-            {downloading ? 'Đang tải...' : 'Tải xuống'}
+            {downloading ? 'Đang tải...' : 'Tải về'}
+          </Button>
+        </div>
+      </div>
+
+      {/* Expandable PDF Preview */}
+      {showPdf && (
+        <div className="border-t border-amber-200 bg-slate-100 dark:border-amber-800 dark:bg-slate-950">
+          <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+            <span className="flex items-center gap-1.5 font-medium text-slate-700 dark:text-slate-300">
+              <FileText className="h-3.5 w-3.5 text-amber-600" />
+              Xem trước toàn văn hợp đồng mua bán NOXH
+            </span>
+            <button
+              type="button"
+              onClick={handleTogglePdf}
+              className="text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 font-medium"
+            >
+              Đóng xem trước [✕]
+            </button>
+          </div>
+
+          <div className="relative min-h-[420px] bg-slate-200 dark:bg-slate-800">
+            {pdfLoading && (
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-white/90 dark:bg-slate-900/90">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                <p className="text-sm text-slate-600 dark:text-slate-400">Đang tải văn bản hợp đồng…</p>
+              </div>
+            )}
+            {pdfError && !pdfLoading && (
+              <div className="flex min-h-[360px] flex-col items-center justify-center gap-3 px-6 text-center">
+                <AlertTriangle className="h-10 w-10 text-rose-500" />
+                <p className="font-semibold text-slate-800 dark:text-slate-100">Không thể tải hợp đồng</p>
+                <p className="max-w-md text-sm text-slate-600 dark:text-slate-400">{pdfError}</p>
+                <Button variant="outline" size="sm" onClick={() => void loadPdf()}>
+                  <RefreshCw className="mr-1.5 h-4 w-4" />
+                  Thử lại
+                </Button>
+              </div>
+            )}
+            {pdfUrl && !pdfError && (
+              <iframe
+                title="Nội dung hợp đồng mua bán nhà ở xã hội"
+                src={pdfUrl}
+                className="h-[min(65vh,650px)] w-full border-0 bg-white"
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Action footer: Checkbox & Sign button */}
+      <div className="flex flex-col gap-3 border-t border-amber-100 bg-white p-4 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800 dark:bg-slate-900">
+        <label className="flex cursor-pointer items-start gap-2.5 text-sm text-slate-700 select-none dark:text-slate-300">
+          <input
+            type="checkbox"
+            className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-600 rounded"
+            checked={agreed}
+            onChange={(e) => setAgreed(e.target.checked)}
+          />
+          <span>Tôi đã đọc, hiểu rõ và đồng ý toàn bộ điều khoản trong hợp đồng mua bán nhà ở xã hội.</span>
+        </label>
+
+        <div className="flex shrink-0 items-center gap-2">
+          <Button
+            variant="accent"
+            disabled={!agreed || signing}
+            onClick={handleSign}
+            className="w-full sm:w-auto"
+          >
+            <PenLine className="mr-1.5 h-4 w-4" />
+            {signing ? 'Đang ký điện tử...' : 'Đồng ý và ký hợp đồng'}
           </Button>
         </div>
       </div>
