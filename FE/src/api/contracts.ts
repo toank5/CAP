@@ -40,6 +40,7 @@ export interface PaymentInstallment {
   label?: string | null
   triggerEvent?: string | null
   amount: number
+  dueDays?: number
   dueDate: string
   status: InstallmentStatus        // FE display: PENDING → UNPAID
   _rawStatus: string              // BE raw: PENDING | OVERDUE | PAID | LOCKED | CANCELLED | PARTIAL
@@ -178,9 +179,28 @@ export function parseInstallments(data: unknown): PaymentInstallment[] {
       if (statusRaw === 'PARTIAL') return 'PARTIAL'
       return 'UNPAID'
     })()
+    const dueDaysRaw =
+      x.dueDays ??
+      x.DueDays ??
+      x.days ??
+      x.Days ??
+      x.durationDays ??
+      x.DurationDays ??
+      x.paymentDuration ??
+      x.PaymentDuration
+    const dueDays = Number(dueDaysRaw) > 0 ? Number(dueDaysRaw) : 7
+
     const paidAt =
       (x.paidAt as string | undefined) ??
       (x.PaidAt as string | undefined) ??
+      (x.paymentDate as string | undefined) ??
+      (x.PaymentDate as string | undefined) ??
+      (x.paidDate as string | undefined) ??
+      (x.PaidDate as string | undefined) ??
+      (x.transactionDate as string | undefined) ??
+      (x.TransactionDate as string | undefined) ??
+      (x.completedAt as string | undefined) ??
+      (x.CompletedAt as string | undefined) ??
       null
     const paidAmount =
       x.paidAmount ?? x.PaidAmount ?? undefined
@@ -199,6 +219,7 @@ export function parseInstallments(data: unknown): PaymentInstallment[] {
       label: labelVal,
       triggerEvent,
       amount: Number(amount) || 0,
+      dueDays,
       dueDate,
       // FE display: PENDING → UNPAID
       status,
@@ -211,6 +232,163 @@ export function parseInstallments(data: unknown): PaymentInstallment[] {
       paymentUrl,
     }
   })
+}
+
+export interface EffectiveInstallmentDueDate {
+  targetDate: Date
+  dueLabel: string
+  daysLeft: number | null
+  isOverdue: boolean
+  countdownLabel: string | null
+  paidDateLabel?: string
+}
+
+/**
+ * Tính hạn chót thực tế cho từng đợt thanh toán theo quy tắc:
+ * - Đợt 1: Bắt đầu từ ngày ký hợp đồng (signedAt) + số ngày hạn (mặc định 7 ngày).
+ * - Đợt N (N > 1): Bắt đầu từ ngày thanh toán thành công (paidAt) của Đợt N-1 + số ngày hạn của Đợt N.
+ * - Đợt chưa mở (LOCKED): Hiển thị "X ngày sau Đợt N-1 (dự kiến dd/MM/yyyy)" và không chạy countdown đếm ngược dồn dập.
+ * - Đợt đã đóng (PAID): Hiển thị ngày đã hoàn tất thanh toán.
+ */
+export function getEffectiveInstallmentDueDate(
+  inst: PaymentInstallment,
+  allInstallments: PaymentInstallment[] = [],
+  signedAt?: string | null,
+): EffectiveInstallmentDueDate {
+  const sorted = [...allInstallments].sort((a, b) => a.ordinal - b.ordinal)
+  const dueDays = inst.dueDays && inst.dueDays > 0 ? inst.dueDays : 7
+
+  const formatVnDate = (d: Date) =>
+    d.toLocaleDateString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    })
+
+  // 1. Trạng thái ĐÃ THANH TOÁN (PAID)
+  if (inst.status === 'PAID') {
+    const paidD = inst.paidAt ? new Date(inst.paidAt) : null
+    const validPaidD = paidD && !Number.isNaN(paidD.getTime()) ? paidD : null
+    const dueD = inst.dueDate ? new Date(inst.dueDate) : validPaidD || new Date()
+    const validDueD = !Number.isNaN(dueD.getTime()) ? dueD : new Date()
+
+    return {
+      targetDate: validDueD,
+      dueLabel: formatVnDate(validDueD),
+      daysLeft: null,
+      isOverdue: false,
+      countdownLabel: null,
+      paidDateLabel: validPaidD ? formatVnDate(validPaidD) : undefined,
+    }
+  }
+
+  // 2. Trạng thái ĐÃ HỦY (CANCELLED)
+  if (inst.status === 'CANCELLED') {
+    const dueD = inst.dueDate ? new Date(inst.dueDate) : new Date()
+    const validDueD = !Number.isNaN(dueD.getTime()) ? dueD : new Date()
+    return {
+      targetDate: validDueD,
+      dueLabel: formatVnDate(validDueD),
+      daysLeft: null,
+      isOverdue: false,
+      countdownLabel: null,
+    }
+  }
+
+  // 3. Tính toán mốc cơ sở (Base time) từ đợt đã thanh toán gần nhất trước đợt hiện tại
+  let baseTime: number | null = null
+  let baseOrdinal = 0
+
+  for (let ord = inst.ordinal - 1; ord >= 1; ord--) {
+    const prev = sorted.find((p) => p.ordinal === ord)
+    if (prev && prev.status === 'PAID') {
+      if (prev.paidAt) {
+        const pDate = new Date(prev.paidAt).getTime()
+        if (!Number.isNaN(pDate)) {
+          baseTime = pDate
+          baseOrdinal = ord
+          break
+        }
+      }
+      // Nếu không có paidAt nhưng status là PAID, fallback về dueDate của đợt đó
+      if (prev.dueDate) {
+        const dDate = new Date(prev.dueDate).getTime()
+        if (!Number.isNaN(dDate)) {
+          baseTime = dDate
+          baseOrdinal = ord
+          break
+        }
+      }
+    }
+  }
+
+  // Nếu chưa có đợt nào trước đó hoàn tất:
+  if (baseTime == null) {
+    if (signedAt) {
+      const sDate = new Date(signedAt).getTime()
+      if (!Number.isNaN(sDate)) {
+        baseTime = sDate
+        baseOrdinal = 0
+      }
+    }
+    if (baseTime == null) {
+      const firstInst = sorted.find((p) => p.ordinal === 1)
+      if (firstInst?.dueDate) {
+        const fDate = new Date(firstInst.dueDate).getTime()
+        if (!Number.isNaN(fDate)) {
+          baseTime = fDate - (firstInst.dueDays || 7) * 86400000
+          baseOrdinal = 0
+        }
+      }
+    }
+    if (baseTime == null) {
+      baseTime = Date.now()
+      baseOrdinal = 0
+    }
+  }
+
+  // Tính tổng số ngày cộng dồn từ baseOrdinal + 1 đến inst.ordinal
+  let accumulatedDays = 0
+  for (let ord = baseOrdinal + 1; ord <= inst.ordinal; ord++) {
+    const stepInst = sorted.find((p) => p.ordinal === ord)
+    const stepDays = stepInst?.dueDays && stepInst.dueDays > 0 ? stepInst.dueDays : 7
+    accumulatedDays += stepDays
+  }
+
+  const calculatedDeadline = new Date(baseTime + accumulatedDays * 86400000)
+
+  // 4. Nếu là đợt KHÓA (LOCKED): chưa mở thanh toán
+  if (inst.status === 'LOCKED') {
+    const prevOrd = inst.ordinal > 1 ? inst.ordinal - 1 : 1
+    return {
+      targetDate: calculatedDeadline,
+      dueLabel: `${dueDays} ngày sau Đợt ${prevOrd} (dự kiến ${formatVnDate(calculatedDeadline)})`,
+      daysLeft: null,
+      isOverdue: false,
+      countdownLabel: null,
+    }
+  }
+
+  // 5. Nếu là đợt ĐANG MỞ (UNPAID / OVERDUE / PARTIAL)
+  const now = Date.now()
+  const msLeft = calculatedDeadline.getTime() - now
+  const daysLeft = Math.ceil(msLeft / 86400000)
+  const isOverdue = daysLeft < 0
+
+  let countdownLabel: string | null = null
+  if (isOverdue) {
+    countdownLabel = `Quá hạn ${Math.abs(daysLeft)} ngày`
+  } else if (daysLeft >= 0) {
+    countdownLabel = `Còn ${daysLeft} ngày`
+  }
+
+  return {
+    targetDate: calculatedDeadline,
+    dueLabel: formatVnDate(calculatedDeadline),
+    daysLeft,
+    isOverdue,
+    countdownLabel,
+  }
 }
 
 export function parseContractStatus(data: unknown): ContractStatusDto | null {

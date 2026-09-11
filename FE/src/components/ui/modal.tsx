@@ -63,9 +63,8 @@ export function Modal({
             exit={{ opacity: 0, scale: 0.95, y: 16 }}
             transition={{ type: 'spring', stiffness: 320, damping: 26 }}
             onClick={(e) => e.stopPropagation()}
-            className={`relative flex w-full flex-col ${maxW} ${
-              fullHeight ? 'h-[calc(100vh-2rem)]' : 'max-h-[90vh]'
-            } my-auto overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-slate-900 dark:border dark:border-slate-700`}
+            className={`relative flex w-full flex-col ${maxW} ${fullHeight ? 'h-[calc(100vh-2rem)]' : 'max-h-[90vh]'
+              } my-auto overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-slate-900 dark:border dark:border-slate-700`}
           >
             {title && (
               <div className="flex items-start gap-4 border-b border-slate-100 px-6 py-4 dark:border-slate-800">
@@ -142,11 +141,10 @@ export function ConfirmDialog({
           type="button"
           onClick={() => void onConfirm()}
           disabled={loading}
-          className={`rounded-lg px-4 py-2 text-sm font-bold text-white shadow-sm disabled:opacity-50 ${
-            variant === 'danger'
+          className={`rounded-lg px-4 py-2 text-sm font-bold text-white shadow-sm disabled:opacity-50 ${variant === 'danger'
               ? 'bg-red-600 hover:bg-red-700'
               : 'bg-gradient-to-r from-[#FFCD00] to-orange-500 hover:opacity-90'
-          }`}
+            }`}
         >
           {loading ? 'Đang xử lý...' : confirmLabel}
         </button>

@@ -9,6 +9,7 @@ import {
   INSTALLMENT_STATUS_TONE,
   contractApi,
   isManualUnlockTrigger,
+  getEffectiveInstallmentDueDate,
   type PaymentInstallment,
 } from '@/api/contracts'
 import {
@@ -174,7 +175,12 @@ export function InstallmentRow({
 }: Omit<InstallmentRowProps, 'totalAmount'>) {
   const [paying, setPaying] = useState(false)
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
-  const isOverdue = inst.status !== 'PAID' && new Date(inst.dueDate) < new Date()
+  const effective = getEffectiveInstallmentDueDate(inst, installments, signedAt)
+  const isPaid = inst.status === 'PAID'
+  const isLocked = inst.status === 'LOCKED'
+  const isCancelled = inst.status === 'CANCELLED'
+  const isOverdue = !isPaid && !isLocked && !isCancelled && effective.isOverdue
+  const isPending = inst.status === 'UNPAID'
   const tone = INSTALLMENT_STATUS_TONE[inst.status]
 
   const allPrevPaid =
@@ -185,11 +191,6 @@ export function InstallmentRow({
 
   // ordinal-based unlocking: ordinal 1 always pay-able; ordinal>1 only after previous PAID
   const canPay = role !== 'Housing Developer' && allPrevPaid && (inst.status === 'UNPAID' || inst.status === 'OVERDUE')
-
-  const isPaid = inst.status === 'PAID'
-  const isLocked = inst.status === 'LOCKED'
-  const isCancelled = inst.status === 'CANCELLED'
-  const isPending = inst.status === 'UNPAID'
 
   const handlePay = async () => {
     setPaying(true)
@@ -273,25 +274,13 @@ export function InstallmentRow({
     ? 'Đã đóng'
     : isOverdue
       ? 'Quá hạn'
-      : isPending
-        ? 'Chưa thanh toán'
-        : INSTALLMENT_STATUS_LABEL[inst.status]
+      : isLocked
+        ? 'Chưa mở'
+        : isPending
+          ? 'Chưa thanh toán'
+          : INSTALLMENT_STATUS_LABEL[inst.status]
 
-  const badgeTone = isOverdue ? 'danger' : tone
-
-  const dueDate = new Date(inst.dueDate)
-  const dueLabel = dueDate.toLocaleDateString('vi-VN', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-  })
-  const daysLeft = Math.ceil((dueDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-  const countdownLabel =
-    isPaid
-      ? null
-      : isOverdue
-        ? `Quá hạn ${Math.abs(daysLeft)} ngày`
-        : daysLeft >= 0
-          ? `Còn ${daysLeft} ngày`
-          : null
+  const badgeTone = isPaid ? 'success' : isOverdue ? 'danger' : isLocked ? 'secondary' : tone
 
   return (
     <div
@@ -319,30 +308,33 @@ export function InstallmentRow({
               </p>
               <Badge variant={badgeTone}>{toneBadgeText}</Badge>
             </div>
-            {!isLocked && (
-              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
-                <span className="inline-flex items-center gap-1">
-                  <Calendar className="h-3.5 w-3.5" />
-                  Hạn: {dueLabel}
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
+              <span className="inline-flex items-center gap-1">
+                <Calendar className="h-3.5 w-3.5" />
+                Hạn: {effective.dueLabel}
+              </span>
+              {effective.paidDateLabel && (
+                <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
+                  ✓ Hoàn tất: {effective.paidDateLabel}
                 </span>
-                {countdownLabel && (
-                  <span
-                    className={`inline-flex items-center gap-1 font-medium ${isOverdue ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'
-                      }`}
-                  >
-                    <Clock className="h-3.5 w-3.5" />
-                    {countdownLabel}
-                  </span>
-                )}
-                {!isPaid && inst.ordinal === 1 && (
-                  <DepositCountdown
-                    signedAt={signedAt}
-                    paid={isPaid}
-                    expired={isCancelled || inst.status === 'OVERDUE'}
-                  />
-                )}
-              </div>
-            )}
+              )}
+              {effective.countdownLabel && (
+                <span
+                  className={`inline-flex items-center gap-1 font-medium ${isOverdue ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'
+                    }`}
+                >
+                  <Clock className="h-3.5 w-3.5" />
+                  {effective.countdownLabel}
+                </span>
+              )}
+              {!isPaid && inst.ordinal === 1 && (
+                <DepositCountdown
+                  signedAt={signedAt}
+                  paid={isPaid}
+                  expired={isCancelled || isOverdue}
+                />
+              )}
+            </div>
           </div>
         </div>
 
@@ -378,11 +370,20 @@ export function InstallmentRow({
 
 // ─── Timeline Dot ─────────────────────────────────────────────────────────────
 
-export function InstallmentTimelineDot({ inst }: { inst: PaymentInstallment }) {
+export function InstallmentTimelineDot({
+  inst,
+  installments,
+  signedAt,
+}: {
+  inst: PaymentInstallment
+  installments?: PaymentInstallment[]
+  signedAt?: string | null
+}) {
   const isPaid = inst.status === 'PAID'
-  const isOverdue = inst.status !== 'PAID' && new Date(inst.dueDate) < new Date()
   const isCancelled = inst.status === 'CANCELLED'
   const isLocked = inst.status === 'LOCKED'
+  const effective = installments ? getEffectiveInstallmentDueDate(inst, installments, signedAt) : null
+  const isOverdue = !isPaid && !isLocked && !isCancelled && (inst.status === 'OVERDUE' || (effective?.isOverdue ?? false))
 
   let bg = 'bg-slate-100 dark:bg-slate-800'
   let ring = 'ring-white dark:ring-slate-900'
@@ -390,9 +391,9 @@ export function InstallmentTimelineDot({ inst }: { inst: PaymentInstallment }) {
   let iconColor = 'text-slate-400'
 
   if (isPaid) { bg = 'bg-emerald-500'; Icon = CheckCircle2; iconColor = 'text-white' }
-  else if (isOverdue) { bg = 'bg-rose-500'; Icon = AlertTriangle; iconColor = 'text-white' }
   else if (isCancelled) { bg = 'bg-slate-400'; Icon = XCircle; iconColor = 'text-white' }
   else if (isLocked) { bg = 'bg-slate-200 dark:bg-slate-700'; Icon = Lock; iconColor = 'text-slate-500 dark:text-slate-400' }
+  else if (isOverdue) { bg = 'bg-rose-500'; Icon = AlertTriangle; iconColor = 'text-white' }
   else { bg = 'bg-amber-100 dark:bg-amber-900/40'; Icon = Clock; iconColor = 'text-amber-600 dark:text-amber-400' }
 
   return (
@@ -528,7 +529,7 @@ export function InstallmentTimeline({
     <ol className="relative space-y-3 border-l-2 border-dashed border-slate-200 pl-6 dark:border-slate-700 sm:pl-8">
       {unlocked.map((inst) => (
         <li key={inst.installmentId} className="relative">
-          <InstallmentTimelineDot inst={inst} />
+          <InstallmentTimelineDot inst={inst} installments={unlocked} signedAt={signedAt} />
           <InstallmentRow
             inst={inst}
             signedAt={signedAt}
