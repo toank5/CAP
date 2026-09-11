@@ -143,7 +143,7 @@ function ApplicantSetupNotices() {
  */
 function PaymentCalloutBanner() {
   const [items, setItems] = useState<
-    { applicationId: string; status: string; projectName?: string }[]
+    { applicationId: string; projectId?: string; status: string; projectName?: string }[]
   >([])
   const [loading, setLoading] = useState(true)
 
@@ -167,6 +167,7 @@ function PaymentCalloutBanner() {
             )
             .map((a) => ({
               applicationId: a.applicationId,
+              projectId: a.projectId,
               status: a.applicationStatus,
               projectName: a.projectName,
             })),
@@ -208,7 +209,15 @@ function PaymentCalloutBanner() {
   const cta = first.status === 'FULLY_PAID' ? 'Xem chi tiết' : 'Mở hợp đồng'
 
   const handleClick = () => {
-    navigate('my-apartment')
+    if (first?.applicationId) {
+      sessionStorage.setItem('contractApplicationId', first.applicationId)
+      if (first.projectId) {
+        sessionStorage.setItem('contractProjectId', first.projectId)
+      }
+      navigate('contract-detail')
+    } else {
+      navigate('contracts')
+    }
   }
 
   return (
