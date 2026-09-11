@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react'
-import { Sparkles, Users, Star, Eye, X } from 'lucide-react'
+import { Sparkles, Users, Star, X } from 'lucide-react'
 import { isPriorityWinner, type LiveWinnerEntry, type LotteryEligibleEntry } from '@/api/lottery'
 import { formatPriorityGroup } from '@/lib/constants'
 
@@ -701,60 +701,15 @@ export const LotteryBallCage: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* Stage Status / Winner LED Ticker Bar */}
-        <div className="mt-4 mb-2 w-full max-w-xl z-10">
-          {isSpinning ? (
-            <div className="flex items-center justify-center gap-2 rounded-2xl bg-amber-500/20 border border-amber-400/50 px-4 py-2 text-amber-200 text-xs sm:text-sm font-black shadow-lg animate-pulse">
+        {/* Hiệu ứng trạng thái khi lồng cầu đang quay */}
+        {isSpinning && (
+          <div className="mt-4 mb-2 w-full max-w-md z-10 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-center gap-2 rounded-2xl bg-amber-500/25 border border-amber-400/60 px-4 py-2 text-amber-200 text-xs sm:text-sm font-black shadow-lg shadow-amber-500/20 backdrop-blur-md animate-pulse">
               <Sparkles className="h-4 w-4 animate-spin text-amber-300" />
               <span>⚡ LỒNG CẦU ĐANG ĐẢO BÓNG VÀ QUAY SỐ TỰ ĐỘNG...</span>
             </div>
-          ) : latestWinner ? (
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-emerald-950/90 border-2 border-amber-400/80 p-3 shadow-xl backdrop-blur-md">
-              <div className="flex items-center gap-3">
-                <div
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full shadow-lg border-2 border-white"
-                  style={{ background: winningPalette.bg }}
-                >
-                  <span className="text-xs font-black text-white">{winningNum}</span>
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300">
-                      🏆 KẾT QUẢ VỪA XỔ
-                    </span>
-                    {isWinningPriority ? (
-                      <span className="text-[9px] font-black uppercase text-amber-900 bg-amber-200 px-1.5 py-0.2 rounded">
-                        ⭐ Ưu tiên
-                      </span>
-                    ) : (
-                      <span className="text-[9px] font-black uppercase text-emerald-900 bg-emerald-200 px-1.5 py-0.2 rounded">
-                        🎲 Bốc thăm
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm font-black text-white uppercase truncate">
-                    {latestWinner.applicantName}
-                  </p>
-                  <p className="text-[11px] text-emerald-300 font-mono">
-                    {latestWinner.slotCode || `CĂN HỘ #${latestWinner.stt || 1}`} · Mã: {latestWinner.applicationCode || latestWinner.applicationId.slice(0, 8)}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setWinnerModalOpen?.(true)}
-                className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 px-3 py-1.5 text-xs font-black text-slate-950 shadow-md transition-all cursor-pointer"
-              >
-                <Eye className="h-3.5 w-3.5" />
-                Xem kết quả
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-950/70 border border-emerald-800/60 px-4 py-2 text-emerald-200 text-xs font-bold">
-              <span>🎯 SẴN SÀNG QUAY SỐ · QUỸ CĂN CÒN LẠI: {remaining} CĂN</span>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* 2. KHU VỰC THAO TÁC / GIÁM SÁT */}
         <div className="mt-2 flex items-center justify-center w-full z-10">
