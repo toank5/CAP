@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react'
 import { Badge } from '@/components/ui/badge'
-import type { LiveStateDto, WaitlistEntryDto } from '@/api/lottery'
+import { isPriorityWinner, type LiveStateDto, type WaitlistEntryDto } from '@/api/lottery'
+import { formatPriorityGroup } from '@/lib/constants'
 import { Trophy, Search, Star, Sparkles, Clock, Users, ArrowUpRight } from 'lucide-react'
 import { WAITLIST_CONFIRM_HOURS_DEFAULT } from '@/lib/lottery-allocation'
 
@@ -20,6 +21,9 @@ export const WinnersZone: React.FC<Props> = ({ state, myAppId, waitlist = [] }) 
   const [activeTab, setActiveTab] = useState<'WINNERS' | 'WAITLIST'>('WINNERS')
   const [filter, setFilter] = useState('')
   const winners = state?.recentWinners ?? []
+
+  const priorityCount = state?.priorityWinnersCount ?? winners.filter(isPriorityWinner).length
+  const randomCount = state?.randomWinnersCount ?? winners.filter((w) => !isPriorityWinner(w)).length
 
   const filteredWinners = useMemo(() => {
     if (!filter.trim()) return winners
@@ -89,11 +93,11 @@ export const WinnersZone: React.FC<Props> = ({ state, myAppId, waitlist = [] }) 
           <div className="flex items-center gap-1.5 text-[11px]">
             <span className="flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-amber-900 font-bold">
               <Star className="h-3 w-3 fill-amber-500 text-amber-500" />
-              Ưu tiên: {state?.priorityWinnersCount ?? 0}
+              Ưu tiên: {priorityCount}
             </span>
             <span className="flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-emerald-900 font-bold">
               <Sparkles className="h-3 w-3 text-emerald-600" />
-              Bốc thăm: {state?.randomWinnersCount ?? 0}
+              Bốc thăm: {randomCount}
             </span>
           </div>
         )}
@@ -191,7 +195,7 @@ export const WinnersZone: React.FC<Props> = ({ state, myAppId, waitlist = [] }) 
           ) : (
             filteredWinners.map((w, idx) => {
               const isMine = w.applicationId === myAppId
-              const isPriority = w.result === 'PRIORITY_WON' || (w.priorityGroup && w.priorityGroup !== 'None')
+              const isPriority = isPriorityWinner(w)
 
               return (
                 <div
@@ -236,7 +240,13 @@ export const WinnersZone: React.FC<Props> = ({ state, myAppId, waitlist = [] }) 
                         )}
                       </div>
                       <p className="text-sm font-black text-slate-900 uppercase mt-1 tracking-wide">{w.applicantName}</p>
-                      <p className="font-mono text-[11px] text-slate-500 mt-0.5">CCCD: {maskCccd(w.maskedCitizenId)}</p>
+                      <div className="flex flex-wrap items-center gap-1.5 font-mono text-[11px] text-slate-500 mt-0.5">
+                        <span>CCCD: {maskCccd(w.maskedCitizenId)}</span>
+                        <span>•</span>
+                        <span className="font-sans text-slate-600 font-semibold">
+                          {formatPriorityGroup(w.priorityGroup || (isPriority ? 'MERIT_PERSON' : 'LOW_INCOME_URBAN'))}
+                        </span>
+                      </div>
                     </div>
                   </div>
 

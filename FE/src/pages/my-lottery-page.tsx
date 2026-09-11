@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ArrowRight, Calendar, ExternalLink, KeyRound, Sparkles, Trophy, X } from 'lucide-react'
 import {
   lotteryApi,
@@ -33,6 +33,11 @@ export function MyLotteryPage() {
   // kể cả khi chưa có hồ sơ APPROVED, để dân ở ngoài vẫn vào xem tiếp (NĐ 100/2024 Đ36).
   const [publicLive, setPublicLive] = useState<LotteryScheduleDto[]>([])
   const [publicLoading, setPublicLoading] = useState(true)
+  const myProjectIds = useMemo(() => new Set(rows.map((r) => r.application.projectId)), [rows])
+  const otherPublicLive = useMemo(
+    () => publicLive.filter((sd) => !myProjectIds.has(sd.projectId)),
+    [publicLive, myProjectIds],
+  )
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [info, setInfo] = useState('')
@@ -237,69 +242,14 @@ export function MyLotteryPage() {
         {info && <Alert variant="info">{info}</Alert>}
         {loading && <p className="text-sm text-slate-500 dark:text-slate-400">Đang tải...</p>}
 
-        {/* ── PHIÊN ĐANG LIVE — công khai cho mọi Applicant (NĐ 100/2024 Đ36: minh bạch) ── */}
-        {!publicLoading && publicLive.length > 0 && (
-          <section className="rounded-xl border-2 border-amber-300 bg-amber-50/50 p-4 dark:border-amber-700 dark:bg-amber-950/20">
-            <div className="mb-3 flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-amber-600" />
-              <h3 className="text-base font-bold text-amber-900 dark:text-amber-200">
-                Phiên đang quay số — dự án mở công khai
-              </h3>
-              <Badge variant="warning">{publicLive.length}</Badge>
-            </div>
-            <p className="mb-3 text-xs text-amber-800 dark:text-amber-300">
-              Theo Điều 36 Nghị định số 100 năm 2024 của Chính phủ, người dân được theo dõi trực tiếp phiên bốc thăm công khai.
-              Bấm <strong>Vào xem trực tiếp</strong> để kết nối trường quay quay số.
-            </p>
-            <div className="grid gap-2">
-              {publicLive.map((sd) => {
-                const phase = String(sd.status ?? '')
-                return (
-                  <div
-                    key={sd.projectId}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-white p-3 dark:border-amber-800 dark:bg-slate-900"
-                  >
-                    <div className="flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h4 className="font-semibold">{sd.projectName ?? 'Dự án'}</h4>
-                        <Badge variant={LOTTERY_STATUS_TONE[phase] ?? 'warning'}>
-                          {LOTTERY_STATUS_LABEL[phase] ?? phase}
-                        </Badge>
-                      </div>
-                      {sd.scheduledAt && (
-                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                          <Calendar className="mr-1 inline h-3 w-3" />
-                          Lịch: {new Date(sd.scheduledAt).toLocaleString('vi-VN')}
-                        </p>
-                      )}
-                      {sd.joinCode && (
-                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                          Mã vào sảnh:{' '}
-                          <strong className="font-mono text-blue-700 dark:text-blue-300">
-                            {sd.joinCode}
-                          </strong>
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        variant="accent"
-                        size="sm"
-                        onClick={() => void joinLiveStudio(sd.projectId, sd.joinCode, sd.projectName)}
-                      >
-                        <Sparkles className="mr-1.5 h-4 w-4" />
-                        Vào xem trực tiếp
-                      </Button>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </section>
-        )}
-
+        {/* ── PHIÊN BỐC THĂM DỰ ÁN BẠN THAM GIA ── */}
         {!loading && rows.length > 0 && (
-          <div className="grid gap-3">
+          <div className="space-y-3">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
+              <Trophy className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              Phiên bốc thăm của bạn ({rows.length})
+            </h3>
+            <div className="grid gap-3">
             {rows.map((row) => {
               const own = myOwnResult(row)
               const phase = row.schedule?.status ?? 'NOT_SCHEDULED'
@@ -422,7 +372,69 @@ export function MyLotteryPage() {
                 </div>
               )
             })}
+            </div>
           </div>
+        )}
+
+        {/* ── PHIÊN ĐANG LIVE CÔNG KHAI KHÁC (Chỉ hiện khi có dự án KHÁC mà user không nộp hồ sơ) ── */}
+        {!publicLoading && otherPublicLive.length > 0 && (
+          <section className="mt-6 rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50/60 via-orange-50/30 to-white p-5 dark:border-amber-900/50 dark:from-amber-950/20 dark:to-slate-900 shadow-sm">
+            <div className="mb-2 flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              <h3 className="text-base font-bold text-amber-900 dark:text-amber-200">
+                Phiên bốc thăm công khai khác đang diễn ra
+              </h3>
+              <Badge variant="warning">{otherPublicLive.length}</Badge>
+            </div>
+            <p className="mb-3 text-xs text-amber-800 dark:text-amber-300/90 leading-relaxed">
+              Theo Điều 36 Nghị định số 100 năm 2024 của Chính phủ, người dân được theo dõi trực tiếp các phiên bốc thăm công khai tại các dự án khác. Bấm <strong>Vào xem trực tiếp</strong> để theo dõi trực tuyến.
+            </p>
+            <div className="grid gap-2.5">
+              {otherPublicLive.map((sd) => {
+                const phase = String(sd.status ?? '')
+                return (
+                  <div
+                    key={sd.projectId}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200/80 bg-white p-3.5 dark:border-amber-800/50 dark:bg-slate-900 shadow-xs"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100">{sd.projectName ?? 'Dự án'}</h4>
+                        <Badge variant={LOTTERY_STATUS_TONE[phase] ?? 'warning'}>
+                          {LOTTERY_STATUS_LABEL[phase] ?? phase}
+                        </Badge>
+                      </div>
+                      {sd.scheduledAt && (
+                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                          <Calendar className="h-3 w-3 text-slate-400" />
+                          Lịch: {new Date(sd.scheduledAt).toLocaleString('vi-VN')}
+                        </p>
+                      )}
+                      {sd.joinCode && (
+                        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                          Mã vào sảnh:{' '}
+                          <strong className="font-mono text-blue-700 dark:text-blue-300">
+                            {sd.joinCode}
+                          </strong>
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-2 shrink-0">
+                      <Button
+                        variant="accent"
+                        size="sm"
+                        className="rounded-xl font-bold"
+                        onClick={() => void joinLiveStudio(sd.projectId, sd.joinCode, sd.projectName)}
+                      >
+                        <Sparkles className="mr-1.5 h-4 w-4" />
+                        Vào xem trực tiếp
+                      </Button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </section>
         )}
       </PageCard>
 

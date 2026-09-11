@@ -1,13 +1,13 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react'
-import { Sparkles, Users } from 'lucide-react'
-import type { LiveWinnerEntry, LotteryEligibleEntry } from '@/api/lottery'
+import { Sparkles, Users, Star, Eye, X } from 'lucide-react'
+import { isPriorityWinner, type LiveWinnerEntry, type LotteryEligibleEntry } from '@/api/lottery'
 import { formatPriorityGroup } from '@/lib/constants'
 
 interface Props {
   isSpinning: boolean
-  latestCode?: string | null
-  latestName?: string | null
-  priorityGroup?: string | null
+  latestWinner?: LiveWinnerEntry | null
+  winnerModalOpen?: boolean
+  setWinnerModalOpen?: (open: boolean) => void
   eligibleList?: LotteryEligibleEntry[]
   recentWinners?: LiveWinnerEntry[]
   onDrawNext?: () => void
@@ -80,9 +80,9 @@ interface BallState {
 
 export const LotteryBallCage: React.FC<Props> = ({
   isSpinning,
-  latestCode,
-  latestName,
-  priorityGroup,
+  latestWinner,
+  winnerModalOpen = false,
+  setWinnerModalOpen,
   eligibleList = [],
   recentWinners = [],
   onDrawNext,
@@ -105,7 +105,9 @@ export const LotteryBallCage: React.FC<Props> = ({
           id,
           code,
           name: e.applicantName,
+          citizenId: e.citizenId,
           priority: formatPriorityGroup(e.priorityGroup),
+          isPriority: isPriorityWinner(e),
           numStr: String(idx + 1).padStart(2, '0'),
         }
       })
@@ -116,25 +118,45 @@ export const LotteryBallCage: React.FC<Props> = ({
         id: w.applicationId,
         code: w.applicationCode || w.applicationId.slice(0, 8).toUpperCase(),
         name: w.applicantName,
-        priority: formatPriorityGroup(w.priorityGroup || (w.result === 'PRIORITY_WON' ? 'MERIT_PERSON' : 'NONE')),
+        citizenId: w.maskedCitizenId,
+        priority: formatPriorityGroup(w.priorityGroup || (w.result === 'PRIORITY_WON' ? 'MERIT_PERSON' : 'LOW_INCOME_URBAN')),
+        isPriority: isPriorityWinner(w),
         numStr: String(idx + 1).padStart(2, '0'),
       }))
     }
 
-    if (latestCode && latestName) {
+    if (latestWinner) {
       return [
         {
-          id: latestCode,
-          code: latestCode,
-          name: latestName,
-          priority: formatPriorityGroup(priorityGroup),
+          id: latestWinner.applicationId,
+          code: latestWinner.applicationCode || latestWinner.applicationId.slice(0, 8).toUpperCase(),
+          name: latestWinner.applicantName,
+          citizenId: latestWinner.maskedCitizenId,
+          priority: formatPriorityGroup(latestWinner.priorityGroup),
+          isPriority: isPriorityWinner(latestWinner),
           numStr: '01',
         },
       ]
     }
 
     return []
-  }, [eligibleList, recentWinners, latestCode, latestName, priorityGroup])
+  }, [eligibleList, recentWinners, latestWinner])
+
+  const winningCand = useMemo(() => {
+    if (!latestWinner) return null
+    return candidates.find(
+      (c) =>
+        (c.id && latestWinner.applicationId && c.id === latestWinner.applicationId) ||
+        (c.name && latestWinner.applicantName && c.name.trim().toLowerCase() === latestWinner.applicantName.trim().toLowerCase()),
+    )
+  }, [candidates, latestWinner])
+
+  const winningCandIdx = winningCand ? candidates.indexOf(winningCand) : -1
+  const winningNum = winningCand?.numStr || (latestWinner?.stt ? String(latestWinner.stt).padStart(2, '0') : '01')
+  const winningPalette = winningCandIdx >= 0
+    ? REALISTIC_BALL_PALETTES[winningCandIdx % REALISTIC_BALL_PALETTES.length]
+    : REALISTIC_BALL_PALETTES[0]
+  const isWinningPriority = isPriorityWinner(latestWinner)
 
   const totalBalls = candidates.length
 
@@ -679,8 +701,63 @@ export const LotteryBallCage: React.FC<Props> = ({
           </div>
         </div>
 
+        {/* Stage Status / Winner LED Ticker Bar */}
+        <div className="mt-4 mb-2 w-full max-w-xl z-10">
+          {isSpinning ? (
+            <div className="flex items-center justify-center gap-2 rounded-2xl bg-amber-500/20 border border-amber-400/50 px-4 py-2 text-amber-200 text-xs sm:text-sm font-black shadow-lg animate-pulse">
+              <Sparkles className="h-4 w-4 animate-spin text-amber-300" />
+              <span>⚡ LỒNG CẦU ĐANG ĐẢO BÓNG VÀ QUAY SỐ TỰ ĐỘNG...</span>
+            </div>
+          ) : latestWinner ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-emerald-950/90 border-2 border-amber-400/80 p-3 shadow-xl backdrop-blur-md">
+              <div className="flex items-center gap-3">
+                <div
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full shadow-lg border-2 border-white"
+                  style={{ background: winningPalette.bg }}
+                >
+                  <span className="text-xs font-black text-white">{winningNum}</span>
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300">
+                      🏆 KẾT QUẢ VỪA XỔ
+                    </span>
+                    {isWinningPriority ? (
+                      <span className="text-[9px] font-black uppercase text-amber-900 bg-amber-200 px-1.5 py-0.2 rounded">
+                        ⭐ Ưu tiên
+                      </span>
+                    ) : (
+                      <span className="text-[9px] font-black uppercase text-emerald-900 bg-emerald-200 px-1.5 py-0.2 rounded">
+                        🎲 Bốc thăm
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm font-black text-white uppercase truncate">
+                    {latestWinner.applicantName}
+                  </p>
+                  <p className="text-[11px] text-emerald-300 font-mono">
+                    {latestWinner.slotCode || `CĂN HỘ #${latestWinner.stt || 1}`} · Mã: {latestWinner.applicationCode || latestWinner.applicationId.slice(0, 8)}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setWinnerModalOpen?.(true)}
+                className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 px-3 py-1.5 text-xs font-black text-slate-950 shadow-md transition-all cursor-pointer"
+              >
+                <Eye className="h-3.5 w-3.5" />
+                Xem kết quả
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-950/70 border border-emerald-800/60 px-4 py-2 text-emerald-200 text-xs font-bold">
+              <span>🎯 SẴN SÀNG QUAY SỐ · QUỸ CĂN CÒN LẠI: {remaining} CĂN</span>
+            </div>
+          )}
+        </div>
+
         {/* 2. KHU VỰC THAO TÁC / GIÁM SÁT */}
-        <div className="mt-3.5 flex items-center justify-center w-full z-10">
+        <div className="mt-2 flex items-center justify-center w-full z-10">
           {isDev ? (
             <button
               onClick={canDraw ? onDrawNext : undefined}
@@ -797,6 +874,124 @@ export const LotteryBallCage: React.FC<Props> = ({
           </div>
         )}
       </div>
+
+      {/* MODAL VINH DANH NGƯỜI TRÚNG BỐC THĂM (CELEBRATORY WINNER REVEAL MODAL) */}
+      {winnerModalOpen && latestWinner && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg overflow-hidden rounded-3xl border-2 border-amber-400 bg-gradient-to-b from-slate-900 via-teal-950 to-slate-950 p-6 sm:p-8 text-white shadow-2xl ring-4 ring-amber-400/20">
+            {/* Pháo hoa / Hạt phát sáng nền */}
+            <div className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-amber-500/20 blur-2xl pointer-events-none" />
+            <div className="absolute -left-12 -bottom-12 h-40 w-40 rounded-full bg-emerald-500/20 blur-2xl pointer-events-none" />
+
+            {/* Nút Đóng góc trên */}
+            <button
+              type="button"
+              onClick={() => setWinnerModalOpen?.(false)}
+              className="absolute right-4 top-4 rounded-xl bg-white/10 p-2 text-slate-300 hover:bg-white/20 hover:text-white transition-all cursor-pointer"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            {/* Header Chúc Mừng */}
+            <div className="text-center">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-yellow-500 text-3xl shadow-lg shadow-amber-500/30">
+                🏆
+              </div>
+              <span className="mt-3 inline-block font-mono text-xs font-black uppercase tracking-widest text-amber-300">
+                KẾT QUẢ XỔ SỐ NHÀ Ở XÃ HỘI
+              </span>
+              <h2 className="mt-1 text-xl sm:text-2xl font-black uppercase tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 via-amber-300 to-yellow-100">
+                CHÚC MỪNG HỒ SƠ TRÚNG QUYỀN MUA!
+              </h2>
+            </div>
+
+            {/* Center: Quả bóng số 3D phát sáng & Thông tin người trúng */}
+            <div className="mt-6 flex flex-col items-center justify-center rounded-2xl border border-amber-400/40 bg-gradient-to-b from-white/10 to-white/5 p-6 backdrop-blur-md">
+              {/* Quả bóng 3D */}
+              <div className="relative mb-4">
+                <div
+                  className="flex h-20 w-20 sm:h-24 sm:w-24 items-center justify-center rounded-full shadow-2xl border-4 border-white animate-bounce duration-1000"
+                  style={{
+                    background: winningPalette.bg,
+                    boxShadow: `${winningPalette.shadow}, 0 0 35px rgba(251, 191, 36, 0.6), inset 0 4px 8px rgba(255,255,255,0.9), inset 0 -6px 12px rgba(0,0,0,0.6)`,
+                  }}
+                >
+                  <div className="flex h-11 w-11 sm:h-13 sm:w-13 items-center justify-center rounded-full bg-white shadow-inner border-2 border-slate-300">
+                    <span className="text-lg sm:text-2xl font-black text-slate-950 leading-none">
+                      {winningNum}
+                    </span>
+                  </div>
+                </div>
+                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 h-3 w-16 rounded-full bg-black/40 blur-xs" />
+              </div>
+
+              {/* Tên người trúng */}
+              <h3 className="text-lg sm:text-2xl font-black uppercase tracking-wider text-white text-center">
+                {latestWinner.applicantName}
+              </h3>
+
+              {/* Tag phân loại trúng */}
+              <div className="mt-2 flex items-center gap-2 flex-wrap justify-center">
+                {isWinningPriority ? (
+                  <span className="flex items-center gap-1 rounded-full border border-amber-300 bg-amber-400/20 px-3 py-1 text-xs font-black text-amber-200">
+                    <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                    TRÚNG DIỆN ƯU TIÊN: {formatPriorityGroup(latestWinner.priorityGroup || 'MERIT_PERSON')}
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-400/20 px-3 py-1 text-xs font-black text-emerald-200">
+                    <Sparkles className="h-3.5 w-3.5 text-emerald-300" />
+                    TRÚNG BỐC THĂM · {formatPriorityGroup(latestWinner.priorityGroup || 'LOW_INCOME_URBAN')}
+                  </span>
+                )}
+              </div>
+
+              {/* Chi tiết căn & mã hồ sơ */}
+              <div className="mt-4 grid grid-cols-2 gap-3 w-full border-t border-white/10 pt-4 text-center">
+                <div className="rounded-xl bg-white/5 p-2.5 border border-white/10">
+                  <span className="text-[10px] uppercase tracking-wider text-slate-400 block font-bold">
+                    Mã hồ sơ
+                  </span>
+                  <span className="font-mono text-sm font-black text-indigo-300">
+                    {latestWinner.applicationCode || latestWinner.applicationId.slice(0, 8)}
+                  </span>
+                </div>
+                <div className="rounded-xl bg-emerald-500/10 p-2.5 border border-emerald-400/30">
+                  <span className="text-[10px] uppercase tracking-wider text-emerald-300 block font-bold">
+                    Suất Căn Hộ
+                  </span>
+                  <span className="font-mono text-sm font-black text-emerald-200">
+                    {latestWinner.slotCode || `CĂN HỘ #${latestWinner.stt || 1}`}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Actions */}
+            <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setWinnerModalOpen?.(false)}
+                className="rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 px-5 py-2.5 text-xs font-bold text-white transition-all cursor-pointer"
+              >
+                Đóng / Xem bảng vàng
+              </button>
+              {isDev && canDraw && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWinnerModalOpen?.(false)
+                    onDrawNext?.()
+                  }}
+                  className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 via-rose-500 to-amber-500 hover:scale-105 active:scale-95 px-6 py-2.5 text-xs font-black text-white shadow-xl shadow-rose-500/30 transition-all cursor-pointer"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Bốc lượt tiếp theo (Còn {remaining} căn)
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

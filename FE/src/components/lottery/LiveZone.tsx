@@ -1,6 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Badge } from '@/components/ui/badge'
-import type { LiveStateDto, LotteryEligibleEntry } from '@/api/lottery'
+import type { LiveStateDto, LotteryEligibleEntry, LiveWinnerEntry } from '@/api/lottery'
 import { LotteryBallCage } from './LotteryBallCage'
 import { lotteryAudio } from '@/lib/lottery-audio'
 import { Award, PieChart } from 'lucide-react'
@@ -24,30 +24,68 @@ export const LiveZone: React.FC<Props> = ({
   busy,
 }) => {
   const [isSpinningLocal, setIsSpinningLocal] = useState(false)
+  const [winnerModalOpen, setWinnerModalOpen] = useState(false)
+  const [revealedWinner, setRevealedWinner] = useState<LiveWinnerEntry | null>(null)
+  const lastAnnouncedIdRef = useRef<string | null>(null)
 
   const rawTotal = state?.totalUnits ?? 0
-  const rawDrawn = state?.drawnUnitsCount ?? 0
-  const total = Math.max(0, rawTotal)
+  const rawDrawn = state?.drawnUnitsCount ?? (state?.recentWinners?.length ?? 0)
+  const total = Math.max(rawTotal, state?.recentWinners?.length ?? 0)
   const drawn = Math.min(rawDrawn, total)
   const remaining = Math.max(0, total - drawn)
   const isOutOfUnits = total > 0 && remaining <= 0
   const pct = total > 0 ? Math.round((drawn / total) * 100) : 0
 
+  // Chuẩn hóa winner entry để tương thích kiểu dữ liệu
+  const normalizeWinner = (w: import('@/api/lottery').LiveLatestResult | LiveWinnerEntry | null | undefined): LiveWinnerEntry | null => {
+    if (!w) return null
+    return {
+      applicationId: w.applicationId,
+      applicationCode: w.applicationCode ?? null,
+      applicantName: w.applicantName || 'Hồ sơ trúng thăm',
+      maskedCitizenId: w.maskedCitizenId ?? null,
+      stt: (w.stt ?? undefined) as number | undefined,
+      result: w.result ?? 'WON',
+      slotCode: w.slotCode ?? null,
+      drawnAt: w.drawnAt ?? null,
+      remainingUnits: w.remainingUnits ?? null,
+      priorityGroup: w.priorityGroup ?? null,
+    }
+  }
+
+  // Theo dõi kết quả mới nhất từ Hub hoặc API để hiển thị chúc mừng
+  useEffect(() => {
+    const latest = normalizeWinner(state?.latestDrawResult)
+    if (latest && latest.applicationId) {
+      const key = `${latest.applicationId}-${latest.slotCode || ''}`
+      if (key !== lastAnnouncedIdRef.current) {
+        lastAnnouncedIdRef.current = key
+        setRevealedWinner(latest)
+        if (!isSpinningLocal) {
+          setWinnerModalOpen(true)
+          lotteryAudio.playWinnerFanfare()
+        }
+      }
+    }
+  }, [state?.latestDrawResult, isSpinningLocal])
+
   const handleDrawWithEffects = () => {
     if (busy || !onDrawNext || isOutOfUnits) return
     setIsSpinningLocal(true)
+    setWinnerModalOpen(false)
     lotteryAudio.playSpin()
 
     onDrawNext()
 
     setTimeout(() => {
       lotteryAudio.playBallDrop()
-    }, 500)
+    }, 700)
 
     setTimeout(() => {
       lotteryAudio.playWinnerFanfare()
       setIsSpinningLocal(false)
-    }, 1200)
+      setWinnerModalOpen(true)
+    }, 1400)
   }
 
   const isLive = sessionStatus === 'Live'
@@ -59,13 +97,10 @@ export const LiveZone: React.FC<Props> = ({
     <div className="flex flex-col gap-4">
       {/* 1. Lồng Cầu Pha Lê 3D & Nút Quay Độc Nhất Ngay Cạnh Lồng Cầu */}
       <LotteryBallCage
-        isSpinning={isSpinningLocal || !!busy || (isLive && !state?.latestDrawResult && isSpinningLocal)}
-        latestCode={
-          state?.latestDrawResult?.applicationCode ||
-          (state?.latestDrawResult ? state.latestDrawResult.applicationId.slice(0, 8) : null)
-        }
-        latestName={state?.latestDrawResult?.applicantName}
-        priorityGroup={state?.latestDrawResult?.priorityGroup}
+        isSpinning={isSpinningLocal || !!busy}
+        latestWinner={revealedWinner || normalizeWinner(state?.latestDrawResult) || (state?.recentWinners && state.recentWinners.length > 0 ? state.recentWinners[0] : null)}
+        winnerModalOpen={winnerModalOpen}
+        setWinnerModalOpen={setWinnerModalOpen}
         eligibleList={eligibleList}
         recentWinners={state?.recentWinners}
         onDrawNext={handleDrawWithEffects}

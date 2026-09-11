@@ -26,7 +26,6 @@ import { Button } from '@/components/ui/button'
 import { FormField } from '@/components/ui/label'
 import { Input, Textarea } from '@/components/ui/input'
 import { Modal } from '@/components/ui/modal'
-import { LOTTERY_RESULT_LABELS } from '@/lib/constants'
 import {
   emptyScheduleHasApartmentCopy,
   emptyScheduleNoApartmentCopy,
@@ -1142,12 +1141,13 @@ export function SignContractSection({
 
 // ─── Apartment Card ────────────────────────────────────────────────────────────
 
-interface ApartmentCardProps {
+export interface ApartmentCardProps {
   apartmentUnitName?: string | null
   apartmentArea?: number | null
   apartmentPrice?: number | null
   projectName: string
   lotteryResult?: string | null
+  applicationStatus?: string | null
 }
 
 export function ApartmentCard({
@@ -1156,61 +1156,252 @@ export function ApartmentCard({
   apartmentPrice,
   projectName,
   lotteryResult,
+  applicationStatus,
 }: ApartmentCardProps) {
-  const normLottery = lotteryResult?.trim().toUpperCase()
-  const isWon = normLottery === 'WON' || normLottery === 'PRIORITY_WON'
-  const isLost = normLottery === 'LOST' || normLottery === 'LOTTERY_LOST' || normLottery === 'NOT_WON'
+  const normStatus = (applicationStatus || '').trim().toUpperCase()
+  const normLottery = (lotteryResult || '').trim().toUpperCase()
 
-  const lotteryBadgeText =
-    normLottery === 'WON'
-      ? '✓ Trúng bốc thăm'
-      : normLottery === 'PRIORITY_WON'
-        ? '✓ Ưu tiên trúng'
-        : isLost
-          ? 'Không trúng thăm'
-          : normLottery === 'WAITLIST'
-            ? 'Danh sách chờ'
-            : normLottery === 'PENDING'
-              ? 'Chờ bốc thăm'
-              : LOTTERY_RESULT_LABELS[lotteryResult ?? ''] || lotteryResult
+  const hasApartment = Boolean(
+    apartmentUnitName &&
+    apartmentUnitName.trim() !== '' &&
+    apartmentUnitName !== 'Chưa xác định' &&
+    apartmentUnitName !== '—'
+  )
 
-  const badgeVariant: 'success' | 'warning' | 'danger' = isWon ? 'success' : isLost ? 'danger' : 'warning'
+  // 1. TRƯỜNG HỢP ĐÃ ĐƯỢC GÁN CĂN HỘ CỤ THỂ
+  if (hasApartment) {
+    const isWon = normLottery === 'WON' || normLottery === 'PRIORITY_WON' || normStatus === 'LOTTERY_WON'
+    const isPriority = normLottery === 'PRIORITY_WON'
 
-  return (
-    <div className="rounded-xl border border-indigo-200 bg-gradient-to-br from-indigo-50/60 to-violet-50/40 p-5 dark:border-indigo-800 dark:from-indigo-950/30 dark:to-violet-950/20">
-      <div className="flex items-start gap-3">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-indigo-100 dark:bg-indigo-900/50">
-          <Home className="h-6 w-6 text-indigo-600 dark:text-indigo-300" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600 dark:text-indigo-400">
-            Căn được cấp
-          </p>
-          <h3 className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">
-            {apartmentUnitName ?? 'Chưa xác định'}
-          </h3>
-          <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-400">{projectName}</p>
-          {lotteryResult && (
-            <Badge variant={badgeVariant} className="mt-2">
-              {lotteryBadgeText}
-            </Badge>
+    return (
+      <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50/70 via-teal-50/30 to-white p-5 shadow-sm dark:border-emerald-900/60 dark:from-emerald-950/30 dark:via-slate-900 dark:to-slate-900">
+        <div className="flex items-start gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700 shadow-sm dark:bg-emerald-900/50 dark:text-emerald-300">
+            <Home className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+              Căn hộ được cấp
+            </p>
+            <h3 className="mt-1 text-xl font-black text-slate-900 dark:text-slate-100">
+              {apartmentUnitName}
+            </h3>
+            <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400 font-medium">Dự án: {projectName}</p>
+
+            <div className="mt-2.5 flex flex-wrap items-center gap-2">
+              <Badge variant="success" className="font-bold">
+                {isPriority ? '✓ Cấp theo diện ưu tiên' : isWon ? '✓ Trúng bốc thăm & Đã cấp căn' : '✓ Đã cấp căn hộ'}
+              </Badge>
+              {apartmentArea != null && (
+                <span className="inline-flex items-center gap-1 rounded-lg bg-white/80 px-2.5 py-0.5 text-xs font-semibold text-slate-700 border border-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
+                  Diện tích: {apartmentArea} m²
+                </span>
+              )}
+            </div>
+          </div>
+
+          {apartmentPrice != null && (
+            <div className="text-right shrink-0">
+              <p className="text-[11px] font-semibold uppercase text-slate-400 tracking-wider">Giá bán chính thức</p>
+              <p className="text-lg font-black text-emerald-600 dark:text-emerald-400">
+                {Number(apartmentPrice).toLocaleString('vi-VN')}
+              </p>
+              <p className="text-[11px] font-medium text-slate-400">VNĐ</p>
+            </div>
           )}
         </div>
-        {apartmentPrice != null && (
-          <div className="text-right">
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">Giá căn</p>
-            <p className="text-base font-semibold text-slate-900 dark:text-slate-100">
-              {Number(apartmentPrice).toLocaleString('vi-VN')}
-            </p>
-            <p className="text-xs text-slate-500">VNĐ</p>
-          </div>
-        )}
       </div>
-      {apartmentArea != null && (
-        <p className="mt-3 text-sm text-slate-600 dark:text-slate-400">
-          Diện tích: <strong>{apartmentArea} m²</strong>
-        </p>
-      )}
+    )
+  }
+
+  // 2. TRƯỜNG HỢP CHƯA ĐƯỢC GÁN CĂN — HIỂN THỊ THEO TIẾN TRÌNH THỰC TẾ CỦA HỒ SƠ
+
+  // (A) Hồ sơ đang chờ thẩm định / đang xét duyệt
+  const isReviewing = !normStatus || ['DRAFT', 'SUBMITTED', 'REVIEWING', 'PENDING_REVIEW', 'NEED_MORE_DOCUMENTS', 'PENDING_SXD_REVIEW'].includes(normStatus)
+
+  if (isReviewing) {
+    const isNeedMore = normStatus === 'NEED_MORE_DOCUMENTS'
+    const isReviewingStep = normStatus === 'REVIEWING' || normStatus === 'PENDING_SXD_REVIEW'
+
+    return (
+      <div className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50/70 via-orange-50/30 to-white p-5 shadow-sm dark:border-amber-900/60 dark:from-amber-950/30 dark:via-slate-900 dark:to-slate-900">
+        <div className="flex items-start gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-700 shadow-sm dark:bg-amber-900/50 dark:text-amber-300">
+            <Clock className="h-6 w-6 animate-pulse" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
+              Tiến trình xét duyệt hồ sơ
+            </p>
+            <h3 className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">
+              {isNeedMore ? 'Cần bổ sung tài liệu hồ sơ' : isReviewingStep ? 'Đang thẩm định điều kiện' : 'Hồ sơ đã nộp · Chờ duyệt'}
+            </h3>
+            <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400 font-medium">Dự án: {projectName}</p>
+            <p className="mt-2 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              {isNeedMore
+                ? 'Hồ sơ của bạn được yêu cầu bổ sung giấy tờ để tiếp tục thẩm định. Vui lòng kiểm tra thông báo và cập nhật sớm.'
+                : 'Hồ sơ đã được tiếp nhận và đang trong quá trình đối soát điều kiện theo quy định của Luật Nhà ở. Kết quả xét duyệt sẽ được thông báo ngay sau khi hoàn tất.'}
+            </p>
+            <div className="mt-3 flex items-center gap-2">
+              <Badge variant="warning" className="font-bold">
+                {isNeedMore ? 'Cần bổ sung' : isReviewingStep ? 'Đang thẩm định' : 'Chờ duyệt'}
+              </Badge>
+              <span className="text-[11px] text-slate-400">Bước 1/3: Thẩm định hồ sơ</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // (B) Hồ sơ bị từ chối
+  if (normStatus === 'REJECTED') {
+    return (
+      <div className="rounded-2xl border border-rose-200 bg-gradient-to-br from-rose-50/70 via-red-50/30 to-white p-5 shadow-sm dark:border-rose-900/60 dark:from-rose-950/30 dark:via-slate-900 dark:to-slate-900">
+        <div className="flex items-start gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-rose-100 text-rose-700 shadow-sm dark:bg-rose-900/50 dark:text-rose-300">
+            <XCircle className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-bold uppercase tracking-wider text-rose-700 dark:text-rose-400">
+              Kết quả thẩm định hồ sơ
+            </p>
+            <h3 className="mt-1 text-lg font-bold text-rose-900 dark:text-rose-100">
+              Hồ sơ không đủ điều kiện
+            </h3>
+            <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400 font-medium">Dự án: {projectName}</p>
+            <p className="mt-2 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              Rất tiếc hồ sơ của bạn chưa đáp ứng đủ các tiêu chuẩn mua nhà ở xã hội tại dự án này.
+            </p>
+            <div className="mt-3">
+              <Badge variant="danger" className="font-bold">Từ chối duyệt</Badge>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // (C) Kết quả bốc thăm: Trúng thăm nhưng chưa gán mã căn
+  const isWon = normLottery === 'WON' || normLottery === 'PRIORITY_WON' || normStatus === 'LOTTERY_WON'
+  if (isWon) {
+    return (
+      <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50/70 via-teal-50/30 to-white p-5 shadow-sm dark:border-emerald-900/60 dark:from-emerald-950/30 dark:via-slate-900 dark:to-slate-900">
+        <div className="flex items-start gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700 shadow-sm dark:bg-emerald-900/50 dark:text-emerald-300">
+            <CheckCircle2 className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+              Kết quả bốc thăm / phân bổ
+            </p>
+            <h3 className="mt-1 text-lg font-black text-emerald-900 dark:text-emerald-100">
+              Chúc mừng! Trúng quyền mua căn hộ
+            </h3>
+            <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400 font-medium">Dự án: {projectName}</p>
+            <p className="mt-2 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              Hồ sơ của bạn đã trúng quyền mua căn hộ. Chủ đầu tư đang thực hiện gán mã căn hộ chính thức để tiến hành thủ tục ký hợp đồng.
+            </p>
+            <div className="mt-3 flex items-center gap-2">
+              <Badge variant="success" className="font-bold">✓ Trúng bốc thăm · Chờ gán căn</Badge>
+              <span className="text-[11px] text-slate-400">Bước 2/3: Phân bổ căn</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // (D) Kết quả bốc thăm: Không trúng thăm / Danh sách chờ
+  const isLost = normLottery === 'LOST' || normLottery === 'LOTTERY_LOST' || normLottery === 'NOT_WON' || normStatus === 'LOTTERY_LOST'
+  const isWaitlist = normLottery === 'WAITLIST' || normStatus === 'WAITLIST'
+
+  if (isLost || isWaitlist) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-5 shadow-sm dark:border-slate-800 dark:from-slate-900 dark:to-slate-950">
+        <div className="flex items-start gap-4">
+          <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl shadow-sm ${isWaitlist ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'}`}>
+            <AlertTriangle className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Kết quả bốc thăm
+            </p>
+            <h3 className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">
+              {isWaitlist ? 'Trong danh sách chờ (Waitlist)' : 'Chưa trúng thăm đợt này'}
+            </h3>
+            <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400 font-medium">Dự án: {projectName}</p>
+            <p className="mt-2 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              {isWaitlist
+                ? 'Hồ sơ của bạn nằm trong danh sách chờ ưu tiên. Nếu có người trúng thăm từ chối nhận suất, hệ thống sẽ tự động đôn thứ tự của bạn lên.'
+                : 'Hồ sơ của bạn chưa trúng quyền mua trong phiên bốc thăm này. Bạn có thể nộp hồ sơ ở các dự án tiếp theo.'}
+            </p>
+            <div className="mt-3">
+              <Badge variant={isWaitlist ? 'warning' : 'danger'} className="font-bold">
+                {isWaitlist ? 'Danh sách chờ' : 'Không trúng thăm'}
+              </Badge>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // (E) Hồ sơ ĐÃ DUYỆT (`APPROVED`) — Phân nhánh: Chờ bốc thăm (vượt số lượng) vs Chờ cấp căn (không vượt số lượng)
+  const isLotteryPending = normStatus === 'LOTTERY_PENDING' || normStatus === 'LOTTERY_IN_PROGRESS' || normStatus === 'LOTTERY_WAITING'
+
+  if (isLotteryPending) {
+    return (
+      <div className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50/70 via-orange-50/30 to-white p-5 shadow-sm dark:border-amber-900/60 dark:from-amber-950/30 dark:via-slate-900 dark:to-slate-900">
+        <div className="flex items-start gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-700 shadow-sm dark:bg-amber-900/50 dark:text-amber-300">
+            <Clock className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
+              Kết quả thẩm định: Đã duyệt
+            </p>
+            <h3 className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">
+              Đủ điều kiện · Chờ bốc thăm
+            </h3>
+            <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400 font-medium">Dự án: {projectName}</p>
+            <p className="mt-2 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              Hồ sơ của bạn đã được phê duyệt hợp lệ. Do số lượng hồ sơ hợp lệ vượt quá quỹ căn của dự án, hồ sơ đã được đưa vào danh sách tham gia phiên bốc thăm công khai.
+            </p>
+            <div className="mt-3 flex items-center gap-2">
+              <Badge variant="warning" className="font-bold">Chờ bốc thăm</Badge>
+              <span className="text-[11px] text-slate-400">Bước 2/3: Bốc thăm chọn quyền mua</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Mặc định khi hồ sơ đã duyệt (Số lượng không vượt hoặc đang chờ phân bổ căn trực tiếp)
+  return (
+    <div className="rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50/70 via-indigo-50/30 to-white p-5 shadow-sm dark:border-blue-900/60 dark:from-blue-950/30 dark:via-slate-900 dark:to-slate-900">
+      <div className="flex items-start gap-4">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-100 text-blue-700 shadow-sm dark:bg-blue-900/50 dark:text-blue-300">
+          <CheckCircle2 className="h-6 w-6" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-bold uppercase tracking-wider text-blue-700 dark:text-blue-400">
+            Kết quả thẩm định: Đã duyệt
+          </p>
+          <h3 className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">
+            Đủ điều kiện · Chờ cấp căn
+          </h3>
+          <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400 font-medium">Dự án: {projectName}</p>
+          <p className="mt-2 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+            Hồ sơ của bạn đã được phê duyệt hợp lệ. Số lượng hồ sơ hợp lệ không vượt quá số lượng căn hộ, đang chờ Chủ đầu tư hoàn tất thủ tục phân bổ và cấp căn hộ cụ thể.
+          </p>
+          <div className="mt-3 flex items-center gap-2">
+            <Badge variant="success" className="font-bold">Đã duyệt · Chờ cấp căn</Badge>
+            <span className="text-[11px] text-slate-400">Bước 2/3: Phân bổ căn hộ</span>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

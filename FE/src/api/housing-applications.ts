@@ -101,6 +101,7 @@ export function parsePagedApplications(data: unknown): ApplicationSummaryDto[] {
       estimatedMonthlyIncome: Number(
         x.monthlyIncome ?? x.MonthlyIncome ?? x.estimatedMonthlyIncome ?? x.EstimatedMonthlyIncome ?? 0,
       ),
+      priorityGroup: str(x.priorityGroup ?? x.PriorityGroup ?? x.policyGroup ?? x.PolicyGroup ?? ''),
       documentCount: Number(x.documentCount ?? x.DocumentCount ?? 0),
       receiptUrl: (x.receiptUrl ?? x.ReceiptUrl) as string | null | undefined,
       isViolation: Boolean(x.isViolation ?? x.IsViolation ?? false),

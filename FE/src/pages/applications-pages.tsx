@@ -1795,12 +1795,23 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
                       app.desiredApartmentType ||
                       (app.apartmentUnitName
                         ? `Căn được cấp: ${app.apartmentUnitName}`
-                        : 'Phân bổ theo bốc thăm của CĐT')
+                        : 'Phân bổ theo quy định của CĐT')
                     }
                   />
-                  {app.lotteryResult && (
-                    <DetailRow label="Kết quả bốc thăm" value={LOTTERY_RESULT_LABELS[app.lotteryResult] ?? app.lotteryResult} />
-                  )}
+                  {(() => {
+                    const normStatus = (app.applicationStatus || '').toUpperCase()
+                    const normLottery = (app.lotteryResult || '').toUpperCase()
+                    const isLotteryPhase =
+                      ['LOTTERY_PENDING', 'LOTTERY_IN_PROGRESS', 'LOTTERY_WON', 'LOTTERY_LOST', 'WAITLIST'].includes(normStatus) ||
+                      ['WON', 'PRIORITY_WON', 'LOST', 'LOTTERY_LOST', 'NOT_WON', 'WAITLIST'].includes(normLottery)
+                    if (!isLotteryPhase) return null
+                    return (
+                      <DetailRow
+                        label="Kết quả bốc thăm"
+                        value={LOTTERY_RESULT_LABELS[app.lotteryResult ?? ''] ?? (normLottery === 'PENDING' ? 'Chờ bốc thăm' : app.lotteryResult)}
+                      />
+                    )
+                  })()}
                   {app.waitlistNumber != null && (
                     <DetailRow
                       label="Số thứ tự hàng chờ"
@@ -1986,6 +1997,7 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
             apartmentPrice={app.apartmentPrice}
             projectName={app.projectName}
             lotteryResult={app.lotteryResult}
+            applicationStatus={app.applicationStatus}
           />
 
           {/* ĐIỀU HƯỚNG KÝ HĐ & THANH TOÁN QUA MỤC HỢP ĐỒNG */}

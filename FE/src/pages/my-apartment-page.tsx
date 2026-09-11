@@ -71,10 +71,10 @@ function FlowStepIndicator({ step }: { step: FlowStep }) {
             <div className="flex flex-col items-center gap-1">
               <div
                 className={`flex h-10 w-10 items-center justify-center rounded-full border-2 text-sm font-bold transition-all ${done
-                    ? 'border-emerald-500 bg-emerald-500 text-white'
-                    : active
-                      ? 'border-indigo-500 bg-indigo-500 text-white shadow-lg shadow-indigo-500/30'
-                      : 'border-slate-300 bg-slate-100 text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-500'
+                  ? 'border-emerald-500 bg-emerald-500 text-white'
+                  : active
+                    ? 'border-indigo-500 bg-indigo-500 text-white shadow-lg shadow-indigo-500/30'
+                    : 'border-slate-300 bg-slate-100 text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-500'
                   }`}
               >
                 {done ? '✓' : i + 1}
@@ -243,16 +243,16 @@ export function MyApartmentPage() {
       : derivedStatus === 'SIGNED' || appStatus === 'CONTRACT_SIGNED' || appStatus === 'CONTRACTING'
         ? 'pay-installment'
         : canSignAfterDeposit({
+          applicationStatus: effectiveStatus,
+          hasApartment,
+          depositPaid: deposit1Paid,
+        })
+          ? 'sign'
+          : needsDepositBeforeContract({
             applicationStatus: effectiveStatus,
             hasApartment,
             depositPaid: deposit1Paid,
-          })
-          ? 'sign'
-          : needsDepositBeforeContract({
-              applicationStatus: effectiveStatus,
-              hasApartment,
-              depositPaid: deposit1Paid,
-            }) || ['APPROVED', 'APPROVED_BY_TIMEOUT', 'DEPOSIT_PENDING'].includes(appStatus)
+          }) || ['APPROVED', 'APPROVED_BY_TIMEOUT', 'DEPOSIT_PENDING'].includes(appStatus)
             ? 'deposit'
             : 'none'
 
@@ -309,8 +309,8 @@ export function MyApartmentPage() {
                     type="button"
                     onClick={() => setSelectedId(a.applicationId)}
                     className={`rounded-xl border-2 p-4 text-left transition-all ${isSelected
-                        ? 'border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-950/40 ring-2 ring-indigo-500/20'
-                        : 'border-slate-200 bg-white hover:border-indigo-300 dark:border-slate-700 dark:bg-slate-900/40 dark:hover:border-indigo-600'
+                      ? 'border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-950/40 ring-2 ring-indigo-500/20'
+                      : 'border-slate-200 bg-white hover:border-indigo-300 dark:border-slate-700 dark:bg-slate-900/40 dark:hover:border-indigo-600'
                       }`}
                   >
                     <div className="flex items-start gap-2">
@@ -357,6 +357,7 @@ export function MyApartmentPage() {
                   apartmentPrice={appDetail?.['apartmentPrice'] as number | null ?? null}
                   projectName={appDetail?.['projectName'] as string ?? selectedApp.projectName}
                   lotteryResult={appDetail?.['lotteryResult'] as string | null ?? null}
+                  applicationStatus={appDetail?.['applicationStatus'] as string ?? selectedApp.applicationStatus}
                 />
 
                 {/* Ký hợp đồng */}
