@@ -1088,7 +1088,7 @@ export function ContractDetailPage() {
                 applicationId={id}
                 applicationStatus={status?.applicationStatus ?? appDetail?.applicationStatus ?? ''}
               />
-              {isDev && projectId && (
+              {role === 'Housing Developer' && projectId && (
                 <Alert variant="info" className="mt-3">
                   Mở đợt thanh toán trên trang chi tiết dự án, khối Tiến độ thu tiền — một lần mở cho cả dự án.{' '}
                   <button
