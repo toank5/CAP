@@ -6,7 +6,6 @@ import {
   Loader2,
   RefreshCw,
   ShieldAlert,
-  Unlock,
   XCircle,
 } from 'lucide-react'
 import {
@@ -16,7 +15,6 @@ import {
   type CancellationRequestItemDto,
   type ApplicationProgressItem,
 } from '@/api/payment'
-import { UNLOCK_PHASE_LABEL, type UnlockPhaseTrigger } from '@/api/contracts'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
@@ -49,11 +47,6 @@ export function ProjectPaymentManagementPanel({
   const [forcedReason, setForcedReason] = useState(
     'Chậm nộp tiền đợt quá 2 kỳ liên tiếp không có lý do chính đáng — đơn phương chấm dứt thỏa thuận và thu hồi căn theo Điều 5 Quy chế NOXH.',
   )
-
-  // Phase Unlock Modal State
-  const [unlockModalOpen, setUnlockModalOpen] = useState(false)
-  const [unlockTrigger, setUnlockTrigger] = useState('CONSTRUCTION_ROUGH_FLOOR')
-  const [unlockError, setUnlockError] = useState<string | null>(null)
 
   const loadRequests = async () => {
     setLoading(true)
@@ -171,28 +164,6 @@ export function ProjectPaymentManagementPanel({
     }
   }
 
-  const handleUnlockPhase = async () => {
-    setActionBusy('unlock')
-    setUnlockError(null)
-    setMsg(null)
-    try {
-      await paymentApi.unlockPhase(projectId, unlockTrigger)
-      const label = UNLOCK_PHASE_LABEL[unlockTrigger as UnlockPhaseTrigger] || unlockTrigger
-      setMsg({
-        type: 'success',
-        text: `Đã mở khóa đợt thanh toán "${label}". Thông báo nộp tiền đã được gửi tới các khách hàng sở hữu căn.`,
-      })
-      setUnlockModalOpen(false)
-      await loadRequests()
-    } catch (err) {
-      const errText = formatError(err)
-      setUnlockError(errText)
-      setMsg({ type: 'error', text: errText })
-    } finally {
-      setActionBusy(null)
-    }
-  }
-
   const formatMoney = (v?: number) => {
     if (v == null || Number.isNaN(v)) return '0 VNĐ'
     return v.toLocaleString('vi-VN') + ' VNĐ'
@@ -210,33 +181,19 @@ export function ProjectPaymentManagementPanel({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  Quản lý Thanh toán, Rút hồ sơ &amp; Xử lý Vi phạm
+                  Rút hồ sơ &amp; xử lý vi phạm
                 </h3>
                 <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-[11px] font-bold text-rose-800 dark:bg-rose-950/60 dark:text-rose-300">
                   Chủ đầu tư điều hành
                 </span>
               </div>
               <p className="mt-1 text-xs text-slate-600 dark:text-slate-300 leading-relaxed max-w-2xl">
-                Duyệt đơn tự nguyện rút hồ sơ (hoàn tiền trừ cọc vi phạm), cưỡng chế thanh lý hợp đồng quá 2 đợt không đóng tiền theo Điều 5 Quy chế NOXH và mở khóa các đợt thanh toán xây dựng.
+                Duyệt đơn tự nguyện rút hồ sơ (hoàn tiền trừ cọc vi phạm) và cưỡng chế thanh lý hợp đồng quá 2 đợt không đóng tiền theo Điều 5 Quy chế NOXH.
               </p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setUnlockError(null)
-                setUnlockModalOpen(true)
-              }}
-              className="inline-flex items-center gap-1.5 border-teal-300 bg-teal-50/60 text-xs font-bold text-teal-700 hover:bg-teal-100 dark:border-teal-800 dark:bg-teal-950/40 dark:text-teal-300"
-            >
-              <Unlock className="h-3.5 w-3.5" />
-              Mở khóa đợt đóng tiền
-            </Button>
-
             <Button
               type="button"
               variant="outline"
@@ -606,84 +563,6 @@ export function ProjectPaymentManagementPanel({
             >
               {actionBusy === 'forced' ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
               Cưỡng chế thanh lý
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Modal Mở khóa đợt thanh toán */}
-      <Modal
-        open={unlockModalOpen}
-        onClose={() => setUnlockModalOpen(false)}
-        size="md"
-      >
-        <div className="space-y-4 p-5">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-600 text-white shadow-md">
-              <Unlock className="h-5 w-5" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                Mở khóa đợt thanh toán theo tiến độ
-              </h3>
-              <p className="text-xs text-slate-500">
-                Kích hoạt đợt thu tiền tiếp theo khi công trình đạt cột mốc thi công thực tế.
-              </p>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-              Cột mốc thi công / Tiến độ mở thu tiền *
-            </label>
-            <select
-              value={unlockTrigger}
-              onChange={(e) => setUnlockTrigger(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-            >
-              <option value="ON_CONTRACT_SIGNED">Sau khi ký hợp đồng mua bán (Đợt 2)</option>
-              <option value="CONSTRUCTION_ROUGH_FLOOR">Hoàn thành phần thô công trình (Đợt 3)</option>
-              <option value="ROOFING_COMPLETED">Cất nóc công trình (Đợt 4)</option>
-              <option value="HANDOVER">Bàn giao nhà (Đợt 5)</option>
-              <option value="RED_BOOK_ISSUED">Cấp giấy chứng nhận / Sổ hồng (Đợt 6)</option>
-            </select>
-          </div>
-
-          {unlockError && (
-            <Alert variant="error" className="text-xs">
-              <div className="font-semibold mb-1">Không thể mở khóa đợt:</div>
-              <div>{unlockError}</div>
-              <div className="mt-2 text-[11px] opacity-90 border-t border-rose-200/60 pt-1.5 dark:border-rose-900/60">
-                💡 <strong>Quy tắc thanh toán theo quy chế NOXH:</strong>
-                <ul className="mt-1 list-disc pl-4 space-y-0.5">
-                  <li>Đợt 1 (Đóng cọc): Người dân đóng sau khi trúng bốc thăm / cấp nhà.</li>
-                  <li>Đợt 2 (Ký hợp đồng): Mở sau khi ký HĐ.</li>
-                  <li>Đợt 3 trở đi: Chỉ mở được khi người dân đã hoàn tất thanh toán (PAID) toàn bộ các đợt trước đó.</li>
-                </ul>
-              </div>
-            </Alert>
-          )}
-
-          <p className="text-[11px] text-slate-500">
-            Khi mở khóa, hệ thống sẽ tự động gửi thông báo thanh toán đợt kèm hạn chót đóng tiền (7–15 ngày) đến tất cả các chủ hộ đã ký hợp đồng.
-          </p>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setUnlockModalOpen(false)}
-            >
-              Hủy
-            </Button>
-            <Button
-              size="sm"
-              disabled={actionBusy === 'unlock'}
-              onClick={handleUnlockPhase}
-              className="bg-teal-600 hover:bg-teal-700 text-white font-bold"
-            >
-              {actionBusy === 'unlock' ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
-              Xác nhận mở khóa đợt
             </Button>
           </div>
         </div>

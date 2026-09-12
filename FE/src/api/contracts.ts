@@ -445,12 +445,10 @@ export const contractApi = {
   },
 
   /**
-   * Chủ đầu tư mở đợt thanh toán theo mốc đã cấu hình trên đợt đó.
-   * BE: POST /api/housing-developer/projects/{projectId}/unlock-phase
-   * body: { triggerEvent }
+   * Chủ đầu tư mở đợt thanh toán theo số thứ tự trên lịch dự án.
    */
-  unlockPhase(projectId: string, triggerEvent: string) {
-    return paymentApi.unlockPhase(projectId, triggerEvent)
+  unlockPhase(projectId: string, triggerEvent: string, phaseOrder?: number) {
+    return paymentApi.unlockPhase(projectId, triggerEvent, phaseOrder)
   },
 }
 

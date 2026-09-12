@@ -153,6 +153,50 @@ export function parsePaymentProgressItems(data: unknown): ApplicationProgressIte
   }).filter((it) => it.applicationId)
 }
 
+export interface PhaseProgressItem {
+  phaseOrder: number
+  phaseName: string
+  percentage: number
+  triggerEvent: string
+  triggerEventLabel?: string
+  isAutoOpen: boolean
+  householdCount: number
+  paidCount: number
+  collectingCount: number
+  overdueCount: number
+  lockedCount: number
+  eligibleToUnlockCount: number
+  isNextToOpen: boolean
+}
+
+export function parsePhaseProgress(data: unknown): PhaseProgressItem[] {
+  const root = data && typeof data === 'object' ? (data as Record<string, unknown>) : {}
+  const nested = (root.data ?? root.Data ?? root) as Record<string, unknown>
+  const phases = nested.phases ?? nested.Phases
+  if (!Array.isArray(phases)) return []
+  return phases
+    .map((it) => {
+      const x = (it ?? {}) as Record<string, unknown>
+      const order = Number(x.phaseOrder ?? x.PhaseOrder ?? 0)
+      return {
+        phaseOrder: order,
+        phaseName: String(x.phaseName ?? x.PhaseName ?? `Đợt ${order}`),
+        percentage: Number(x.percentage ?? x.Percentage ?? 0),
+        triggerEvent: String(x.triggerEvent ?? x.TriggerEvent ?? ''),
+        triggerEventLabel: (x.triggerEventLabel ?? x.TriggerEventLabel) as string | undefined,
+        isAutoOpen: Boolean(x.isAutoOpen ?? x.IsAutoOpen),
+        householdCount: Number(x.householdCount ?? x.HouseholdCount ?? 0),
+        paidCount: Number(x.paidCount ?? x.PaidCount ?? 0),
+        collectingCount: Number(x.collectingCount ?? x.CollectingCount ?? 0),
+        overdueCount: Number(x.overdueCount ?? x.OverdueCount ?? 0),
+        lockedCount: Number(x.lockedCount ?? x.LockedCount ?? 0),
+        eligibleToUnlockCount: Number(x.eligibleToUnlockCount ?? x.EligibleToUnlockCount ?? 0),
+        isNextToOpen: Boolean(x.isNextToOpen ?? x.IsNextToOpen),
+      }
+    })
+    .filter((p) => p.phaseOrder > 0)
+}
+
 export const paymentApi = {
   createPaymentUrl: (body: CreatePaymentDto) =>
     request<PaymentResponseDto>('/api/Payment/create-payment-url', {
@@ -230,47 +274,35 @@ export const paymentApi = {
   getPaymentProgress: (projectId: string) =>
     request<ApiResult>(`/api/Payment/projects/${projectId}/payment-progress`, { auth: true }),
 
-  /** CĐT mở đợt thanh toán theo tiến độ xây dựng (hỗ trợ cả HousingDeveloper và Payment controller) */
-  unlockPhase: async (projectId: string, triggerEvent: string): Promise<ApiResult> => {
-    const payload = JSON.stringify({
+  /**
+   * CĐT mở đúng một đợt trên lịch dự án.
+   * phaseOrder: mở Đợt N. triggerEvent gửi kèm query để bản API cũ trên Render còn đọc được.
+   */
+  unlockPhase: async (
+    projectId: string,
+    triggerEvent: string,
+    phaseOrder?: number,
+  ): Promise<ApiResult> => {
+    const qs = new URLSearchParams()
+    if (triggerEvent) qs.set('triggerEvent', triggerEvent)
+    if (phaseOrder && phaseOrder > 0) qs.set('phaseOrder', String(phaseOrder))
+    const body = JSON.stringify({
       triggerEvent,
-      TriggerEvent: triggerEvent,
-      trigger: triggerEvent,
-      Trigger: triggerEvent,
-      milestoneEvent: triggerEvent,
-      MilestoneEvent: triggerEvent,
-      event: triggerEvent,
-      Event: triggerEvent,
+      phaseOrder: phaseOrder && phaseOrder > 0 ? phaseOrder : undefined,
     })
-    const queryParam = `?triggerEvent=${encodeURIComponent(triggerEvent)}`
     try {
-      // 1. Thử POST /api/housing-developer/projects/{projectId}/unlock-phase (Chuẩn CĐT)
-      return await request<ApiResult>(`/api/housing-developer/projects/${projectId}/unlock-phase${queryParam}`, {
+      return await request<ApiResult>(
+        `/api/Payment/projects/${projectId}/unlock-phase?${qs.toString()}`,
+        { method: 'PATCH', body, auth: true },
+      )
+    } catch (err) {
+      return await request<ApiResult>(`/api/housing-developer/projects/${projectId}/unlock-phase`, {
         method: 'POST',
-        body: payload,
+        body,
         auth: true,
+      }).catch(() => {
+        throw err
       })
-    } catch (err1) {
-      // 2. Thử PATCH /api/Payment/projects/{projectId}/unlock-phase
-      try {
-        return await request<ApiResult>(`/api/Payment/projects/${projectId}/unlock-phase${queryParam}`, {
-          method: 'PATCH',
-          body: payload,
-          auth: true,
-        })
-      } catch (err2) {
-        // 3. Thử POST /api/Payment/projects/{projectId}/unlock-phase
-        try {
-          return await request<ApiResult>(`/api/Payment/projects/${projectId}/unlock-phase${queryParam}`, {
-            method: 'POST',
-            body: payload,
-            auth: true,
-          })
-        } catch {
-          // Trả về lỗi chi tiết nhất từ backend để UI hiển thị
-          throw (err1 instanceof Error && !err1.message.includes('404') && !err1.message.includes('405')) ? err1 : err2
-        }
-      }
     }
   },
 }

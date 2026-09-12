@@ -293,6 +293,7 @@ export interface MilestoneSetupItemDto {
   calculationType?: string
   fixedAmount?: number
   triggerEvent: string
+  triggerEventLabel?: string
   dueDays?: number
   description?: string
 }

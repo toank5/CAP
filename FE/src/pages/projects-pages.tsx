@@ -33,6 +33,7 @@ import { EditProjectModal } from '@/components/developer/edit-project-modal'
 import { Building3DViewer } from '@/components/housing-projects/building-3d-viewer'
 import { Apartment3DViewer } from '@/components/housing-projects/apartment-3d-viewer'
 import { DeveloperDecisionPanel } from '@/components/developer-decision-panel'
+import { ProjectCollectionSchedulePanel } from '@/components/developer/project-collection-schedule-panel'
 import { ProjectPaymentManagementPanel } from '@/components/developer/project-payment-management-panel'
 import { ProjectStatusControl } from '@/components/developer/project-status-control'
 import { LocationFields } from '@/components/forms/location-fields'
@@ -1064,7 +1065,8 @@ export function ProjectDetailPage() {
             )}
 
             {Boolean(project) && (isDeveloper || isAdmin) && !isPending(project) && !isUpcoming(project) && !isOpenForRegistration(project) && (
-              <div className="mt-8">
+              <div className="mt-8 space-y-8">
+                <ProjectCollectionSchedulePanel projectId={projectId} />
                 <ProjectPaymentManagementPanel
                   projectId={projectId}
                   projectName={project?.projectName || project?.name}

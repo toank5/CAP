@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { FileText, Download, Wallet, Unlock, CheckCircle2, Clock, AlertTriangle, XCircle, Lock, Calendar, Banknote, TrendingUp, CircleDot } from 'lucide-react'
+import { FileText, Download, Wallet, CheckCircle2, Clock, AlertTriangle, XCircle, Lock, Calendar, Banknote, TrendingUp, CircleDot } from 'lucide-react'
 import {
   contractApi,
   CONTRACT_STATUS_LABEL,
@@ -9,7 +9,6 @@ import {
   parseContractStatus,
   parseInstallmentsEnvelope,
   summarizeInstallments,
-  isManualUnlockTrigger,
   getEffectiveInstallmentDueDate,
   type ContractStatusDto,
   type PaymentInstallment,
@@ -289,8 +288,6 @@ function InstallmentRow({
   applicationId,
   applicationStatus,
   installments,
-  projectId,
-  onUnlocked,
 }: {
   inst: PaymentInstallment
   onPaid: () => void
@@ -299,11 +296,8 @@ function InstallmentRow({
   applicationId: string
   applicationStatus: string
   installments: PaymentInstallment[]
-  projectId?: string
-  onUnlocked?: () => void
 }) {
   const [paying, setPaying] = useState(false)
-  const [unlocking, setUnlocking] = useState(false)
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const effective = getEffectiveInstallmentDueDate(inst, installments, signedAt)
   const isPaid = inst.status === 'PAID'
@@ -313,6 +307,14 @@ function InstallmentRow({
   const isDeposit = inst.ordinal === 1
   const tone = INSTALLMENT_STATUS_TONE[inst.status]
   const role = getRole()
+  const prevPhase = installments.find((p) => p.ordinal === inst.ordinal - 1)
+  const lockedHint = !isLocked
+    ? null
+    : inst.ordinal <= 1
+      ? 'Đợt 1 mở khi được cấp căn. Nếu vẫn khóa, hồ sơ chưa có lịch thu.'
+      : prevPhase && prevPhase.status !== 'PAID'
+        ? `${inst.label || `Đợt ${inst.ordinal}`} chưa mở cho bạn vì ${prevPhase.label || `Đợt ${prevPhase.ordinal}`} chưa đóng.`
+        : `${inst.label || `Đợt ${inst.ordinal}`} chưa tới. Chủ đầu tư mở trên trang dự án khi công trình đến mốc này.`
 
   // Đợt cho phép thanh toán khi:
   // - Đợt 1: create-payment-url (luồng đặt cọc trước ký) HOẶC
@@ -412,24 +414,6 @@ function InstallmentRow({
     }
   }
 
-  const handleUnlockDirect = async () => {
-    if (!projectId || !inst.triggerEvent || unlocking) return
-    setUnlocking(true)
-    setMsg(null)
-    try {
-      await contractApi.unlockPhase(projectId, inst.triggerEvent)
-      setMsg({
-        type: 'success',
-        text: `Đã mở ${inst.label || `Đợt ${inst.ordinal}`}. Người mua nhà hiện có thể thanh toán đợt này.`,
-      })
-      onUnlocked?.()
-    } catch (err) {
-      setMsg({ type: 'error', text: formatError(err) })
-    } finally {
-      setUnlocking(false)
-    }
-  }
-
   const borderClass = isPaid
     ? 'border-emerald-300 dark:border-emerald-700/60'
     : isOverdue
@@ -479,6 +463,10 @@ function InstallmentRow({
               </p>
               <Badge variant={badgeTone}>{toneBadgeText}</Badge>
             </div>
+            {lockedHint && (
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{lockedHint}</p>
+            )}
+            {!isLocked && (
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
               <span className="inline-flex items-center gap-1">
                 <Calendar className="h-3.5 w-3.5" />
@@ -506,6 +494,7 @@ function InstallmentRow({
                 />
               )}
             </div>
+            )}
           </div>
         </div>
 
@@ -524,26 +513,6 @@ function InstallmentRow({
             <Button variant="accent" size="sm" disabled={paying} onClick={() => void handlePay()} className="mt-1">
               {paying ? 'Đang xử lý...' : 'Thanh toán'}
             </Button>
-          )}
-          {role === 'Housing Developer' && isLocked && isManualUnlockTrigger(inst.triggerEvent) && projectId && (
-            <div className="mt-1 flex flex-col items-end">
-              {allPrevPaid ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={unlocking}
-                  onClick={() => void handleUnlockDirect()}
-                  className="border-indigo-300 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-600 dark:text-indigo-300 dark:hover:bg-indigo-950 text-xs gap-1 font-medium"
-                >
-                  <Unlock className="h-3.5 w-3.5" />
-                  {unlocking ? 'Đang mở...' : `Mở ${inst.label || `Đợt ${inst.ordinal}`}`}
-                </Button>
-              ) : (
-                <span className="text-[11px] italic text-slate-400 dark:text-slate-500">
-                  🔒 Cần Đợt {inst.ordinal - 1} hoàn tất trước
-                </span>
-              )}
-            </div>
           )}
         </div>
       </div>
@@ -710,8 +679,6 @@ function InstallmentTimeline({
   totalAmount,
   applicationId,
   applicationStatus,
-  projectId,
-  onUnlocked,
 }: {
   installments: PaymentInstallment[]
   signedAt: string | null
@@ -719,8 +686,6 @@ function InstallmentTimeline({
   totalAmount: number
   applicationId: string
   applicationStatus: string
-  projectId?: string
-  onUnlocked?: () => void
 }) {
   return (
     <ol className="relative space-y-3 border-l-2 border-dashed border-slate-200 pl-6 dark:border-slate-700 sm:pl-8">
@@ -735,8 +700,6 @@ function InstallmentTimeline({
             applicationId={applicationId}
             applicationStatus={applicationStatus}
             installments={installments}
-            projectId={projectId}
-            onUnlocked={onUnlocked}
           />
         </li>
       ))}
@@ -1124,9 +1087,22 @@ export function ContractDetailPage() {
                 }
                 applicationId={id}
                 applicationStatus={status?.applicationStatus ?? appDetail?.applicationStatus ?? ''}
-                projectId={projectId}
-                onUnlocked={() => void reload()}
               />
+              {isDev && projectId && (
+                <Alert variant="info" className="mt-3">
+                  Mở đợt thanh toán trên trang chi tiết dự án, khối Tiến độ thu tiền — một lần mở cho cả dự án.{' '}
+                  <button
+                    type="button"
+                    className="font-semibold underline"
+                    onClick={() => {
+                      sessionStorage.setItem('projectId', projectId)
+                      navigate('project-detail')
+                    }}
+                  >
+                    Mở trang dự án
+                  </button>
+                </Alert>
+              )}
             </div>
           </section>
         )}

@@ -8,7 +8,6 @@ import {
   INSTALLMENT_STATUS_LABEL,
   INSTALLMENT_STATUS_TONE,
   contractApi,
-  isManualUnlockTrigger,
   getEffectiveInstallmentDueDate,
   type PaymentInstallment,
 } from '@/api/contracts'
@@ -101,52 +100,6 @@ export function DepositCountdown({
   )
 }
 
-// ─── Unlock Button (CĐT) ───────────────────────────────────────────────────────
-
-interface UnlockButtonProps {
-  projectId?: string
-  inst: PaymentInstallment
-  allInstallments: PaymentInstallment[]
-  onUnlocked?: () => void
-}
-
-function UnlockButton({ projectId, inst, allInstallments, onUnlocked }: UnlockButtonProps) {
-  const [busy, setBusy] = useState(false)
-  const trigger = inst.triggerEvent
-  if (!projectId || !trigger || !isManualUnlockTrigger(trigger)) return null
-
-  // Đợt trước phải ĐÃ THANH TOÁN (status === 'PAID') thì mới hiển thị nút mở đợt tiếp theo
-  const allPrevPaid = allInstallments
-    .filter((i) => i.ordinal < inst.ordinal)
-    .every((i) => i.status === 'PAID')
-
-  if (!allPrevPaid) {
-    return (
-      <span className="mt-1 text-[11px] italic text-slate-400 dark:text-slate-500">
-        🔒 Cần Đợt {inst.ordinal - 1} hoàn tất trước
-      </span>
-    )
-  }
-
-  const handle = async () => {
-    setBusy(true)
-    try {
-      await contractApi.unlockPhase(projectId, trigger)
-      onUnlocked?.()
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const label = inst.label?.trim() ? `Mở ${inst.label}` : `Mở đợt ${inst.ordinal}`
-
-  return (
-    <Button variant="outline" size="sm" disabled={busy} onClick={() => void handle()} className="mt-1 border-violet-300 text-violet-700 hover:bg-violet-50 dark:border-violet-600 dark:text-violet-300 dark:hover:bg-violet-950 text-xs font-medium">
-      {busy ? 'Đang mở...' : label}
-    </Button>
-  )
-}
-
 // ─── Installment Row ────────────────────────────────────────────────────────────
 
 interface InstallmentRowProps {
@@ -170,8 +123,6 @@ export function InstallmentRow({
   applicationStatus,
   installments,
   role,
-  projectId,
-  onUnlocked,
 }: Omit<InstallmentRowProps, 'totalAmount'>) {
   const [paying, setPaying] = useState(false)
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -182,6 +133,14 @@ export function InstallmentRow({
   const isOverdue = !isPaid && !isLocked && !isCancelled && effective.isOverdue
   const isPending = inst.status === 'UNPAID'
   const tone = INSTALLMENT_STATUS_TONE[inst.status]
+  const prevPhase = installments.find((p) => p.ordinal === inst.ordinal - 1)
+  const lockedHint = !isLocked
+    ? null
+    : inst.ordinal <= 1
+      ? 'Đợt 1 mở khi được cấp căn. Nếu vẫn khóa, hồ sơ chưa có lịch thu.'
+      : prevPhase && prevPhase.status !== 'PAID'
+        ? `${inst.label || `Đợt ${inst.ordinal}`} chưa mở cho bạn vì ${prevPhase.label || `Đợt ${prevPhase.ordinal}`} chưa đóng.`
+        : `${inst.label || `Đợt ${inst.ordinal}`} chưa tới. Chủ đầu tư mở trên trang dự án khi công trình đến mốc này.`
 
   const allPrevPaid =
     inst.ordinal === 1 ||
@@ -308,6 +267,10 @@ export function InstallmentRow({
               </p>
               <Badge variant={badgeTone}>{toneBadgeText}</Badge>
             </div>
+            {lockedHint && (
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{lockedHint}</p>
+            )}
+            {!isLocked && (
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
               <span className="inline-flex items-center gap-1">
                 <Calendar className="h-3.5 w-3.5" />
@@ -335,6 +298,7 @@ export function InstallmentRow({
                 />
               )}
             </div>
+            )}
           </div>
         </div>
 
@@ -352,9 +316,6 @@ export function InstallmentRow({
             <Button variant="accent" size="sm" disabled={paying} onClick={() => void handlePay()} className="mt-1">
               {paying ? 'Đang xử lý...' : 'Thanh toán'}
             </Button>
-          )}
-          {role === 'Housing Developer' && isLocked && isManualUnlockTrigger(inst.triggerEvent) && (
-            <UnlockButton projectId={projectId} inst={inst} allInstallments={installments} onUnlocked={onUnlocked} />
           )}
         </div>
       </div>
@@ -764,7 +725,7 @@ export function PaymentSection({
 
         {role === 'Housing Developer' && (
           <p className="mt-2 text-center text-xs italic text-slate-500 dark:text-slate-400">
-            Nhấn nút <strong>Mở đợt thanh toán</strong> phía trên để kích hoạt đợt tiếp theo cho hồ sơ này.
+            Mở đợt tiếp theo trên trang chi tiết dự án (Tiến độ thu tiền). Một lần mở cho cả dự án, không theo hồ sơ này.
           </p>
         )}
       </div>
