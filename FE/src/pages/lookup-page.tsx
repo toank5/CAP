@@ -91,7 +91,6 @@ export function LookupPage() {
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mx-auto max-w-2xl space-y-6">
       <div>
-        <p className="text-xs font-bold uppercase tracking-widest text-accent">Tra cứu công khai</p>
         <h1 className="mt-1 text-3xl font-bold">Tra cứu hồ sơ</h1>
         <p className="mt-2 text-slate-500 dark:text-slate-400">
           Tra cứu công khai hồ sơ nhà ở xã hội. Có thể xem danh sách đã công bố mà không cần đăng nhập.

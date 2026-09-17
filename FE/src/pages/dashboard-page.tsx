@@ -106,7 +106,6 @@ export function DashboardPage() {
   return (
     <div className="space-y-8">
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-        <p className="text-xs font-bold uppercase tracking-widest text-accent">Phân tích thông minh</p>
         <h1 className="mt-1 text-3xl font-bold tracking-tight">Bảng điều khiển</h1>
         <p className="mt-2 text-slate-500 dark:text-slate-400">
           {role || 'Người dùng'} · Cập nhật thời gian thực ·{' '}
