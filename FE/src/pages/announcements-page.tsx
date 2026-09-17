@@ -8,7 +8,7 @@ import {
 } from '@/api/announcements'
 import { reportsApi } from '@/api/reports'
 import { GovHeroBanner } from '@/components/layout/gov-hero-banner'
-import { PageCard, PageHeader } from '@/components/layout/page-header'
+import { PageCard } from '@/components/layout/page-header'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input, Select } from '@/components/ui/input'
@@ -332,7 +332,6 @@ export function SxdAnnouncementsPage() {
 
   return (
     <div>
-      <PageHeader routeId="sxd-announcements" />
       <PageCard className="p-6 space-y-4">
         {/* Toolbar */}
         <div className="flex flex-wrap items-end gap-3">

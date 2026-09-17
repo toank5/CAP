@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { paymentApi } from '@/api/payment'
-import { PageCard, PageHeader } from '@/components/layout/page-header'
+import { PageCard } from '@/components/layout/page-header'
 import { Alert } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { extractList } from '@/lib/parsers'
@@ -26,7 +26,6 @@ export function PaymentsPage() {
 
   return (
     <div>
-      <PageHeader routeId="payments" />
       <PageCard className="p-6">
         {loading && <p className="text-sm text-slate-500 dark:text-slate-400">Đang tải...</p>}
         {error && <Alert variant="error">{error}</Alert>}

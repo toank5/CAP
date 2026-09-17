@@ -40,7 +40,7 @@ import { LocationFields } from '@/components/forms/location-fields'
 import { RichEditor } from '@/components/forms/rich-editor'
 import { HousingSearchForm } from '@/components/housing/housing-search-form'
 import { HouseCard } from '@/components/housing/house-card'
-import { PageCard, PageHeader } from '@/components/layout/page-header'
+import { PageCard } from '@/components/layout/page-header'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { FormField } from '@/components/ui/label'
@@ -929,7 +929,6 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
 export function CreateProjectPage() {
   return (
     <div>
-      <PageHeader routeId="create-project" />
       <PageCard className="p-6"><ProjectForm /></PageCard>
     </div>
   )
@@ -950,7 +949,6 @@ export function ProjectDetailPage() {
 
   return (
     <div>
-      <PageHeader routeId="project-detail" />
       <PageCard className="p-6">
         <Button
           variant="ghost"

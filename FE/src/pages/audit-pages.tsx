@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Alert } from '@/components/ui/alert'
 import { FormField } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
-import { PageCard, PageHeader } from '@/components/layout/page-header'
+import { PageCard } from '@/components/layout/page-header'
 import { navigate } from '@/hooks/useHashRoute'
 import { formatError } from '@/lib/format-error'
 import { getRole } from '@/router'
@@ -72,7 +72,6 @@ export function AuditListPage() {
 
   return (
     <div>
-      <PageHeader routeId="audit-list" />
       <PageCard className="p-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -182,7 +181,6 @@ export function AuditCreatePage() {
   if (role !== 'Department Of Construction' && role !== 'System Administrator') {
     return (
       <div>
-        <PageHeader routeId="audit-list" />
         <PageCard className="p-6">
           <Alert variant="warning">Chỉ Sở Xây dựng / Admin mới có quyền tạo công bố hậu kiểm.</Alert>
         </PageCard>
@@ -192,7 +190,6 @@ export function AuditCreatePage() {
 
   return (
     <div>
-      <PageHeader routeId="audit-list" />
       <PageCard className="p-6">
         <form onSubmit={submit} className="mx-auto max-w-2xl space-y-4">
           {msg && <Alert variant={msg.type === 'error' ? 'error' : 'success'}>{msg.text}</Alert>}
@@ -248,8 +245,8 @@ function CheckItem({
           const active = check.status === s
           const cls =
             s === 'OK' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' :
-            s === 'WARN' ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' :
-            'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300'
+              s === 'WARN' ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' :
+                'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300'
           return (
             <button
               key={s}
@@ -343,7 +340,6 @@ export function AuditDetailPage() {
   if (!id) {
     return (
       <div>
-        <PageHeader routeId="audit-detail" />
         <PageCard className="p-6"><Alert variant="error">Không tìm thấy công bố.</Alert></PageCard>
       </div>
     )
@@ -351,7 +347,6 @@ export function AuditDetailPage() {
   if (loading) {
     return (
       <div>
-        <PageHeader routeId="audit-detail" />
         <PageCard className="p-6"><p className="text-sm text-slate-500 dark:text-slate-400">Đang tải...</p></PageCard>
       </div>
     )
@@ -359,7 +354,6 @@ export function AuditDetailPage() {
   if (error) {
     return (
       <div>
-        <PageHeader routeId="audit-detail" />
         <PageCard className="p-6"><Alert variant="error">{error}</Alert></PageCard>
       </div>
     )
@@ -371,7 +365,6 @@ export function AuditDetailPage() {
 
   return (
     <div>
-      <PageHeader routeId="audit-detail" />
       <PageCard className="space-y-6 p-6">
         <Button variant="ghost" className="mb-2" onClick={() => navigate('audit-list')}>← Danh sách hậu kiểm</Button>
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { PageCard, PageHeader } from '@/components/layout/page-header'
+import { PageCard } from '@/components/layout/page-header'
 import { Alert } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -114,7 +114,6 @@ export function SystemLogsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader routeId="admin-logs" />
       <PageCard className="p-6">
         <Alert variant="info" className="mb-4">
           <p className="font-semibold">Nhật ký kiểm toán</p>
@@ -255,7 +254,6 @@ export function CategoriesPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader routeId="admin-categories" />
       <PageCard className="p-6">
         {msg && <Alert variant={msg.type === 'error' ? 'error' : 'success'} className="mb-3">{msg.text}</Alert>}
         {error && <Alert variant="error" className="mb-3">{error}</Alert>}

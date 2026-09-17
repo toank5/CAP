@@ -10,7 +10,7 @@ import {
 } from '@/api/contracts'
 import { housingApplicationsApi, parseApplicationDetail } from '@/api/housing-applications'
 import { APPLICATION_STATUS } from '@/lib/constants'
-import { PageCard, PageHeader } from '@/components/layout/page-header'
+import { PageCard } from '@/components/layout/page-header'
 import { Alert } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -266,7 +266,6 @@ export function MyApartmentPage() {
 
   return (
     <div>
-      <PageHeader routeId="my-apartment" />
       <PageCard className="space-y-6 p-6">
 
         {/* Header */}

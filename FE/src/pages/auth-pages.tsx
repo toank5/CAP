@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { authApi } from '@/api/auth'
 import { saveTokensFromResponse } from '@/api/http'
-import { PageCard, PageHeader } from '@/components/layout/page-header'
+import { PageCard } from '@/components/layout/page-header'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -427,7 +427,6 @@ export function ChangePasswordPage() {
   }
   return (
     <div>
-      <PageHeader routeId="change-password" />
       <PageCard className="max-w-md">
         <form className="space-y-4" onSubmit={submit}>
           <FormField label="Mật khẩu hiện tại" htmlFor="currentPassword"><Input id="currentPassword" name="currentPassword" type="password" required /></FormField>

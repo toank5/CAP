@@ -60,7 +60,7 @@ import {
 import { contractApi, parseInstallmentsEnvelope } from '@/api/contracts'
 import { isPhase1Paid } from '@/lib/deposit-pipeline'
 import { usersApi } from '@/api/users'
-import { PageCard, PageHeader } from '@/components/layout/page-header'
+import { PageCard } from '@/components/layout/page-header'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { Alert } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -918,7 +918,6 @@ export function CreateApplicationPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader routeId="create-application" />
       {checking ? (
         <p className="text-sm text-slate-500 dark:text-slate-400">Đang kiểm tra xác minh danh tính...</p>
       ) : ready ? (
@@ -2892,7 +2891,6 @@ export function ApplicationDetailPage() {
   const appId = sessionStorage.getItem('applicationId')
   return (
     <div>
-      <PageHeader routeId="application-detail" />
       <PageCard className="p-6">
         <Button variant="ghost" className="mb-4" onClick={() => navigate('applications')}>← Danh sách hồ sơ</Button>
         {!appId ? <Alert variant="error">Không tìm thấy hồ sơ. Quay lại danh sách.</Alert> : <ApplicationDetailInner appId={appId} />}

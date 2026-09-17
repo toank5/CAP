@@ -9,7 +9,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import { paymentApi } from '@/api/payment'
-import { PageCard, PageHeader } from '@/components/layout/page-header'
+import { PageCard } from '@/components/layout/page-header'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -111,7 +111,6 @@ export function SxdPaymentsPage() {
 
   return (
     <div>
-      <PageHeader routeId="sxd-payments" />
       <PageCard className="p-6 space-y-6">
         {/* Tab filter */}
         <div className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-700 pb-4">

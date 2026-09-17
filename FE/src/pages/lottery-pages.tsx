@@ -46,7 +46,7 @@ import { Alert } from '@/components/ui/alert'
 import { FormField } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Modal } from '@/components/ui/modal'
-import { PageCard, PageHeader } from '@/components/layout/page-header'
+import { PageCard } from '@/components/layout/page-header'
 import { LotteryStaffTabs } from '@/components/lottery/lottery-staff-tabs'
 import { navigate } from '@/hooks/useHashRoute'
 import { formatError } from '@/lib/format-error'
@@ -465,7 +465,6 @@ export function LotterySessionsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader routeId="lottery-sessions" />
       <LotteryStaffTabs current="sessions" />
 
       {/* Hero Command Bar */}
@@ -1343,7 +1342,6 @@ export function LotterySessionsPage() {
 export function LotteryCreatePage() {
   return (
     <div className="space-y-4">
-      <PageHeader routeId="lottery-create" />
       <LotteryStaffTabs current="sessions" />
       <PageCard className="p-6">
         <Alert variant="info">
@@ -1535,7 +1533,6 @@ export function LotteryDetailPage() {
   if (!projectId) {
     return (
       <div className="space-y-4">
-        <PageHeader routeId="lottery-detail" />
         <LotteryStaffTabs current="steps" />
         <PageCard className="p-6">
           <Alert variant="error">Không tìm thấy dự án. Vui lòng chọn lại từ trang Bốc thăm.</Alert>
@@ -1550,7 +1547,6 @@ export function LotteryDetailPage() {
   if (loading) {
     return (
       <div className="space-y-4">
-        <PageHeader routeId="lottery-detail" />
         <LotteryStaffTabs current="steps" />
         <PageCard className="p-6"><p className="text-sm text-slate-500 dark:text-slate-400">Đang tải...</p></PageCard>
       </div>
@@ -1560,7 +1556,6 @@ export function LotteryDetailPage() {
   if (error) {
     return (
       <div className="space-y-4">
-        <PageHeader routeId="lottery-detail" />
         <LotteryStaffTabs current="steps" />
         <PageCard className="p-6"><Alert variant="error">{error}</Alert></PageCard>
       </div>
@@ -1718,7 +1713,6 @@ export function LotteryDetailPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader routeId="lottery-detail" />
       <LotteryStaffTabs current="steps" />
       <PageCard className="space-y-6 p-6">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-2 pb-3 border-b border-slate-200/80 dark:border-slate-800">
@@ -2262,7 +2256,6 @@ export function LotteryLobbyPage() {
   if (!projectId) {
     return (
       <div>
-        <PageHeader routeId="lottery-lobby" />
         <PageCard className="p-6">
           <Alert variant="info">Vui lòng chọn dự án bốc thăm trước.</Alert>
           <Button className="mt-3" variant="outline" onClick={() => navigate(isApplicant ? 'my-lottery' : 'lottery-sessions')}>
@@ -2275,7 +2268,6 @@ export function LotteryLobbyPage() {
 
   return (
     <div>
-      <PageHeader routeId="lottery-lobby" />
       <PageCard className="space-y-4 p-6">
         <Alert variant="info">
           Nhập <strong>mã vào sảnh gồm 6 chữ số</strong> từ thông báo sau khi Sở Xây dựng phê duyệt lịch để vào theo dõi.

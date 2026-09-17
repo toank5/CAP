@@ -29,7 +29,7 @@ import {
 import { extractProjects, extractSingleProject } from '@/lib/parsers'
 import { navigate, getHashQuery } from '@/hooks/useHashRoute'
 import { Modal } from '@/components/ui/modal'
-import { PageCard, PageHeader } from '@/components/layout/page-header'
+import { PageCard } from '@/components/layout/page-header'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -129,15 +129,14 @@ export function SxdProjectsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader routeId="sxd-projects" />
 
       {/* KPI Thống Kê Tổng Quan */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div
           onClick={() => setTab('pending')}
           className={`cursor-pointer rounded-2xl border p-4 transition-all ${tab === 'pending'
-              ? 'border-amber-400 bg-amber-50/70 shadow-md ring-2 ring-amber-300'
-              : 'border-slate-200 bg-white hover:border-amber-300 hover:shadow-xs dark:border-slate-800 dark:bg-slate-900'
+            ? 'border-amber-400 bg-amber-50/70 shadow-md ring-2 ring-amber-300'
+            : 'border-slate-200 bg-white hover:border-amber-300 hover:shadow-xs dark:border-slate-800 dark:bg-slate-900'
             }`}
         >
           <div className="flex items-center justify-between">
@@ -159,8 +158,8 @@ export function SxdProjectsPage() {
         <div
           onClick={() => setTab('approved')}
           className={`cursor-pointer rounded-2xl border p-4 transition-all ${tab === 'approved'
-              ? 'border-emerald-400 bg-emerald-50/70 shadow-md ring-2 ring-emerald-300'
-              : 'border-slate-200 bg-white hover:border-emerald-300 hover:shadow-xs dark:border-slate-800 dark:bg-slate-900'
+            ? 'border-emerald-400 bg-emerald-50/70 shadow-md ring-2 ring-emerald-300'
+            : 'border-slate-200 bg-white hover:border-emerald-300 hover:shadow-xs dark:border-slate-800 dark:bg-slate-900'
             }`}
         >
           <div className="flex items-center justify-between">
@@ -182,8 +181,8 @@ export function SxdProjectsPage() {
         <div
           onClick={() => setTab('rejected')}
           className={`cursor-pointer rounded-2xl border p-4 transition-all ${tab === 'rejected'
-              ? 'border-rose-400 bg-rose-50/70 shadow-md ring-2 ring-rose-300'
-              : 'border-slate-200 bg-white hover:border-rose-300 hover:shadow-xs dark:border-slate-800 dark:bg-slate-900'
+            ? 'border-rose-400 bg-rose-50/70 shadow-md ring-2 ring-rose-300'
+            : 'border-slate-200 bg-white hover:border-rose-300 hover:shadow-xs dark:border-slate-800 dark:bg-slate-900'
             }`}
         >
           <div className="flex items-center justify-between">
@@ -255,16 +254,16 @@ export function SxdProjectsPage() {
             type="button"
             onClick={() => setTab('pending')}
             className={`relative -mb-px flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-bold transition-all ${tab === 'pending'
-                ? 'border-amber-500 text-amber-600 dark:text-amber-400'
-                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400'
+              ? 'border-amber-500 text-amber-600 dark:text-amber-400'
+              : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400'
               }`}
           >
             <Clock className="h-4 w-4" />
             Chờ duyệt
             <span
               className={`rounded-full px-2 py-0.5 text-xs font-black ${tab === 'pending'
-                  ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300'
-                  : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300'
+                : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
                 }`}
             >
               {pendingProjects.length}
@@ -275,16 +274,16 @@ export function SxdProjectsPage() {
             type="button"
             onClick={() => setTab('approved')}
             className={`relative -mb-px flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-bold transition-all ${tab === 'approved'
-                ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
-                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400'
+              ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
+              : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400'
               }`}
           >
             <CheckCircle2 className="h-4 w-4" />
             Đã duyệt
             <span
               className={`rounded-full px-2 py-0.5 text-xs font-black ${tab === 'approved'
-                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300'
-                  : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300'
+                : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
                 }`}
             >
               {approvedProjects.length}
@@ -295,16 +294,16 @@ export function SxdProjectsPage() {
             type="button"
             onClick={() => setTab('rejected')}
             className={`relative -mb-px flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-bold transition-all ${tab === 'rejected'
-                ? 'border-rose-600 text-rose-600 dark:text-rose-400'
-                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400'
+              ? 'border-rose-600 text-rose-600 dark:text-rose-400'
+              : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400'
               }`}
           >
             <XCircle className="h-4 w-4" />
             Từ chối
             <span
               className={`rounded-full px-2 py-0.5 text-xs font-black ${tab === 'rejected'
-                  ? 'bg-rose-100 text-rose-800 dark:bg-rose-900/60 dark:text-rose-300'
-                  : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                ? 'bg-rose-100 text-rose-800 dark:bg-rose-900/60 dark:text-rose-300'
+                : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
                 }`}
             >
               {rejectedProjects.length}
@@ -537,14 +536,14 @@ function ProjectTableRow({
         <td className="px-4 py-4 whitespace-nowrap">
           <span
             className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${isPend
-                ? 'bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-950/60 dark:text-amber-300'
-                : isRej
-                  ? 'bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-950/60 dark:text-rose-300'
-                  : raw === 'UPCOMING'
-                    ? 'bg-blue-100 text-blue-800 border border-blue-300 dark:bg-blue-950/60 dark:text-blue-300'
-                    : raw === 'OPEN'
-                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300'
-                      : 'bg-slate-100 text-slate-700 border border-slate-300 dark:bg-slate-800 dark:text-slate-300'
+              ? 'bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-950/60 dark:text-amber-300'
+              : isRej
+                ? 'bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-950/60 dark:text-rose-300'
+                : raw === 'UPCOMING'
+                  ? 'bg-blue-100 text-blue-800 border border-blue-300 dark:bg-blue-950/60 dark:text-blue-300'
+                  : raw === 'OPEN'
+                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300'
+                    : 'bg-slate-100 text-slate-700 border border-slate-300 dark:bg-slate-800 dark:text-slate-300'
               }`}
           >
             {isPend ? (
@@ -886,12 +885,12 @@ function ProjectInspectorModal({
                 <div className="flex flex-col items-end gap-2">
                   <span
                     className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-black uppercase tracking-wider ${isPend
-                        ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                        : isRej
-                          ? 'bg-rose-100 text-rose-800 border border-rose-300'
-                          : raw === 'UPCOMING'
-                            ? 'bg-blue-100 text-blue-800 border border-blue-300'
-                            : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                      ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                      : isRej
+                        ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                        : raw === 'UPCOMING'
+                          ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                          : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                       }`}
                   >
                     {isPend ? (
@@ -935,8 +934,8 @@ function ProjectInspectorModal({
                 type="button"
                 onClick={() => setActiveTab('overview')}
                 className={`flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-xs font-bold transition-all ${activeTab === 'overview'
-                    ? 'border-blue-600 text-blue-600 dark:text-blue-400'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                  ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
                   }`}
               >
                 <InfoRowIcon className="h-4 w-4" />
@@ -947,8 +946,8 @@ function ProjectInspectorModal({
                 type="button"
                 onClick={() => setActiveTab('apartments')}
                 className={`flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-xs font-bold transition-all ${activeTab === 'apartments'
-                    ? 'border-blue-600 text-blue-600 dark:text-blue-400'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                  ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
                   }`}
               >
                 <Layers className="h-4 w-4" />
@@ -959,8 +958,8 @@ function ProjectInspectorModal({
                 type="button"
                 onClick={() => setActiveTab('timeline')}
                 className={`flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-xs font-bold transition-all ${activeTab === 'timeline'
-                    ? 'border-blue-600 text-blue-600 dark:text-blue-400'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                  ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
                   }`}
               >
                 <Calendar className="h-4 w-4" />
@@ -971,8 +970,8 @@ function ProjectInspectorModal({
                 type="button"
                 onClick={() => setActiveTab('gallery')}
                 className={`flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-xs font-bold transition-all ${activeTab === 'gallery'
-                    ? 'border-blue-600 text-blue-600 dark:text-blue-400'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                  ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
                   }`}
               >
                 <ImageIcon className="h-4 w-4" />
@@ -984,8 +983,8 @@ function ProjectInspectorModal({
                   type="button"
                   onClick={() => setActiveTab('evaluation')}
                   className={`flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-xs font-bold transition-all ${activeTab === 'evaluation'
-                      ? 'border-blue-600 text-blue-600 dark:text-blue-400'
-                      : 'border-transparent text-slate-500 hover:text-slate-800'
+                    ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
                     }`}
                 >
                   <Sparkles className="h-4 w-4 text-amber-500" />
@@ -1560,7 +1559,6 @@ export function SxdProjectDetailPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader routeId="sxd-project-detail" />
       <PageCard className="p-6 space-y-6">
         <Button variant="ghost" onClick={() => navigate('sxd-projects')} className="rounded-xl flex items-center gap-1 text-sm font-semibold">
           ← Quay lại danh sách duyệt
@@ -1631,12 +1629,12 @@ export function SxdProjectDetailPage() {
                 <div className="flex flex-col items-end gap-2">
                   <span
                     className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-black uppercase tracking-wider ${isPend
-                        ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                        : isRej
-                          ? 'bg-rose-100 text-rose-800 border border-rose-300'
-                          : raw === 'UPCOMING'
-                            ? 'bg-blue-100 text-blue-800 border border-blue-300'
-                            : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                      ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                      : isRej
+                        ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                        : raw === 'UPCOMING'
+                          ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                          : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                       }`}
                   >
                     {isPend ? (
