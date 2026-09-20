@@ -11,7 +11,7 @@ interface NavItem {
 
 const ITEMS: NavItem[] = [
   { route: 'home-admin', label: 'Trang chủ', icon: Home },
-  { route: 'admin-staff', label: 'Quản lý cán bộ', icon: Users, aliases: ['create-staff', 'staff-detail'] },
+  { route: 'admin-staff', label: 'Quản lý', icon: Users, aliases: ['create-staff', 'staff-detail'] },
   { route: 'admin-logs', label: 'Log hệ thống', icon: ListTree },
   { route: 'admin-categories', label: 'Quản lý danh mục', icon: FolderTree },
   { route: 'notifications', label: 'Thông báo', icon: Bell },

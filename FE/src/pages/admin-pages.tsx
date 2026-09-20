@@ -27,8 +27,11 @@ import { FormField } from '@/components/ui/label'
 import { Input, Select } from '@/components/ui/input'
 import { ConfirmDialog, Modal } from '@/components/ui/modal'
 import { Skeleton } from '@/components/ui/skeleton'
-import { navigate } from '@/hooks/useHashRoute'
+import { getHashQuery, navigate, navigateWithQuery } from '@/hooks/useHashRoute'
 import {
+  ACCOUNT_TABS,
+  accountTabFromQuery,
+  isApplicantRole,
   isStaffActive,
   parseStaffDetail,
   parseStaffListResponse,
@@ -36,6 +39,7 @@ import {
   STAFF_STATUS_OPTIONS,
   staffRoleLabel,
   staffStatusLabel,
+  type AccountTabId,
   type StaffRow,
 } from '@/lib/admin'
 import { formatError, formatSuccess } from '@/lib/format-error'
@@ -71,7 +75,7 @@ function ResetPasswordPanel({ staffId, onDone }: { staffId: string; onDone: (msg
       await adminApi.resetPassword(staffId, pwd)
       setPwd('')
       setConfirm('')
-      onDone('Đã đặt lại mật khẩu cho cán bộ. Thông báo mật khẩu mới qua kênh nội bộ.')
+      onDone('Đã đặt lại mật khẩu. Thông báo mật khẩu mới qua kênh nội bộ.')
     } catch (err) {
       setError(formatError(err))
     } finally {
@@ -126,7 +130,7 @@ function AssignPermissionPanel({
     try {
       const data = await adminApi.assignPermission({
         staffId: staff.id,
-        role,
+        role: isApplicantRole(staff.roleName) ? 'Applicant' : role,
         status,
         reason: reason.trim() || null,
       })
@@ -146,15 +150,21 @@ function AssignPermissionPanel({
         <Shield className="h-4 w-4" />
         Phân quyền truy cập
       </p>
-      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Gán vai trò Sở Xây dựng / Chủ đầu tư và trạng thái tài khoản.</p>
+      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+        {isApplicantRole(staff.roleName)
+          ? 'Khóa hoặc mở lại tài khoản người dùng.'
+          : 'Gán vai trò Chủ đầu tư / Sở Xây dựng và trạng thái tài khoản.'}
+      </p>
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <FormField label="Vai trò" htmlFor="perm-role">
-          <Select id="perm-role" value={role} onChange={(e) => setRole(e.target.value)}>
-            {STAFF_ROLE_OPTIONS.map((r) => (
-              <option key={r.value} value={r.value}>{r.label}</option>
-            ))}
-          </Select>
-        </FormField>
+        {!isApplicantRole(staff.roleName) && (
+          <FormField label="Vai trò" htmlFor="perm-role">
+            <Select id="perm-role" value={role} onChange={(e) => setRole(e.target.value)}>
+              {STAFF_ROLE_OPTIONS.map((r) => (
+                <option key={r.value} value={r.value}>{r.label}</option>
+              ))}
+            </Select>
+          </FormField>
+        )}
         <FormField label="Trạng thái" htmlFor="perm-status">
           <Select id="perm-status" value={status} onChange={(e) => setStatus(e.target.value)}>
             {STAFF_STATUS_OPTIONS.map((s) => (
@@ -218,7 +228,7 @@ function EditStaffModal({
       const data = await adminApi.updateStaff(staff.id, {
         fullName: fullName.trim(),
         phoneNumber: phoneNumber.trim() || null,
-        role,
+        role: isApplicantRole(staff.roleName) ? 'Applicant' : role,
         status,
       })
       const updated = parseStaffDetail(data) ?? {
@@ -241,7 +251,7 @@ function EditStaffModal({
     <Modal
       open={open}
       onClose={onClose}
-      title="Sửa thông tin cán bộ"
+      title={isApplicantRole(staff.roleName) ? 'Sửa thông tin người dùng' : 'Sửa thông tin tài khoản'}
       description={`Cập nhật hồ sơ của ${staff.email}`}
       size="md"
     >
@@ -271,13 +281,15 @@ function EditStaffModal({
         </FormField>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <FormField label="Vai trò" htmlFor="edit-role">
-            <Select id="edit-role" value={role} onChange={(e) => setRole(e.target.value)}>
-              {STAFF_ROLE_OPTIONS.map((r) => (
-                <option key={r.value} value={r.value}>{r.label}</option>
-              ))}
-            </Select>
-          </FormField>
+          {!isApplicantRole(staff.roleName) && (
+            <FormField label="Vai trò" htmlFor="edit-role">
+              <Select id="edit-role" value={role} onChange={(e) => setRole(e.target.value)}>
+                {STAFF_ROLE_OPTIONS.map((r) => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
+              </Select>
+            </FormField>
+          )}
           <FormField label="Trạng thái" htmlFor="edit-status">
             <Select id="edit-status" value={status} onChange={(e) => setStatus(e.target.value)}>
               {STAFF_STATUS_OPTIONS.map((s) => (
@@ -311,7 +323,7 @@ export function AdminStaffPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
-  const [roleFilter, setRoleFilter] = useState('')
+  const [tab, setTab] = useState<AccountTabId>(() => accountTabFromQuery(getHashQuery().tab))
   const [statusFilter, setStatusFilter] = useState('')
   const [actionId, setActionId] = useState<string | null>(null)
 
@@ -328,6 +340,9 @@ export function AdminStaffPage() {
     return () => window.clearTimeout(id)
   }, [toast])
 
+  const currentTab = ACCOUNT_TABS.find((t) => t.id === tab) ?? ACCOUNT_TABS[0]
+  const isUserTab = currentTab.role === 'Applicant'
+
   const load = useCallback(async (p = page) => {
     setLoading(true)
     setError('')
@@ -335,7 +350,7 @@ export function AdminStaffPage() {
       const data = await adminApi.getStaffList({
         pageNumber: p,
         pageSize,
-        role: roleFilter || undefined,
+        role: currentTab.role,
         status: statusFilter || undefined,
         searchTerm: search.trim() || undefined,
       })
@@ -350,7 +365,7 @@ export function AdminStaffPage() {
     } finally {
       setLoading(false)
     }
-  }, [page, pageSize, roleFilter, statusFilter, search])
+  }, [page, pageSize, currentTab.role, statusFilter, search])
 
   useEffect(() => { void load(page) }, [load, page])
 
@@ -405,9 +420,9 @@ export function AdminStaffPage() {
   return (
     <div className="space-y-6">
       <GovHeroBanner
-        badge="FE-24 · Quản trị nhân sự"
-        title="Quản lý cán bộ"
-        subtitle={`${totalCount} tài khoản trong hệ thống`}
+        badge="Quản trị tài khoản"
+        title="Quản lý"
+        subtitle={`${totalCount} ${currentTab.label.toLowerCase()} trong hệ thống`}
         compact
       />
 
@@ -416,18 +431,47 @@ export function AdminStaffPage() {
           <div className="flex items-center gap-2">
             <Users className="h-5 w-5 text-primary" />
             <div>
-              <h2 className="font-bold text-[#003D7A] dark:text-white">Danh sách cán bộ</h2>
+              <h2 className="font-bold text-[#003D7A] dark:text-white">Danh sách {currentTab.label.toLowerCase()}</h2>
               <p className="text-xs text-slate-500">{activeCount} đang hoạt động trên trang này</p>
             </div>
           </div>
-          <Button variant="accent" onClick={() => navigate('create-staff')}>
-            <UserPlus className="mr-1.5 h-4 w-4" />
-            Thêm cán bộ mới
-          </Button>
+          {!isUserTab && (
+            <Button
+              variant="accent"
+              onClick={() => navigateWithQuery('create-staff', { role: currentTab.role, tab })}
+            >
+              <UserPlus className="mr-1.5 h-4 w-4" />
+              {tab === 'developer' ? 'Thêm chủ đầu tư' : 'Thêm cán bộ Sở'}
+            </Button>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-2 border-b border-slate-100 px-5 py-3 dark:border-slate-800">
+          {ACCOUNT_TABS.map((item) => {
+            const active = tab === item.id
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  setTab(item.id)
+                  setPage(1)
+                  navigateWithQuery('admin-staff', { tab: item.id })
+                }}
+                className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+                  active
+                    ? 'bg-rose-600 text-white shadow-sm shadow-rose-600/20'
+                    : 'bg-slate-100/80 text-slate-600 hover:bg-slate-200/70 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+                }`}
+              >
+                {item.label}
+              </button>
+            )
+          })}
         </div>
 
         <form
-          className="grid gap-3 border-b border-slate-100 bg-secondary/20 px-5 py-4 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto_auto]"
+          className="grid gap-3 border-b border-slate-100 bg-secondary/20 px-5 py-4 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto]"
           onSubmit={(e) => {
             e.preventDefault()
             setPage(1)
@@ -443,12 +487,6 @@ export function AdminStaffPage() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <Select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
-            <option value="">Tất cả vai trò</option>
-            {STAFF_ROLE_OPTIONS.map((r) => (
-              <option key={r.value} value={r.value}>{r.label}</option>
-            ))}
-          </Select>
           <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
             <option value="">Tất cả trạng thái</option>
             {STAFF_STATUS_OPTIONS.map((s) => (
@@ -465,10 +503,14 @@ export function AdminStaffPage() {
         ) : staff.length === 0 ? (
           <div className="p-8">
             <EmptyState
-              title="Chưa có cán bộ"
-              description="Tạo tài khoản Quản lý phường hoặc Cán bộ thẩm định để tiếp nhận hồ sơ."
-              actionLabel="Thêm cán bộ"
-              onAction={() => navigate('create-staff')}
+              title={isUserTab ? 'Chưa có người dùng' : `Chưa có ${currentTab.label.toLowerCase()}`}
+              description={
+                isUserTab
+                  ? 'Người dân tự đăng ký tài khoản. Khi có tài khoản, danh sách sẽ hiện ở đây.'
+                  : `Tạo tài khoản ${currentTab.label} để phân quyền vào hệ thống.`
+              }
+              actionLabel={isUserTab ? undefined : (tab === 'developer' ? 'Thêm chủ đầu tư' : 'Thêm cán bộ Sở')}
+              onAction={isUserTab ? undefined : () => navigateWithQuery('create-staff', { role: currentTab.role, tab })}
             />
           </div>
         ) : (
@@ -568,7 +610,7 @@ export function AdminStaffPage() {
 
         {!loading && totalPages > 1 && (
           <div className="flex items-center justify-between border-t border-slate-100 px-5 py-3 text-sm dark:border-slate-800">
-            <span className="text-slate-500 dark:text-slate-400">Trang {page}/{totalPages} · {totalCount} cán bộ</span>
+            <span className="text-slate-500 dark:text-slate-400">Trang {page}/{totalPages} · {totalCount} tài khoản</span>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
                 <ChevronLeft className="h-4 w-4" />
@@ -652,18 +694,26 @@ export function AdminStaffPage() {
 export function CreateStaffPage() {
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [loading, setLoading] = useState(false)
+  const query = getHashQuery()
+  const presetRole = STAFF_ROLE_OPTIONS.some((r) => r.value === query.role)
+    ? query.role
+    : 'Housing Developer'
+  const backTab = accountTabFromQuery(query.tab) === 'sxd' || presetRole === 'Department Of Construction'
+    ? 'sxd'
+    : 'developer'
+  const presetLabel = staffRoleLabel(presetRole)
 
   return (
     <div className="space-y-6">
       <GovHeroBanner
         badge="Tạo tài khoản"
-        title="Thêm cán bộ mới"
-        subtitle="Tạo tài khoản Sở Xây dựng hoặc Chủ đầu tư với mật khẩu tạm."
+        title={`Thêm ${presetLabel.toLowerCase()}`}
+        subtitle="Tạo tài khoản Chủ đầu tư hoặc Sở Xây dựng với mật khẩu tạm. Người dân tự đăng ký."
         compact
       />
 
       <div className="gov-card mx-auto max-w-lg p-6">
-        <Button variant="ghost" size="sm" className="mb-4 -ml-2" onClick={() => navigate('admin-staff')}>
+        <Button variant="ghost" size="sm" className="mb-4 -ml-2" onClick={() => navigateWithQuery('admin-staff', { tab: backTab })}>
           <ArrowLeft className="mr-1 h-4 w-4" /> Quay lại danh sách
         </Button>
 
@@ -683,7 +733,9 @@ export function CreateStaffPage() {
                 temporaryPassword: String(fd.get('temporaryPassword')),
               })
               setMsg({ type: 'success', text: formatSuccess(data) })
-              setTimeout(() => navigate('admin-staff'), 1000)
+              const createdRole = String(fd.get('role'))
+              const tab = createdRole === 'Department Of Construction' ? 'sxd' : 'developer'
+              setTimeout(() => navigateWithQuery('admin-staff', { tab }), 1000)
             } catch (err) {
               setMsg({ type: 'error', text: formatError(err) })
             } finally {
@@ -695,13 +747,13 @@ export function CreateStaffPage() {
             <Input id="fullName" name="fullName" required placeholder="Nguyễn Văn A" />
           </FormField>
           <FormField label="Email công vụ" htmlFor="email">
-            <Input id="email" name="email" type="email" required placeholder="canbo@fecaps.vn" />
+            <Input id="email" name="email" type="email" required placeholder="canbo@rhs.local" />
           </FormField>
           <FormField label="Số điện thoại" htmlFor="phoneNumber">
             <Input id="phoneNumber" name="phoneNumber" type="tel" placeholder="0901234567" />
           </FormField>
           <FormField label="Vai trò" htmlFor="role">
-            <Select id="role" name="role" required defaultValue="Department Of Construction">
+            <Select id="role" name="role" required defaultValue={presetRole}>
               {STAFF_ROLE_OPTIONS.map((r) => (
                 <option key={r.value} value={r.value}>{r.label}</option>
               ))}
@@ -712,7 +764,7 @@ export function CreateStaffPage() {
           </FormField>
           {msg && <Alert variant={msg.type === 'error' ? 'error' : 'success'}>{msg.text}</Alert>}
           <Button type="submit" variant="accent" className="w-full" disabled={loading}>
-            {loading ? 'Đang tạo...' : 'Tạo tài khoản cán bộ'}
+            {loading ? 'Đang tạo...' : 'Tạo tài khoản'}
           </Button>
         </form>
       </div>
@@ -753,8 +805,8 @@ export function StaffDetailPage() {
   if (!staffId) {
     return (
       <div className="gov-card p-6">
-        <Alert variant="error">Không tìm thấy cán bộ. Quay lại danh sách.</Alert>
-        <Button className="mt-4" variant="outline" onClick={() => navigate('admin-staff')}>← Danh sách cán bộ</Button>
+        <Alert variant="error">Không tìm thấy tài khoản. Quay lại danh sách.</Alert>
+        <Button className="mt-4" variant="outline" onClick={() => navigate('admin-staff')}>← Danh sách</Button>
       </div>
     )
   }
@@ -764,7 +816,7 @@ export function StaffDetailPage() {
   return (
     <div className="space-y-6">
       <GovHeroBanner
-        badge="Chi tiết cán bộ"
+        badge={staff && isApplicantRole(staff.roleName) ? 'Chi tiết người dùng' : 'Chi tiết tài khoản'}
         title={staff?.fullName ?? 'Đang tải...'}
         subtitle={staff ? `${staffRoleLabel(staff.roleName)} · ${staff.email}` : undefined}
         compact
@@ -772,7 +824,7 @@ export function StaffDetailPage() {
 
       <div className="gov-card mx-auto max-w-2xl p-6">
         <Button variant="ghost" size="sm" className="mb-4 -ml-2" onClick={() => navigate('admin-staff')}>
-          <ArrowLeft className="mr-1 h-4 w-4" /> Danh sách cán bộ
+          <ArrowLeft className="mr-1 h-4 w-4" /> Danh sách
         </Button>
 
         {loading && <Skeleton className="h-64 w-full" />}
@@ -819,7 +871,7 @@ export function StaffDetailPage() {
                 }
               }}
             >
-              <p className="font-semibold text-[#003D7A] dark:text-white">Thông tin cán bộ</p>
+              <p className="font-semibold text-[#003D7A] dark:text-white">Thông tin tài khoản</p>
               <FormField label="Họ và tên" htmlFor="fullName">
                 <Input id="fullName" name="fullName" required defaultValue={staff.fullName} key={`name-${staff.id}`} />
               </FormField>
@@ -829,13 +881,17 @@ export function StaffDetailPage() {
               <FormField label="Số điện thoại" htmlFor="phoneNumber">
                 <Input id="phoneNumber" name="phoneNumber" type="tel" defaultValue={staff.phoneNumber ?? ''} key={`phone-${staff.id}`} />
               </FormField>
-              <FormField label="Vai trò" htmlFor="role">
-                <Select id="role" name="role" required defaultValue={staff.roleName} key={`role-${staff.id}`}>
-                  {STAFF_ROLE_OPTIONS.map((r) => (
-                    <option key={r.value} value={r.value}>{r.label}</option>
-                  ))}
-                </Select>
-              </FormField>
+              {isApplicantRole(staff.roleName) ? (
+                <input type="hidden" name="role" value="Applicant" />
+              ) : (
+                <FormField label="Vai trò" htmlFor="role">
+                  <Select id="role" name="role" required defaultValue={staff.roleName} key={`role-${staff.id}`}>
+                    {STAFF_ROLE_OPTIONS.map((r) => (
+                      <option key={r.value} value={r.value}>{r.label}</option>
+                    ))}
+                  </Select>
+                </FormField>
+              )}
               <FormField label="Trạng thái" htmlFor="status">
                 <Select id="status" name="status" defaultValue={staff.status} key={`status-${staff.id}`}>
                   {STAFF_STATUS_OPTIONS.map((s) => (

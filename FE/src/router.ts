@@ -280,12 +280,12 @@ export const routes: RouteConfig[] = [
   },
   {
     id: 'admin-staff',
-    label: 'Quản lý cán bộ',
+    label: 'Quản lý',
     group: 'workspace',
     auth: true,
-    title: 'Danh sách cán bộ',
-    subtitle: 'Quản lý danh sách cán bộ trong hệ thống.',
-    cta: 'Thêm cán bộ mới',
+    title: 'Quản lý tài khoản',
+    subtitle: 'Quản lý Chủ đầu tư, Sở Xây dựng và người dùng.',
+    cta: 'Thêm tài khoản',
   },
   {
     id: 'create-staff',

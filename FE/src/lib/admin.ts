@@ -45,9 +45,27 @@ export function parseStaffDetail(data: unknown): StaffRow | null {
 }
 
 export const STAFF_ROLE_OPTIONS = [
-  { value: 'Department Of Construction', label: 'Sở Xây dựng' },
   { value: 'Housing Developer', label: 'Chủ đầu tư' },
+  { value: 'Department Of Construction', label: 'Sở Xây dựng' },
 ] as const
+
+/** 3 nhóm tài khoản trên trang Quản lý (không gồm quản trị hệ thống). */
+export const ACCOUNT_TABS = [
+  { id: 'developer', role: 'Housing Developer', label: 'Chủ đầu tư' },
+  { id: 'sxd', role: 'Department Of Construction', label: 'Sở Xây dựng' },
+  { id: 'user', role: 'Applicant', label: 'Người dùng' },
+] as const
+
+export type AccountTabId = (typeof ACCOUNT_TABS)[number]['id']
+
+export function isApplicantRole(role: string): boolean {
+  return role === 'Applicant'
+}
+
+export function accountTabFromQuery(raw?: string | null): AccountTabId {
+  const hit = ACCOUNT_TABS.find((t) => t.id === raw)
+  return hit?.id ?? 'developer'
+}
 
 export const STAFF_STATUS_OPTIONS = [
   { value: 'Active', label: 'Đang hoạt động' },

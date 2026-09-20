@@ -268,14 +268,14 @@ export function AdminHomePage() {
               Quản lý tài khoản hệ thống
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-600">
-              Giám sát và điều phối toàn bộ cán bộ — kết nối dữ liệu trực tiếp với hệ thống nhà ở xã hội.
+              Giám sát tài khoản Chủ đầu tư, Sở Xây dựng và người dùng.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               <Button size="sm" onClick={() => navigate('admin-staff')} className="glow-cta rounded-md bg-gradient-to-r from-cyan-500 to-sky-500 font-bold text-white shadow-lg shadow-cyan-500/30 hover:from-cyan-600 hover:to-sky-600">
-                Quản lý cán bộ <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                Quản lý <ArrowRight className="ml-1 h-3.5 w-3.5" />
               </Button>
               <Button size="sm" variant="outline" onClick={() => navigate('create-staff')} className="rounded-md border-primary/30 bg-white font-semibold text-primary hover:bg-primary/5">
-                <UserCheck className="mr-1 h-3.5 w-3.5" /> Thêm cán bộ mới
+                <UserCheck className="mr-1 h-3.5 w-3.5" /> Thêm tài khoản
               </Button>
             </div>
           </div>
@@ -508,7 +508,7 @@ export function AdminHomePage() {
             <div className="bg-gradient-to-r from-cyan-700 via-sky-700 to-indigo-700 px-5 py-3 text-white">
               <div className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
-                <span className="font-bold">Danh sách cán bộ</span>
+                <span className="font-bold">Quản lý tài khoản</span>
               </div>
             </div>
             <div className="p-4">

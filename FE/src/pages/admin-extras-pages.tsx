@@ -3,7 +3,7 @@ import { PageCard } from '@/components/layout/page-header'
 import { Alert } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Input, Select } from '@/components/ui/input'
 import {
   housingProjectStatusesApi,
   type PriorityGroupPointItemDto,
@@ -12,6 +12,7 @@ import {
 import { adminApi } from '@/api/admin'
 import { issueReportsApi } from '@/api/issue-reports'
 import { formatError } from '@/lib/format-error'
+import { formatPolicyValue, labelProjectStatus, POLICY_META_VI, policyTitle } from '@/lib/labels'
 
 
 interface ProjectStatus {
@@ -45,9 +46,11 @@ const POLICY_DEFAULT_VALUES: Record<string, string> = {
   PUBLIC_ANNOUNCE_MIN_DAYS: '30',
   WAITLIST_CONFIRM_HOURS: '48',
   TACIT_APPROVAL_DAYS: '20',
+  SXD_CROSSCHECK_SILENCE_DAYS: '20',
   CONTRACT_SIGNING_DEADLINE_DAYS: '15',
   DEPOSIT_PAYMENT_HOURS: '168',
   ONE_APPLICATION_PER_APPLICANT: 'true',
+  LATE_PAYMENT_PENALTY_DAILY_RATE: '0.0005',
 }
 
 export function SystemLogsPage() {
@@ -231,7 +234,7 @@ export function CategoriesPage() {
     setMsg(null)
     try {
       await housingProjectStatusesApi.updatePolicy(name, { policyValue: editValue })
-      setMsg({ type: 'success', text: `Đã cập nhật chính sách ${name}.` })
+      setMsg({ type: 'success', text: `Đã cập nhật: ${policyTitle(name)}.` })
       setEditPolicyName(null)
       await load()
     } catch (err) {
@@ -281,7 +284,6 @@ export function CategoriesPage() {
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50 dark:bg-slate-800/80">
                     <tr className="border-b border-slate-200 dark:border-slate-700">
-                      <th className="px-3 py-2.5 font-semibold text-slate-700 dark:text-slate-300">Mã nhóm</th>
                       <th className="px-3 py-2.5 font-semibold text-slate-700 dark:text-slate-300">Nhóm đối tượng ưu tiên</th>
                       <th className="px-3 py-2.5 font-semibold text-slate-700 dark:text-slate-300">Mô tả quy định</th>
                       <th className="px-3 py-2.5 text-right font-semibold text-slate-700 dark:text-slate-300">Điểm số</th>
@@ -290,7 +292,6 @@ export function CategoriesPage() {
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {priorityPoints.map((item, idx) => (
                       <tr key={item.groupCode || idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
-                        <td className="px-3 py-2 font-mono font-medium text-slate-500">{item.groupCode}</td>
                         <td className="px-3 py-2 font-semibold text-slate-900 dark:text-slate-100">{item.groupName}</td>
                         <td className="px-3 py-2 text-slate-500 dark:text-slate-400">{item.description || '—'}</td>
                         <td className="px-3 py-2 text-right">
@@ -318,47 +319,60 @@ export function CategoriesPage() {
             <h3 className="mb-2 font-semibold">Trạng thái dự án</h3>
             <div className="mb-6 space-y-2">
               {statuses.map((s) => (
-                <div key={s.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
-                  <div>
-                    <p className="font-medium">{s.statusName ?? '—'}</p>
-                    {s.description && <p className="text-xs text-slate-500">{s.description}</p>}
-                  </div>
-                  <Badge variant="secondary">{s.statusCode ?? '—'}</Badge>
+                <div key={s.id} className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+                  <p className="font-medium">{labelProjectStatus(s.statusCode || s.statusName)}</p>
+                  {s.description && <p className="text-xs text-slate-500">{s.description}</p>}
                 </div>
               ))}
             </div>
 
-            <h3 className="mb-2 font-semibold">Cấu hình chính sách NOXH</h3>
+            <h3 className="mb-2 font-semibold">Cấu hình chính sách nhà ở xã hội</h3>
             <div className="space-y-2">
-              {policies.map((p) => (
-                <div key={p.policyName} className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex-1">
-                      <p className="font-medium">{p.policyName}</p>
-                      {p.description && <p className="text-xs text-slate-500">{p.description}</p>}
-                      {p.unit && <p className="text-xs text-slate-400">Đơn vị: {p.unit}</p>}
+              {policies.map((p) => {
+                const meta = POLICY_META_VI[p.policyName]
+                const kind = meta?.kind ?? 'number'
+                return (
+                  <div key={p.policyName} className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex-1">
+                        <p className="font-medium">{policyTitle(p.policyName)}</p>
+                        <p className="text-xs text-slate-500">{meta?.hint || p.description || ''}</p>
+                      </div>
+                      {editPolicyName === p.policyName ? (
+                        <div className="flex gap-2">
+                          {kind === 'bool' ? (
+                            <Select
+                              value={/^(true|1|yes)$/i.test(editValue) ? 'true' : 'false'}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              className="text-sm"
+                            >
+                              <option value="true">Có</option>
+                              <option value="false">Không</option>
+                            </Select>
+                          ) : (
+                            <Input
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              className="text-sm"
+                            />
+                          )}
+                          <Button variant="accent" size="sm" onClick={() => void savePolicy(p.policyName)}>Lưu</Button>
+                          <Button variant="outline" size="sm" onClick={() => setEditPolicyName(null)}>Huỷ</Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span className="rounded-md bg-slate-100 px-2 py-1 text-sm font-medium text-slate-800 dark:bg-slate-800 dark:text-slate-100">
+                            {formatPolicyValue(p.policyName, p.policyValue)}
+                          </span>
+                          <Button variant="outline" size="sm" onClick={() => { setEditPolicyName(p.policyName); setEditValue(p.policyValue) }}>
+                            Sửa
+                          </Button>
+                        </div>
+                      )}
                     </div>
-                    {editPolicyName === p.policyName ? (
-                      <div className="flex gap-2">
-                        <Input
-                          value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
-                          className="text-sm"
-                        />
-                        <Button variant="accent" size="sm" onClick={() => void savePolicy(p.policyName)}>Lưu</Button>
-                        <Button variant="outline" size="sm" onClick={() => setEditPolicyName(null)}>Huỷ</Button>
-                      </div>
-                    ) : (
-                      <div className="flex gap-2">
-                        <code className="rounded bg-slate-100 px-2 py-1 text-xs dark:bg-slate-800">{p.policyValue}</code>
-                        <Button variant="outline" size="sm" onClick={() => { setEditPolicyName(p.policyName); setEditValue(p.policyValue) }}>
-                          Sửa
-                        </Button>
-                      </div>
-                    )}
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </>
         )}
