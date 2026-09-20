@@ -26,6 +26,12 @@ export function useExistingApplicationBlocker() {
   useEffect(() => {
     let cancelled = false
     void (async () => {
+      // /housing-applications/my chỉ cho Applicant — CĐT/Sở/Admin gọi sẽ 403.
+      const role = sessionStorage.getItem('userRole') ?? ''
+      if (role !== 'Applicant') {
+        if (!cancelled) setState({ loading: false, canCreate: true, blockingStatus: null, message: null })
+        return
+      }
       try {
         const paged = await housingApplicationsApi.getMy({ pageIndex: 1, pageSize: 50 })
         if (cancelled) return
@@ -50,7 +56,6 @@ export function useExistingApplicationBlocker() {
             : 'Bạn đang có hồ sơ đang xử lý. Vui lòng chờ hồ sơ hoàn tất (trượt/đã hủy) trước khi tạo hồ sơ mới.',
         })
       } catch {
-        // Mất kết nối / lỗi API: mặc định KHÔNG chặn để tránh làm khó user.
         if (!cancelled) setState({ loading: false, canCreate: true, blockingStatus: null, message: null })
       }
     })()
