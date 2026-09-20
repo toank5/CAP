@@ -1,4 +1,4 @@
-import { request } from './http'
+import { ApiError, request } from './http'
 import type { ApiResult, CreatePaymentDto, PaymentResponseDto } from '../types'
 
 export function extractPaymentUrl(data: unknown): string | null {
@@ -160,6 +160,7 @@ export interface PhaseProgressItem {
   triggerEvent: string
   triggerEventLabel?: string
   isAutoOpen: boolean
+  isOpened: boolean
   householdCount: number
   paidCount: number
   collectingCount: number
@@ -185,6 +186,7 @@ export function parsePhaseProgress(data: unknown): PhaseProgressItem[] {
         triggerEvent: String(x.triggerEvent ?? x.TriggerEvent ?? ''),
         triggerEventLabel: (x.triggerEventLabel ?? x.TriggerEventLabel) as string | undefined,
         isAutoOpen: Boolean(x.isAutoOpen ?? x.IsAutoOpen),
+        isOpened: Boolean(x.isOpened ?? x.IsOpened),
         householdCount: Number(x.householdCount ?? x.HouseholdCount ?? 0),
         paidCount: Number(x.paidCount ?? x.PaidCount ?? 0),
         collectingCount: Number(x.collectingCount ?? x.CollectingCount ?? 0),
@@ -296,12 +298,12 @@ export const paymentApi = {
         { method: 'PATCH', body, auth: true },
       )
     } catch (err) {
+      const status = err instanceof ApiError ? err.status : 0
+      if (status !== 404 && status !== 405) throw err
       return await request<ApiResult>(`/api/housing-developer/projects/${projectId}/unlock-phase`, {
         method: 'POST',
         body,
         auth: true,
-      }).catch(() => {
-        throw err
       })
     }
   },

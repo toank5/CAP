@@ -11,7 +11,7 @@ import { extractSingleProject } from '@/lib/parsers'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
-import { formatError } from '@/lib/format-error'
+import { formatError, formatSuccess } from '@/lib/format-error'
 import type { MilestoneSetupItemDto } from '@/types'
 
 interface Props {
@@ -55,14 +55,10 @@ export function ProjectCollectionSchedulePanel({ projectId }: Props) {
     setBusy(true)
     setMsg(null)
     try {
-      await paymentApi.unlockPhase(projectId, nextPhase.triggerEvent, nextPhase.phaseOrder)
-      const n = nextPhase.eligibleToUnlockCount
+      const res = await paymentApi.unlockPhase(projectId, nextPhase.triggerEvent, nextPhase.phaseOrder)
       setMsg({
         type: 'success',
-        text:
-          n > 0
-            ? `Đã mở ${phaseTitle(nextPhase)} cho ${n} hộ đã nộp đợt trước. Hộ chưa nộp đợt trước vẫn nộp đợt đó, chưa nộp được đợt này.`
-            : `Đã mở ${phaseTitle(nextPhase)}.`,
+        text: formatSuccess(res) || `Đã mở ${phaseTitle(nextPhase)} cho cả dự án.`,
       })
       setConfirmOpen(false)
       await load()
@@ -215,6 +211,30 @@ function phaseState(phase: PhaseProgressItem): { label: string; detail: string; 
       badgeClass: 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300',
     }
   }
+  if (phase.isOpened) {
+    if (phase.householdCount > 0 && phase.paidCount === phase.householdCount) {
+      return {
+        label: 'Đã thu xong',
+        detail: `Tất cả ${phase.paidCount} hộ đã nộp.`,
+        badgeClass: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200',
+      }
+    }
+    if (phase.collectingCount > 0) {
+      return {
+        label: 'Đang thu',
+        detail: `${phase.collectingCount} hộ đang nộp${phase.overdueCount ? ` · ${phase.overdueCount} quá hạn` : ''} · ${phase.paidCount} đã nộp. Người chưa đóng đợt trước vẫn nộp đợt trước.`,
+        badgeClass: 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-200',
+      }
+    }
+    return {
+      label: 'Đã mở',
+      detail:
+        phase.householdCount === 0
+          ? 'Đã ghi nhận mốc cho cả dự án. Khi hộ đóng đợt trước, đợt này sẽ mở cho họ.'
+          : `${phase.lockedCount} hộ chưa nộp đợt trước nên chưa thu được đợt này · ${phase.paidCount} đã nộp.`,
+      badgeClass: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200',
+    }
+  }
   if (phase.isNextToOpen) {
     return {
       label: 'Bước kế tiếp',
@@ -222,24 +242,10 @@ function phaseState(phase: PhaseProgressItem): { label: string; detail: string; 
       badgeClass: 'bg-teal-600 text-white',
     }
   }
-  if (phase.collectingCount > 0) {
-    return {
-      label: 'Đang thu',
-      detail: `${phase.collectingCount} hộ đang nộp${phase.overdueCount ? ` · ${phase.overdueCount} quá hạn` : ''} · ${phase.paidCount} đã nộp. Người chưa đóng đợt trước vẫn nộp đợt trước.`,
-      badgeClass: 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-200',
-    }
-  }
-  if (phase.householdCount > 0 && phase.paidCount === phase.householdCount) {
-    return {
-      label: 'Đã thu xong',
-      detail: `Tất cả ${phase.paidCount} hộ đã nộp.`,
-      badgeClass: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200',
-    }
-  }
   if (phase.lockedCount > 0 && phase.eligibleToUnlockCount === 0) {
     return {
       label: 'Chưa tới',
-      detail: 'Chờ người dân nộp đợt liền trước, hoặc công trình chưa tới mốc này.',
+      detail: 'Chờ mở bước liền trước, hoặc công trình chưa tới mốc này.',
       badgeClass: 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-300',
     }
   }
@@ -273,6 +279,7 @@ function milestoneToPhase(m: MilestoneSetupItemDto, nextOrder?: number): PhasePr
     overdueCount: 0,
     lockedCount: 0,
     eligibleToUnlockCount: 0,
+    isOpened: false,
     isNextToOpen: !auto && m.phaseOrder === nextOrder,
   }
 }
