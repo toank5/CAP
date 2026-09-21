@@ -128,8 +128,15 @@ export function InstallmentRow({
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const effective = getEffectiveInstallmentDueDate(inst, installments, signedAt)
   const isPaid = inst.status === 'PAID'
-  const isLocked = inst.status === 'LOCKED'
   const isCancelled = inst.status === 'CANCELLED'
+  const isSignedForPay =
+    applicationStatus === 'CONTRACT_SIGNED' ||
+    applicationStatus === 'INSTALLMENT_IN_PROGRESS' ||
+    applicationStatus === 'FULLY_PAID' ||
+    !!signedAt
+  const isLocked =
+    inst.status === 'LOCKED' ||
+    (inst.ordinal === 1 && !isPaid && !isCancelled && !isSignedForPay)
   const isOverdue = !isPaid && !isLocked && !isCancelled && effective.isOverdue
   const isPending = inst.status === 'UNPAID'
   const tone = INSTALLMENT_STATUS_TONE[inst.status]
@@ -147,12 +154,6 @@ export function InstallmentRow({
     installments
       .filter((p) => p.ordinal < inst.ordinal)
       .every((p) => p.status === 'PAID')
-
-  const isSignedForPay =
-    applicationStatus === 'CONTRACT_SIGNED' ||
-    applicationStatus === 'INSTALLMENT_IN_PROGRESS' ||
-    applicationStatus === 'FULLY_PAID' ||
-    !!signedAt
 
   const canPay =
     role !== 'Housing Developer' &&

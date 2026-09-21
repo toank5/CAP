@@ -301,13 +301,23 @@ function InstallmentRow({
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const effective = getEffectiveInstallmentDueDate(inst, installments, signedAt)
   const isPaid = inst.status === 'PAID'
-  const isLocked = inst.status === 'LOCKED'
   const isCancelled = inst.status === 'CANCELLED'
-  const isOverdue = !isPaid && !isLocked && !isCancelled && effective.isOverdue
+  const isOverdueRaw = !isPaid && inst.status !== 'LOCKED' && !isCancelled && effective.isOverdue
   const isDeposit = inst.ordinal === 1
   const tone = INSTALLMENT_STATUS_TONE[inst.status]
   const role = getRole()
   const prevPhase = installments.find((p) => p.ordinal === inst.ordinal - 1)
+  const allPrevPaid =
+    inst.ordinal === 1 ||
+    installments
+      .filter((p) => p.ordinal < inst.ordinal)
+      .every((p) => p.status === 'PAID')
+
+  const phase1Signed = isSaleContractSigned({ applicationStatus, isSigned: !!signedAt })
+  const isLocked =
+    inst.status === 'LOCKED' ||
+    (inst.ordinal === 1 && !isPaid && !isCancelled && !phase1Signed)
+  const isOverdue = !isPaid && !isLocked && isOverdueRaw
   const lockedHint = !isLocked
     ? null
     : inst.ordinal <= 1
@@ -316,21 +326,11 @@ function InstallmentRow({
         ? `${inst.label || `Đợt ${inst.ordinal}`} chưa mở cho bạn vì ${prevPhase.label || `Đợt ${prevPhase.ordinal}`} chưa đóng.`
         : `${inst.label || `Đợt ${inst.ordinal}`} chưa tới. Chủ đầu tư mở trên trang dự án khi công trình đến mốc này.`
 
-  // Đợt cho phép thanh toán khi:
-  // - Đợt 1: create-payment-url sau khi ký HĐ
-  // - Đợt đang PENDING/OVERDUE (BE raw status) VÀ tất cả đợt trước đã PAID
-  // - Đợt đang PENDING/OVERDUE (BE raw status) VÀ tất cả đợt trước đã PAID
-  const allPrevPaid =
-    inst.ordinal === 1 ||
-    installments
-      .filter((p) => p.ordinal < inst.ordinal)
-      .every((p) => p.status === 'PAID')
-
   const canPay =
     role === 'Applicant' &&
     (inst._rawStatus === 'PENDING' || inst._rawStatus === 'OVERDUE' || inst.status === 'UNPAID') &&
     allPrevPaid &&
-    (inst.ordinal !== 1 || isSaleContractSigned({ applicationStatus, isSigned: !!signedAt }))
+    (inst.ordinal !== 1 || phase1Signed)
 
   // PENDING (BE raw) → FE display UNPAID
   const isPending = inst._rawStatus === 'PENDING'
@@ -904,7 +904,7 @@ export function ContractDetailPage() {
     try {
       await contractApi.sign(id)
       await reload()
-      setMsg({ type: 'success', text: 'Đồng ý điều khoản hợp đồng thành công.' })
+      setMsg({ type: 'success', text: 'Đã ký hợp đồng. Đợt 1 đã mở trên lịch thanh toán.' })
     } catch (err) {
       setMsg({ type: 'error', text: formatError(err) })
     } finally {

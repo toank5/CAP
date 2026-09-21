@@ -213,7 +213,7 @@ export function MyApartmentPage() {
       await loadDetail(selectedId)
       setMsg({
         type: 'success',
-        text: 'Đã ký HĐ thành công. Đợt 2 (20% — Thanh toán ký HĐ) đã tự mở. Bạn có thể đóng ngay.',
+        text: 'Đã ký hợp đồng. Đợt 1 (thanh toán lần đầu) đã mở trên lịch — bạn có thể đóng theo hạn trên hợp đồng.',
       })
     } catch (err) {
       setMsg({ type: 'error', text: String(err) })
