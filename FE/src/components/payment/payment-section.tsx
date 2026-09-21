@@ -61,7 +61,7 @@ export function DepositCountdown({
   if (expired) {
     return (
       <span className="ml-2 inline-flex items-center gap-1 rounded-md bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700 dark:bg-rose-950/50 dark:text-rose-300">
-        ⛔ Đã hết hạn đặt cọc
+        ⛔ Đã hết hạn Đợt 1
       </span>
     )
   }
@@ -72,7 +72,7 @@ export function DepositCountdown({
   if (ms <= 0) {
     return (
       <span className="ml-2 inline-flex items-center gap-1 rounded-md bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700 dark:bg-rose-950/50 dark:text-rose-300">
-        ⛔ Đã hết hạn đặt cọc
+        ⛔ Đã hết hạn Đợt 1
       </span>
     )
   }
@@ -95,7 +95,7 @@ export function DepositCountdown({
     >
       ⏰ Còn {days > 0 ? `${days} ngày ` : ''}
       {String(hours).padStart(2, '0')}:{String(minutes).padStart(2, '0')}:
-      {String(seconds).padStart(2, '0')} để đặt cọc
+      {String(seconds).padStart(2, '0')} để đóng Đợt 1
     </span>
   )
 }
@@ -137,7 +137,7 @@ export function InstallmentRow({
   const lockedHint = !isLocked
     ? null
     : inst.ordinal <= 1
-      ? 'Đợt 1 mở khi được cấp căn. Nếu vẫn khóa, hồ sơ chưa có lịch thu.'
+      ? 'Đợt 1 mở sau khi bạn ký hợp đồng mua bán.'
       : prevPhase && prevPhase.status !== 'PAID'
         ? `${inst.label || `Đợt ${inst.ordinal}`} chưa mở cho bạn vì ${prevPhase.label || `Đợt ${prevPhase.ordinal}`} chưa đóng.`
         : `${inst.label || `Đợt ${inst.ordinal}`} chưa tới. Chủ đầu tư mở trên trang dự án khi công trình đến mốc này.`
@@ -148,8 +148,17 @@ export function InstallmentRow({
       .filter((p) => p.ordinal < inst.ordinal)
       .every((p) => p.status === 'PAID')
 
-  // ordinal-based unlocking: ordinal 1 always pay-able; ordinal>1 only after previous PAID
-  const canPay = role !== 'Housing Developer' && allPrevPaid && (inst.status === 'UNPAID' || inst.status === 'OVERDUE')
+  const isSignedForPay =
+    applicationStatus === 'CONTRACT_SIGNED' ||
+    applicationStatus === 'INSTALLMENT_IN_PROGRESS' ||
+    applicationStatus === 'FULLY_PAID' ||
+    !!signedAt
+
+  const canPay =
+    role !== 'Housing Developer' &&
+    allPrevPaid &&
+    (inst.status === 'UNPAID' || inst.status === 'OVERDUE') &&
+    (inst.ordinal !== 1 || isSignedForPay)
 
   const handlePay = async () => {
     setPaying(true)
@@ -158,15 +167,9 @@ export function InstallmentRow({
       let paymentUrl: string | null = null
       let orderId: string | null = null
 
-      const isDeposit1PreSign =
-        inst.ordinal === 1 &&
-        (applicationStatus === 'APPROVED' ||
-          applicationStatus === 'APPROVED_BY_TIMEOUT' ||
-          applicationStatus === 'DEPOSIT_PENDING' ||
-          applicationStatus === 'CONTRACT_PENDING')
-      const isDeposit1PostSign = inst.ordinal === 1 && applicationStatus === 'CONTRACT_SIGNED'
+      const isPhase1AfterSign = inst.ordinal === 1 && isSignedForPay
 
-      if (isDeposit1PreSign || isDeposit1PostSign) {
+      if (isPhase1AfterSign) {
         const res = await paymentApi.createPaymentUrl({
           ApplicationId: applicationId,
           Ordinal: 1,

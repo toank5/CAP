@@ -161,8 +161,8 @@ export interface HousingProjectDto {
   availableUnits?: number
   totalUnits?: number
   /**
-   * Tỷ lệ Đợt 1 — thanh toán lần đầu (% giá căn), gồm cả tiền đặt cọc, tối đa 30%
-   * theo Đ25.1 Luật Kinh doanh bất động sản 2023. Phải đóng trước khi ký hợp đồng mua bán.
+   * Tỷ lệ Đợt 1 — thanh toán lần đầu (% giá căn), gồm tiền đặt cọc nếu có, tối đa 30%
+   * theo Điều 89 Luật Nhà ở năm 2023. Nộp sau khi ký hợp đồng mua bán.
    */
   phase1Percentage?: number
   thumbnailUrl?: string

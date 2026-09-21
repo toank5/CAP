@@ -6,7 +6,7 @@ export const APPLICATION_STATUS: Record<string, { label: string; variant: 'defau
   PENDING_SXD_REVIEW: { label: 'Chờ Sở Xây dựng', variant: 'warning' },
   APPROVED: { label: 'Đã phê duyệt', variant: 'success' },
   APPROVED_BY_TIMEOUT: { label: 'Duyệt quá hạn', variant: 'success' },
-  DEPOSIT_PENDING: { label: 'Chờ đặt cọc', variant: 'warning' },
+  DEPOSIT_PENDING: { label: 'Chờ ký hợp đồng', variant: 'warning' },
   CONTRACT_PENDING: { label: 'Chờ ký hợp đồng', variant: 'warning' },
   CONTRACTING: { label: 'Đang ký hợp đồng', variant: 'warning' },
   CONTRACT_SIGNED: { label: 'Đã ký hợp đồng', variant: 'success' },

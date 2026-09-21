@@ -1782,7 +1782,7 @@ export function SxdProjectDetailPage() {
                             : '—'
                     }
                   />
-                  <DetailRow label="Tỷ lệ Đợt 1 (thanh toán lần đầu gồm tiền đặt cọc, tối đa 30%)" value={project.phase1Percentage ? `${project.phase1Percentage}%` : 'Đ25.1 Luật Kinh doanh bất động sản 2023 (tối đa 30%)'} />
+                  <DetailRow label="Tỷ lệ Đợt 1 (thanh toán lần đầu gồm tiền đặt cọc, tối đa 30%)" value={project.phase1Percentage ? `${project.phase1Percentage}%` : 'Điều 89 Luật Nhà ở năm 2023 (tối đa 30%)'} />
                   <DetailRow label="Ngày tạo hồ sơ" value={formatDate(project.createdAt)} />
                   <DetailRow label="Ngày phê duyệt công bố" value={formatDate(project.publicAnnounceAt)} />
                   <DetailRow label="Ngày mở nhận hồ sơ" value={formatDate(project.applicationOpenDate)} />

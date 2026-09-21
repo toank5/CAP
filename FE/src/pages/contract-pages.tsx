@@ -26,7 +26,7 @@ import { SignContractSection } from '@/components/payment/payment-section'
 import { navigate } from '@/hooks/useHashRoute'
 import { formatError } from '@/lib/format-error'
 import { getRole } from '@/router'
-import { canSignAfterDeposit, isPhase1Paid } from '@/lib/deposit-pipeline'
+import { canSignSaleContract, isPhase1Paid, isSaleContractSigned } from '@/lib/deposit-pipeline'
 import {
   emptyScheduleHasApartmentCopy,
   emptyScheduleNoApartmentCopy,
@@ -63,7 +63,7 @@ function formatAppStatusVi(code: string | null | undefined): string {
   const key = code.trim().toUpperCase()
   if (APPLICATION_STATUS[key]?.label) return APPLICATION_STATUS[key].label
   if (APPLICATION_STATUS[code]?.label) return APPLICATION_STATUS[code].label
-  if (key === 'DEPOSIT_PENDING' || key === 'PENDING_DEPOSIT') return 'Chờ đặt cọc'
+  if (key === 'DEPOSIT_PENDING' || key === 'PENDING_DEPOSIT') return 'Chờ ký hợp đồng'
   if (key === 'CONTRACT_PENDING' || key === 'PENDING_CONTRACT') return 'Chờ ký hợp đồng'
   if (key === 'CONTRACTING') return 'Đang ký hợp đồng'
   if (key === 'CONTRACT_SIGNED' || key === 'SIGNED') return 'Đã ký hợp đồng'
@@ -311,13 +311,14 @@ function InstallmentRow({
   const lockedHint = !isLocked
     ? null
     : inst.ordinal <= 1
-      ? 'Đợt 1 mở khi được cấp căn. Nếu vẫn khóa, hồ sơ chưa có lịch thu.'
+      ? 'Đợt 1 mở sau khi bạn ký hợp đồng mua bán.'
       : prevPhase && prevPhase.status !== 'PAID'
         ? `${inst.label || `Đợt ${inst.ordinal}`} chưa mở cho bạn vì ${prevPhase.label || `Đợt ${prevPhase.ordinal}`} chưa đóng.`
         : `${inst.label || `Đợt ${inst.ordinal}`} chưa tới. Chủ đầu tư mở trên trang dự án khi công trình đến mốc này.`
 
   // Đợt cho phép thanh toán khi:
-  // - Đợt 1: create-payment-url (luồng đặt cọc trước ký) HOẶC
+  // - Đợt 1: create-payment-url sau khi ký HĐ
+  // - Đợt đang PENDING/OVERDUE (BE raw status) VÀ tất cả đợt trước đã PAID
   // - Đợt đang PENDING/OVERDUE (BE raw status) VÀ tất cả đợt trước đã PAID
   const allPrevPaid =
     inst.ordinal === 1 ||
@@ -328,7 +329,8 @@ function InstallmentRow({
   const canPay =
     role === 'Applicant' &&
     (inst._rawStatus === 'PENDING' || inst._rawStatus === 'OVERDUE' || inst.status === 'UNPAID') &&
-    allPrevPaid
+    allPrevPaid &&
+    (inst.ordinal !== 1 || isSaleContractSigned({ applicationStatus, isSigned: !!signedAt }))
 
   // PENDING (BE raw) → FE display UNPAID
   const isPending = inst._rawStatus === 'PENDING'
@@ -342,20 +344,12 @@ function InstallmentRow({
       let paymentUrl: string | null = null
       let orderId: string | null = null
 
-      // CHỌN ĐÚNG API theo applicationStatus:
-      // - Đợt 1 + APPROVED/DEPOSIT_PENDING/CONTRACT_PENDING: create-payment-url
-      // - Đợt 1 + CONTRACT_SIGNED: create-payment-url (installments chưa có trong DB)
-      // - Đợt 2–6 (PENDING/OVERDUE): installments/{id}/pay
-      const isDeposit1PreSign =
-        inst.ordinal === 1 &&
-        (applicationStatus === 'APPROVED' ||
-          applicationStatus === 'APPROVED_BY_TIMEOUT' ||
-          applicationStatus === 'DEPOSIT_PENDING' ||
-          applicationStatus === 'CONTRACT_PENDING')
-      const isDeposit1PostSign = inst.ordinal === 1 && applicationStatus === 'CONTRACT_SIGNED'
+      // Đợt 1 chỉ sau khi ký HĐ: create-payment-url
+      // Đợt 2–n (PENDING/OVERDUE): installments/{id}/pay
+      const isPhase1AfterSign =
+        inst.ordinal === 1 && isSaleContractSigned({ applicationStatus, isSigned: !!signedAt })
 
-      if (isDeposit1PreSign || isDeposit1PostSign) {
-        // Đợt 1 (trước hoặc sau ký): gọi create-payment-url.
+      if (isPhase1AfterSign) {
         const res = await paymentApi.createPaymentUrl({
           ApplicationId: applicationId,
           Ordinal: 1,
@@ -949,10 +943,10 @@ export function ContractDetailPage() {
   const canSign =
     role === 'Applicant' &&
     !status?.isSigned &&
-    canSignAfterDeposit({
+    canSignSaleContract({
       applicationStatus: effectiveStatus,
       hasApartment,
-      depositPaid: deposit1Paid,
+      isSigned: status?.isSigned,
     })
   const projectId = readProjectId() || appDetail?.projectId || ''
 
@@ -982,7 +976,7 @@ export function ContractDetailPage() {
         />
         {role === 'Applicant' && deposit1Paid && !hasApartment && !status?.isSigned && (
           <Alert variant="info">
-            Đã đóng cọc Đợt 1. Chủ đầu tư cần gán căn hộ cụ thể trước khi bạn ký hợp đồng.
+            Chủ đầu tư cần gán căn hộ cụ thể trước khi bạn ký hợp đồng.
           </Alert>
         )}
 

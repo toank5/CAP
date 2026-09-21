@@ -686,7 +686,10 @@ export function ApplicationsPage() {
                 const isNeedMoreDocs = app.applicationStatus === 'NEED_MORE_DOCUMENTS'
                 const isApproved =
                   app.applicationStatus === 'APPROVED' || app.applicationStatus === 'APPROVED_BY_TIMEOUT'
-                const isDepositPending = app.applicationStatus === 'DEPOSIT_PENDING'
+                const isAwaitingSign =
+                  app.applicationStatus === 'DEPOSIT_PENDING' ||
+                  app.applicationStatus === 'CONTRACT_PENDING'
+                const isAwaitingPhase1 = app.applicationStatus === 'CONTRACT_SIGNED'
                 const openDetail = () => {
                   sessionStorage.setItem('applicationId', app.applicationId)
                   navigate('application-detail')
@@ -855,7 +858,7 @@ export function ApplicationsPage() {
                             <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Xem kết quả & Hợp đồng
                           </Button>
                         )}
-                        {isDepositPending && (
+                        {isAwaitingSign && (
                           <Button
                             size="sm"
                             className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs shadow-sm shadow-emerald-600/20"
@@ -864,7 +867,19 @@ export function ApplicationsPage() {
                               openDetail()
                             }}
                           >
-                            <CreditCard className="mr-1.5 h-3.5 w-3.5" /> Đặt cọc Đợt 1
+                            <FileText className="mr-1.5 h-3.5 w-3.5" /> Ký hợp đồng
+                          </Button>
+                        )}
+                        {isAwaitingPhase1 && (
+                          <Button
+                            size="sm"
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs shadow-sm shadow-emerald-600/20"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              openDetail()
+                            }}
+                          >
+                            <CreditCard className="mr-1.5 h-3.5 w-3.5" /> Thanh toán Đợt 1
                           </Button>
                         )}
                         <Button
@@ -1629,9 +1644,9 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
 
       {isApplicant && depositCountdown && (
         <Alert variant={depositCountdown.isOverdue ? 'error' : 'warning'} className="shadow-sm">
-          <strong>Hạn thanh toán Đợt 1 ({depositCountdown.daysLimit} ngày sau khi duyệt):</strong>{' '}
+          <strong>Hạn thanh toán Đợt 1 ({depositCountdown.daysLimit} ngày sau khi ký hợp đồng):</strong>{' '}
           {depositCountdown.isOverdue
-            ? <>Đã quá hạn đóng cọc Đợt 1 — hồ sơ có thể bị hủy nếu không thanh toán.</>
+            ? <>Đã quá hạn đóng Đợt 1 — hồ sơ có thể bị hủy nếu không thanh toán.</>
             : <>Còn lại: <strong>{depositCountdown.label}</strong></>}
           {' · '}đến {depositCountdown.deadline.toLocaleString('vi-VN')}
         </Alert>

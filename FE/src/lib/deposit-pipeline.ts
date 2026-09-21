@@ -1,6 +1,6 @@
 import type { PaymentInstallment } from '@/api/contracts'
 
-/** Đợt 1 đã PAID trên lịch, hoặc hồ sơ đã qua bước cọc (dữ liệu cũ). */
+/** Đợt 1 đã PAID trên lịch, hoặc hồ sơ đã qua bước thanh toán lần đầu. Không coi CONTRACT_SIGNED là đã đóng. */
 export function isPhase1Paid(
   installments: PaymentInstallment[],
   applicationStatus?: string | null,
@@ -11,39 +11,68 @@ export function isPhase1Paid(
   const status = String(applicationStatus || '').toUpperCase()
   return (
     status === 'DEPOSIT_PAID' ||
+    status === 'INSTALLMENT_IN_PROGRESS' ||
+    status === 'FULLY_PAID'
+  )
+}
+
+export function isSaleContractSigned(opts: {
+  applicationStatus?: string | null
+  isSigned?: boolean | null
+}): boolean {
+  if (opts.isSigned) return true
+  const status = String(opts.applicationStatus || '').toUpperCase()
+  return (
     status === 'CONTRACT_SIGNED' ||
     status === 'INSTALLMENT_IN_PROGRESS' ||
     status === 'FULLY_PAID'
   )
 }
 
-/**
- * Sau cấp nhà BE để DEPOSIT_PENDING (đã có căn).
- * CONTRACT_PENDING còn gặp khi chưa cọc (dữ liệu cũ).
- */
-export function needsDepositBeforeContract(opts: {
+/** Ký HĐMB khi đã cấp căn, chưa ký. Đợt 1 nộp sau khi ký (Điều 89 Luật Nhà ở 2023). */
+export function canSignSaleContract(opts: {
   applicationStatus: string
   hasApartment: boolean
-  depositPaid: boolean
+  isSigned?: boolean | null
 }): boolean {
-  if (opts.depositPaid) return false
-  const status = String(opts.applicationStatus || '').toUpperCase()
-  if (status === 'DEPOSIT_PENDING') return true
-  return status === 'CONTRACT_PENDING' && opts.hasApartment
-}
-
-/** Ký HĐ: đã cấp căn + đã cọc Đợt 1. */
-export function canSignAfterDeposit(opts: {
-  applicationStatus: string
-  hasApartment: boolean
-  depositPaid: boolean
-}): boolean {
-  if (!opts.hasApartment || !opts.depositPaid) return false
+  if (!opts.hasApartment || isSaleContractSigned(opts)) return false
   const status = String(opts.applicationStatus || '').toUpperCase()
   return (
     status === 'CONTRACT_PENDING' ||
     status === 'DEPOSIT_PENDING' ||
     status === 'DEPOSIT_PAID' ||
-    status === 'CONTRACTING'
+    status === 'CONTRACTING' ||
+    status === 'APPROVED' ||
+    status === 'APPROVED_BY_TIMEOUT' ||
+    status === 'LOTTERY_WON'
   )
+}
+
+/** Đóng Đợt 1 khi đã ký HĐ và chưa thanh toán lần đầu. */
+export function canPayPhase1(opts: {
+  applicationStatus: string
+  isSigned?: boolean | null
+  phase1Paid: boolean
+}): boolean {
+  if (opts.phase1Paid) return false
+  return isSaleContractSigned(opts)
+}
+
+/** @deprecated Dùng canSignSaleContract — giữ alias để chỗ cũ không gãy. */
+export function canSignAfterDeposit(opts: {
+  applicationStatus: string
+  hasApartment: boolean
+  depositPaid?: boolean
+  isSigned?: boolean | null
+}): boolean {
+  return canSignSaleContract(opts)
+}
+
+/** @deprecated Không còn “cọc trước rồi mới ký”. */
+export function needsDepositBeforeContract(_opts: {
+  applicationStatus: string
+  hasApartment: boolean
+  depositPaid: boolean
+}): boolean {
+  return false
 }

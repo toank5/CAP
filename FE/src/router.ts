@@ -490,7 +490,7 @@ export const routes: RouteConfig[] = [
     auth: true,
     roles: ['Applicant'],
     title: 'Căn của tôi',
-    subtitle: 'Xem căn, đặt cọc, ký hợp đồng và thanh toán các đợt.',
+    subtitle: 'Xem căn, ký hợp đồng, đóng Đợt 1 và thanh toán các đợt.',
     cta: '',
   },
   // ====== Audit / Hậu kiểm (mock cho BE chưa có) ======

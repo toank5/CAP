@@ -178,7 +178,7 @@ export function createBlankPaymentMilestones(): MilestoneSetupItemDto[] {
 export function PaymentProgressPolicyNote() {
   return (
     <p className="mb-2 rounded-lg border border-teal-100 bg-teal-50/80 px-3 py-2 text-[11px] leading-relaxed text-teal-950 dark:border-teal-900/50 dark:bg-teal-950/30 dark:text-teal-100">
-      Số đợt do chủ đầu tư tự chia và tự đặt tên, mốc phải theo tiến độ (không xếp sổ hồng trước phần thô). Sau khi người dân đóng Đợt 1 và ký hợp đồng, chủ đầu tư mở từng đợt khi tiến độ dự án thật tới. Điều 89 Luật Nhà ở năm 2023: lần đầu ≤ {FIRST_PAYMENT_MAX_PCT}% · trước bàn giao ≤ {BEFORE_HANDOVER_MAX_PCT}% · trước sổ hồng ≤ {BEFORE_CERTIFICATE_MAX_PCT}% · giữ lại ≥ {RETAINED_UNTIL_GCN_MIN_PCT}%.
+      Số đợt do chủ đầu tư tự chia và tự đặt tên, mốc phải theo tiến độ (không xếp sổ hồng trước phần thô). Người dân ký hợp đồng mua bán trước, rồi đóng Đợt 1 theo hợp đồng; chủ đầu tư mở từng đợt sau khi tiến độ dự án thật tới. Điều 89 Luật Nhà ở năm 2023: lần đầu ≤ {FIRST_PAYMENT_MAX_PCT}% · trước bàn giao ≤ {BEFORE_HANDOVER_MAX_PCT}% · trước sổ hồng ≤ {BEFORE_CERTIFICATE_MAX_PCT}% · giữ lại ≥ {RETAINED_UNTIL_GCN_MIN_PCT}%.
     </p>
   )
 }
@@ -197,7 +197,7 @@ export function validatePaymentMilestones(
     return `Đợt 1 đang là ${phase1Pct}%. Điều 89 Luật Nhà ở năm 2023: ứng trước lần đầu (gồm tiền đặt cọc nếu có) không quá ${FIRST_PAYMENT_MAX_PCT}%.`
   }
   if ((milestones[0]?.triggerEvent || '') !== PHASE1_TRIGGER) {
-    return 'Đợt 1 phải gắn mốc khi được cấp nhà hoặc trúng bốc thăm. Đây là lần ứng trước đầu — người dân đóng xong mới được ký hợp đồng mua bán.'
+    return 'Đợt 1 phải gắn mốc khi được cấp nhà hoặc trúng bốc thăm. Lịch được tạo lúc cấp căn; người dân đóng Đợt 1 sau khi ký hợp đồng mua bán.'
   }
   const totalPercentage = milestones.reduce((sum, m) => sum + (Number(m.percentage) || 0), 0)
   if (Math.abs(totalPercentage - 100) > 0.01) {
@@ -1124,7 +1124,7 @@ export function CreateProjectModal({
                         className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-800 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
                         value={idx === 0 ? PHASE1_TRIGGER : m.triggerEvent}
                         disabled={submitting || idx === 0}
-                        title={idx === 0 ? 'Đợt 1 là lần ứng trước đầu khi được cấp nhà — không gắn mốc ký hợp đồng.' : undefined}
+                          title={idx === 0 ? 'Đợt 1: lịch tạo khi cấp căn, thu sau khi ký hợp đồng.' : undefined}
                         onChange={(e) => {
                           const n = [...milestones]
                           n[idx] = { ...n[idx], triggerEvent: idx === 0 ? PHASE1_TRIGGER : e.target.value }

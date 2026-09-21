@@ -966,7 +966,7 @@ export function EditProjectModal({
                           className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-800 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
                           value={idx === 0 ? PHASE1_TRIGGER : m.triggerEvent}
                           disabled={submitting || idx === 0}
-                          title={idx === 0 ? 'Đợt 1 là lần ứng trước đầu khi được cấp nhà — không gắn mốc ký hợp đồng.' : undefined}
+                          title={idx === 0 ? 'Đợt 1: lịch tạo khi cấp căn, thu sau khi ký hợp đồng.' : undefined}
                           onChange={(e) => {
                             const n = [...milestones]
                             n[idx] = { ...n[idx], triggerEvent: idx === 0 ? PHASE1_TRIGGER : e.target.value }

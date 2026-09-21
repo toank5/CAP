@@ -19,7 +19,7 @@ import {
   SignContractSection,
 } from '@/components/payment/payment-section'
 import type { ApplicationSummaryDto } from '@/types'
-import { canSignAfterDeposit, isPhase1Paid, needsDepositBeforeContract } from '@/lib/deposit-pipeline'
+import { canSignSaleContract, isPhase1Paid } from '@/lib/deposit-pipeline'
 
 // ─── Status mapping ────────────────────────────────────────────────────────────
 
@@ -50,14 +50,14 @@ type FlowStep = 'none' | 'deposit' | 'sign' | 'pay-installment' | 'paid'
 
 function FlowStepIndicator({ step }: { step: FlowStep }) {
   const steps = [
-    { key: 'deposit', label: 'Đặt cọc' },
     { key: 'sign', label: 'Ký HĐ' },
+    { key: 'deposit', label: 'Đợt 1' },
     { key: 'pay-installment', label: 'Thanh toán' },
   ]
   const currentIdx =
     step === 'none' ? -1 :
-      step === 'deposit' ? 0 :
-        step === 'sign' ? 1 :
+      step === 'sign' ? 0 :
+        step === 'deposit' ? 1 :
           step === 'pay-installment' ? 2 :
             3
 
@@ -235,33 +235,30 @@ export function MyApartmentPage() {
   const derivedStatus = mapStatus(contractStatus)
   const { remaining, progress } = summarizeInstallments(installments)
   const deposit1Paid = isPhase1Paid(installments, appStatus)
+  const signed = !!(contractStatus?.isSigned) || appStatus === 'CONTRACT_SIGNED' || appStatus === 'CONTRACTING'
   const effectiveStatus = contractStatus?.applicationStatus || appStatus
 
   const flowStep: FlowStep =
     derivedStatus === 'PAID' || appStatus === 'PAID' || appStatus === 'FULLY_PAID' || appStatus === 'FINALIZED'
       ? 'paid'
-      : derivedStatus === 'SIGNED' || appStatus === 'CONTRACT_SIGNED' || appStatus === 'CONTRACTING'
+      : signed && deposit1Paid
         ? 'pay-installment'
-        : canSignAfterDeposit({
-          applicationStatus: effectiveStatus,
-          hasApartment,
-          depositPaid: deposit1Paid,
-        })
-          ? 'sign'
-          : needsDepositBeforeContract({
+        : signed
+          ? 'deposit'
+          : canSignSaleContract({
             applicationStatus: effectiveStatus,
             hasApartment,
-            depositPaid: deposit1Paid,
-          }) || ['APPROVED', 'APPROVED_BY_TIMEOUT', 'DEPOSIT_PENDING'].includes(appStatus)
-            ? 'deposit'
+            isSigned: contractStatus?.isSigned,
+          })
+            ? 'sign'
             : 'none'
 
   const canSign =
     !contractStatus?.isSigned &&
-    canSignAfterDeposit({
+    canSignSaleContract({
       applicationStatus: effectiveStatus,
       hasApartment,
-      depositPaid: deposit1Paid,
+      isSigned: contractStatus?.isSigned,
     })
 
   return (
@@ -274,7 +271,7 @@ export function MyApartmentPage() {
             Căn của tôi
           </h2>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Theo dõi căn hộ, đóng lần đầu, ký hợp đồng và thanh toán các đợt theo lịch chủ đầu tư.
+            Theo dõi căn hộ, ký hợp đồng, đóng Đợt 1 theo hợp đồng và thanh toán các đợt theo lịch chủ đầu tư.
           </p>
         </div>
 
@@ -369,7 +366,7 @@ export function MyApartmentPage() {
                 />
                 {deposit1Paid && !hasApartment && !contractStatus?.isSigned && (
                   <Alert variant="info">
-                    Đã đóng cọc Đợt 1. Chủ đầu tư cần gán căn hộ cụ thể trước khi bạn ký hợp đồng.
+                    Chủ đầu tư cần gán căn hộ cụ thể trước khi bạn ký hợp đồng.
                   </Alert>
                 )}
 
@@ -397,7 +394,7 @@ export function MyApartmentPage() {
         {/* Hint footer */}
         {selectedApp && !loadingDetail && (
           <p className="text-center text-xs text-slate-400 dark:text-slate-500">
-            Đóng cọc Đợt 1 trước khi ký hợp đồng. Sau khi ký, các đợt còn lại mở theo lịch chủ đầu tư.
+            Ký hợp đồng trước, sau đó thanh toán Đợt 1 theo hợp đồng. Các đợt còn lại mở theo lịch chủ đầu tư.
           </p>
         )}
       </PageCard>

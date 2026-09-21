@@ -54,7 +54,7 @@ export function emptyScheduleNoApartmentCopy(role?: string | null): { title: str
   }
   return {
     title: 'Chưa có lịch thanh toán',
-    body: 'Hồ sơ đang trong quá trình xét duyệt / chờ bốc thăm. Sau khi có kết quả trúng và được Chủ đầu tư bàn giao căn hộ, hệ thống sẽ tự động hiển thị lịch thanh toán chi tiết.',
+    body: 'Hồ sơ đang chờ chốt suất hoặc cấp căn. Khi đã có căn, bạn ký hợp đồng mua bán; Đợt 1 sẽ mở trên lịch thanh toán sau khi ký.',
   }
 }
 

@@ -2,8 +2,8 @@ import { APPLICATION_STATUS } from '@/lib/constants'
 
 /**
  * Tiến độ sau khi nộp — khớp mobile và luồng BE:
- * nộp → chủ đầu tư → Sở → chờ chốt suất → cọc Đợt 1 → ký HĐ.
- * Các đợt thanh toán sau nằm ở lịch thanh toán, không phải bước timeline.
+ * nộp → chủ đầu tư → Sở → chờ chốt suất → ký HĐ.
+ * Đợt 1 và các đợt sau nằm ở lịch thanh toán, không phải bước timeline.
  */
 const PIPELINE = [
   {
@@ -27,14 +27,9 @@ const PIPELINE = [
     hint: 'Cấp thẳng hoặc sau bốc thăm',
   },
   {
-    key: 'DEPOSIT_PENDING',
-    label: 'Cọc tiền',
-    hint: 'Đóng cọc để giữ suất nhà',
-  },
-  {
     key: 'CONTRACT_PENDING',
     label: 'Ký hợp đồng',
-    hint: 'Ký hợp đồng mua bán',
+    hint: 'Ký hợp đồng mua bán; Đợt 1 mở sau khi ký',
   },
 ] as const
 
@@ -43,6 +38,7 @@ const WAITLIST_STATUSES = new Set(['WAITLIST'])
 const TERMINAL_SUCCESS = new Set([
   'CONTRACT_SIGNED',
   'INSTALLMENT_IN_PROGRESS',
+  'DEPOSIT_PAID',
   'PARTIALLY_PAID',
   'PAID',
   'FULLY_PAID',
@@ -52,7 +48,7 @@ function statusLabel(status: string) {
   return APPLICATION_STATUS[status]?.label ?? status
 }
 
-function resolveIndex(status: string, depositPaid?: boolean): number {
+function resolveIndex(status: string): number {
   switch (status) {
     case 'DRAFT':
     case 'SUBMITTED':
@@ -72,24 +68,16 @@ function resolveIndex(status: string, depositPaid?: boolean): number {
     case 'WAITLIST':
       return 3
     case 'DEPOSIT_PENDING':
-      // Đã đóng Đợt 1 nhưng BE chưa kịp chuyển CONTRACT_PENDING → hiện bước ký.
-      if (depositPaid === true) return 5
-      return 4
     case 'CONTRACT_PENDING':
     case 'CONTRACTING':
-      // Dữ liệu cũ: CONTRACT_PENDING trước khi cọc → đứng ở bước cọc.
-      if (depositPaid !== true) return 4
-      return 5
     case 'DEPOSIT_PAID':
-      // BE cũ: cọc xong vẫn DEPOSIT_PAID. Bước tiếp theo là ký, chưa hoàn tất pipeline.
-      return 5
     case 'CONTRACT_SIGNED':
     case 'INSTALLMENT_IN_PROGRESS':
     case 'PARTIALLY_PAID':
     case 'PAID':
     case 'FULLY_PAID':
     case 'CANCELLATION_REQUESTED':
-      return 5
+      return 4
     default:
       return 0
   }
@@ -97,7 +85,6 @@ function resolveIndex(status: string, depositPaid?: boolean): number {
 
 export function ApplicationTimeline({
   currentStatus,
-  depositPaid,
   needMoreNote,
 }: {
   currentStatus: string
@@ -106,7 +93,7 @@ export function ApplicationTimeline({
   histories?: unknown
 }) {
   const status = (currentStatus || '').toUpperCase()
-  const currentIdx = resolveIndex(status, depositPaid)
+  const currentIdx = resolveIndex(status)
   const isNeedMore = status === 'NEED_MORE_DOCUMENTS'
   const isFailed = TERMINAL_FAIL.has(status)
   const isWaitlist = WAITLIST_STATUSES.has(status)
@@ -142,7 +129,7 @@ export function ApplicationTimeline({
         <div className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 ring-1 ring-amber-200 dark:bg-amber-950/40 dark:text-amber-200 dark:ring-amber-800">
           <p className="font-semibold">Đơn xin ngừng thanh toán đang chờ duyệt</p>
           <p className="mt-0.5">
-            Chủ đầu tư sẽ xác nhận. Tiền cọc đợt đầu bị trừ nếu đơn được chấp thuận.
+            Chủ đầu tư sẽ xác nhận. Tiền đặt cọc trong Đợt 1 bị trừ nếu đơn được chấp thuận.
           </p>
         </div>
       )}
@@ -150,68 +137,42 @@ export function ApplicationTimeline({
         <p className="rounded-lg bg-sky-50 px-3 py-2 text-sm text-sky-800 ring-1 ring-sky-200 dark:bg-sky-950/40 dark:text-sky-200 dark:ring-sky-800">
           {status === 'FULLY_PAID'
             ? 'Bạn đã hoàn tất các khoản trên lịch thanh toán.'
-            : 'Đã ký hợp đồng. Các khoản còn lại xem trong lịch thanh toán — chủ đầu tư sẽ mở dần theo tiến độ.'}
+            : status === 'CONTRACT_SIGNED'
+              ? 'Đã ký hợp đồng. Đợt 1 (thanh toán lần đầu) đã mở trên lịch thanh toán.'
+              : 'Đã ký hợp đồng. Các khoản còn lại xem trong lịch thanh toán — chủ đầu tư sẽ mở dần theo tiến độ.'}
         </p>
       )}
 
       <ol className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-1">
         {PIPELINE.map((step, idx) => {
           const done = !isFailed && (isComplete ? idx <= currentIdx : idx < currentIdx)
-          const active = !isFailed && !isComplete && idx === currentIdx
-          const needMoreHere = active && isNeedMore
-          const muted = isFailed || (!done && !active)
-
-          const label = needMoreHere ? 'Cần bổ sung giấy tờ' : step.label
-          const hint = needMoreHere
-            ? 'Bổ sung xong rồi nộp lại để chủ đầu tư xét tiếp'
-            : status === 'LOTTERY_WON' && idx === 3 && active
-              ? 'Đã trúng suất — chờ chủ đầu tư chọn căn'
-              : active
-                ? step.hint
-                : done
-                  ? 'Đã xong'
-                  : step.hint
-
+          const current = !isFailed && !isComplete && idx === currentIdx
           return (
-            <li key={step.key} className="relative flex flex-1 items-start gap-3 sm:flex-col sm:items-center sm:text-center">
-              {idx < PIPELINE.length - 1 && (
-                <span
-                  className={`absolute left-4 top-8 hidden h-[calc(100%-2rem)] w-0.5 sm:left-auto sm:top-4 sm:block sm:h-0.5 sm:w-full sm:translate-x-1/2 ${
-                    done || active ? 'bg-blue-500' : 'bg-slate-200 dark:bg-slate-700'
-                  }`}
-                  aria-hidden
-                />
-              )}
+            <li key={step.key} className="flex flex-1 items-start gap-2">
               <span
-                className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                  needMoreHere
-                    ? 'bg-amber-600 text-white ring-4 ring-amber-100 dark:ring-amber-900'
-                    : done
-                      ? 'bg-emerald-500 text-white'
-                      : active
-                        ? 'bg-blue-600 text-white ring-4 ring-blue-100 dark:ring-blue-900'
-                        : muted
-                          ? 'bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400'
-                          : 'bg-slate-200 text-slate-500'
+                className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                  done
+                    ? 'bg-emerald-600 text-white'
+                    : current
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400'
                 }`}
               >
                 {done ? '✓' : idx + 1}
               </span>
-              <div className="min-w-0 pt-0.5 sm:pt-2">
+              <div>
                 <p
                   className={`text-sm font-semibold ${
-                    needMoreHere
-                      ? 'text-amber-700 dark:text-amber-300'
-                      : active
-                        ? 'text-blue-700 dark:text-blue-300'
-                        : done
-                          ? 'text-emerald-700 dark:text-emerald-300'
-                          : 'text-slate-500'
+                    current
+                      ? 'text-indigo-700 dark:text-indigo-300'
+                      : done
+                        ? 'text-slate-800 dark:text-slate-100'
+                        : 'text-slate-500 dark:text-slate-400'
                   }`}
                 >
-                  {label}
+                  {step.label}
                 </p>
-                <p className="mt-0.5 text-[11px] leading-snug text-slate-500 dark:text-slate-400">{hint}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{step.hint}</p>
               </div>
             </li>
           )
