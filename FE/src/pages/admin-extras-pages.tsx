@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react'
-import { PageCard } from '@/components/layout/page-header'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { Input, Select } from '@/components/ui/input'
 import {
   housingProjectStatusesApi,
   type PriorityGroupPointItemDto,
@@ -54,9 +52,16 @@ const POLICY_DEFAULT_VALUES: Record<string, string> = {
 
 import {
   Activity,
+  AlertCircle,
   AlertTriangle,
+  Award,
+  Banknote,
+  Bookmark,
   Building2,
+  Calendar,
+  CalendarClock,
   Check,
+  CheckCheck,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -65,17 +70,33 @@ import {
   Database,
   Edit3,
   Eye,
+  FileCheck,
   FileText,
+  Info,
+  Layers,
+  Lock,
+  Maximize2,
+  Medal,
+  Minus,
+  Percent,
   Plus,
   RefreshCw,
+  RotateCcw,
+  Save,
+  Scale,
   Search,
   Server,
+  Settings2,
   Shield,
   ShieldAlert,
   Sliders,
   Sparkles,
+  Tag,
   Trash2,
+  Trophy,
+  UserCheck,
   Users,
+  Wallet,
   X,
   XCircle,
 } from 'lucide-react'
@@ -750,37 +771,214 @@ export function SystemLogsPage() {
 }
 
 const DEFAULT_PRIORITY_POINTS: PriorityGroupPointItemDto[] = [
-
-  { groupCode: 'MERIT_PERSON', groupName: 'Người có công với cách mạng', points: 10, description: 'Điểm tối đa theo Luật Nhà ở 2023' },
-  { groupCode: 'URBAN_POOR', groupName: 'Hộ nghèo đô thị', points: 9, description: 'Hộ nghèo có xác nhận' },
-  { groupCode: 'RURAL_POOR', groupName: 'Hộ nghèo nông thôn', points: 8, description: 'Hộ nghèo khu vực nông thôn' },
-  { groupCode: 'DISABLED', groupName: 'Người khuyết tật', points: 8, description: 'Khuyết tật mức độ nặng hoặc đặc biệt nặng' },
-  { groupCode: 'WORKER', groupName: 'Công nhân KCN/KCX', points: 7, description: 'Người lao động trực tiếp trong khu công nghiệp' },
-  { groupCode: 'LOW_INCOME_URBAN', groupName: 'Người thu nhập thấp tại đô thị', points: 6, description: 'Thu nhập <= 15M/tháng' },
-  { groupCode: 'MILITARY_PERSONNEL', groupName: 'Lực lượng vũ trang / Công an / Quân đội', points: 6, description: 'Cán bộ chiến sĩ LLVT' },
-  { groupCode: 'CIVIL_SERVANT', groupName: 'Cán bộ, công chức, viên chức', points: 5, description: 'Công chức nhà nước' },
-  { groupCode: 'LAND_RECOVERY_AFFECTED', groupName: 'Hộ bị thu hồi đất / giải tỏa', points: 5, description: 'Bị thu hồi đất chưa được bồi thường bằng nhà' },
+  { groupCode: 'MERIT_PERSON', groupName: 'Người có công với cách mạng', points: 10, description: 'Điểm tối đa theo quy định tại Điều 76 Luật Nhà ở 2023' },
+  { groupCode: 'URBAN_POOR', groupName: 'Hộ nghèo, cận nghèo đô thị', points: 8, description: 'Hộ nghèo, cận nghèo có giấy chứng nhận hợp lệ tại khu vực đô thị' },
+  { groupCode: 'RURAL_POOR', groupName: 'Hộ nghèo, cận nghèo nông thôn', points: 7, description: 'Hộ nghèo, cận nghèo khu vực nông thôn có xác nhận địa phương' },
+  { groupCode: 'DISABLED', groupName: 'Người khuyết tật / Thân nhân liệt sĩ', points: 8, description: 'Khuyết tật mức độ nặng hoặc đặc biệt nặng theo giám định y khoa' },
+  { groupCode: 'WORKER', groupName: 'Công nhân, người lao động KCN/KCX', points: 6, description: 'Người lao động đang trực tiếp làm việc tại các doanh nghiệp trong KCN' },
+  { groupCode: 'LOW_INCOME_URBAN', groupName: 'Người thu nhập thấp đô thị', points: 6, description: 'Thu nhập hàng tháng thuộc khung xét duyệt hưởng chính sách NOXH' },
+  { groupCode: 'MILITARY_PERSONNEL', groupName: 'Lực lượng vũ trang / Công an / Quân đội', points: 6, description: 'Cán bộ, chiến sĩ, sĩ quan, quân nhân chuyên nghiệp trong LLVT' },
+  { groupCode: 'CIVIL_SERVANT', groupName: 'Cán bộ, công chức, viên chức', points: 5, description: 'Cán bộ, công chức, viên chức hưởng lương ngân sách nhà nước' },
+  { groupCode: 'LAND_RECOVERY_AFFECTED', groupName: 'Hộ bị thu hồi đất / giải tỏa', points: 5, description: 'Hộ gia đình bị thu hồi đất chưa được bồi thường bằng nhà ở hoặc đất ở' },
 ]
 
+const POLICY_CATEGORIES: Record<string, { label: string; icon: typeof Banknote; keys: string[] }> = {
+  INCOME_AREA: {
+    label: 'Thu nhập & Diện tích',
+    icon: Banknote,
+    keys: [
+      'INCOME_SINGLE_MAX_VND',
+      'INCOME_MARRIED_MAX_VND',
+      'INCOME_MILITARY_SINGLE_MAX_VND',
+      'INCOME_MILITARY_MARRIED_MAX_VND',
+      'MAX_AREA_PER_PERSON_M2',
+      'ONE_APPLICATION_PER_APPLICANT',
+    ],
+  },
+  TIMELINE_PROCESS: {
+    label: 'Thời hạn & Thẩm định',
+    icon: Calendar,
+    keys: [
+      'INTAKE_MIN_DAYS',
+      'PUBLIC_ANNOUNCE_MIN_DAYS',
+      'WAITLIST_CONFIRM_HOURS',
+      'TACIT_APPROVAL_DAYS',
+      'SXD_CROSSCHECK_SILENCE_DAYS',
+    ],
+  },
+  FINANCIAL_CONTRACT: {
+    label: 'Hợp đồng & Tài chính',
+    icon: Wallet,
+    keys: [
+      'CONTRACT_SIGNING_DEADLINE_DAYS',
+      'DEPOSIT_PAYMENT_HOURS',
+      'LATE_PAYMENT_PENALTY_DAILY_RATE',
+    ],
+  },
+}
+
+function getPolicyIcon(name: string) {
+  if (name.includes('INCOME')) return Banknote
+  if (name.includes('AREA')) return Maximize2
+  if (name.includes('DAYS')) return Calendar
+  if (name.includes('HOURS')) return CalendarClock
+  if (name.includes('PENALTY') || name.includes('RATE')) return Percent
+  if (name.includes('APPLICATION') || name.includes('ONE')) return UserCheck
+  if (name.includes('CONTRACT') || name.includes('DEPOSIT')) return FileCheck
+  return Scale
+}
+
+function getPriorityGroupMeta(groupCode: string) {
+  const code = (groupCode || '').toUpperCase()
+  if (code.includes('MERIT')) {
+    return {
+      Icon: Trophy,
+      badge: 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-700',
+      barColor: 'bg-amber-500',
+    }
+  }
+  if (code.includes('POOR')) {
+    return {
+      Icon: Users,
+      badge: 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-700',
+      barColor: 'bg-blue-500',
+    }
+  }
+  if (code.includes('DISABLED')) {
+    return {
+      Icon: Medal,
+      badge: 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-700',
+      barColor: 'bg-rose-500',
+    }
+  }
+  if (code.includes('WORKER')) {
+    return {
+      Icon: Building2,
+      badge: 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-700',
+      barColor: 'bg-emerald-500',
+    }
+  }
+  if (code.includes('MILITARY')) {
+    return {
+      Icon: Shield,
+      badge: 'bg-indigo-100 text-indigo-800 border-indigo-300 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-700',
+      barColor: 'bg-indigo-500',
+    }
+  }
+  if (code.includes('CIVIL')) {
+    return {
+      Icon: Award,
+      badge: 'bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-950/60 dark:text-purple-300 dark:border-purple-700',
+      barColor: 'bg-purple-500',
+    }
+  }
+  return {
+    Icon: Bookmark,
+    badge: 'bg-slate-100 text-slate-800 border-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700',
+    barColor: 'bg-slate-500',
+  }
+}
+
+function getProjectStatusMeta(status: ProjectStatus) {
+  const code = (status.statusCode || status.statusName || '').toUpperCase()
+  if (code.includes('OPEN') || code.includes('MO_DANG_KY') || code.includes('DANG_MO')) {
+    return {
+      label: 'Đang mở đăng ký',
+      code: status.statusCode || 'OPEN',
+      badge: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800',
+      dot: 'bg-emerald-500',
+      Icon: CheckCircle2,
+      stage: 'Giai đoạn 3',
+      desc: status.description || 'Dự án đang trong thời gian công khai tiếp nhận hồ sơ đăng ký từ công dân.',
+    }
+  }
+  if (code.includes('PENDING') || code.includes('CHO_DUYET') || code.includes('CHO_PHE_DUYET')) {
+    return {
+      label: 'Chờ phê duyệt',
+      code: status.statusCode || 'PENDING_APPROVAL',
+      badge: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800',
+      dot: 'bg-amber-500',
+      Icon: Clock,
+      stage: 'Giai đoạn 2',
+      desc: status.description || 'Hồ sơ dự án đang chờ Sở Xây dựng thẩm định và phê duyệt phương án kinh doanh.',
+    }
+  }
+  if (code.includes('CLOSE') || code.includes('DONG_DANG_KY') || code.includes('DA_DONG')) {
+    return {
+      label: 'Đã đóng đăng ký',
+      code: status.statusCode || 'CLOSED',
+      badge: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800',
+      dot: 'bg-indigo-500',
+      Icon: Lock,
+      stage: 'Giai đoạn 4',
+      desc: status.description || 'Hết thời hạn nhận hồ sơ, hệ thống chuyển sang bước chấm điểm xét duyệt và bốc thăm.',
+    }
+  }
+  if (code.includes('OUT') || code.includes('HET_SUAT') || code.includes('SOLD')) {
+    return {
+      label: 'Đã hết suất',
+      code: status.statusCode || 'SOLD_OUT',
+      badge: 'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
+      dot: 'bg-slate-500',
+      Icon: CheckCheck,
+      stage: 'Giai đoạn 5',
+      desc: status.description || 'Toàn bộ quỹ căn hộ của dự án đã được phân bổ và ký hợp đồng thành công.',
+    }
+  }
+  if (code.includes('REJECT') || code.includes('TU_CHOI') || code.includes('BI_TU_CHOI')) {
+    return {
+      label: 'Bị từ chối',
+      code: status.statusCode || 'REJECTED',
+      badge: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800',
+      dot: 'bg-rose-500',
+      Icon: XCircle,
+      stage: 'Hủy bỏ',
+      desc: status.description || 'Dự án không đạt tiêu chuẩn phê duyệt của Sở Xây dựng hoặc chủ đầu tư hủy dự án.',
+    }
+  }
+  return {
+    label: labelProjectStatus(status.statusCode || status.statusName),
+    code: status.statusCode || 'STATUS',
+    badge: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800',
+    dot: 'bg-blue-500',
+    Icon: Tag,
+    stage: 'Quy trình',
+    desc: status.description || 'Trạng thái nghiệp vụ dự án được cấu hình trong hệ thống.',
+  }
+}
+
 export function CategoriesPage() {
+  const [activeTab, setActiveTab] = useState<'priority' | 'policy' | 'status'>('priority')
   const [statuses, setStatuses] = useState<ProjectStatus[]>([])
   const [policies, setPolicies] = useState<PolicyConfig[]>([])
   const [priorityPoints, setPriorityPoints] = useState<PriorityGroupPointItemDto[]>(DEFAULT_PRIORITY_POINTS)
+  const [savedPriorityPoints, setSavedPriorityPoints] = useState<PriorityGroupPointItemDto[]>(DEFAULT_PRIORITY_POINTS)
   const [loading, setLoading] = useState(true)
   const [savingPoints, setSavingPoints] = useState(false)
+  const [savingPolicy, setSavingPolicy] = useState(false)
   const [error, setError] = useState('')
-  const [editPolicyName, setEditPolicyName] = useState<string | null>(null)
-  const [editValue, setEditValue] = useState('')
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  // Filters & Search
+  const [searchPriority, setSearchPriority] = useState('')
+  const [searchPolicy, setSearchPolicy] = useState('')
+  const [selectedPolicyCategory, setSelectedPolicyCategory] = useState('ALL')
+  const [searchStatus, setSearchStatus] = useState('')
+
+  // Edit Policy Modal State
+  const [editingPolicy, setEditingPolicy] = useState<PolicyConfig | null>(null)
+  const [editValue, setEditValue] = useState('')
 
   const load = async () => {
     setLoading(true)
     setError('')
     try {
+      // 1. Fetch Project Statuses
       const s = await housingProjectStatusesApi.list()
       const sl = Array.isArray(s) ? s : ((s as { items?: ProjectStatus[] }).items ?? [])
       setStatuses(sl as ProjectStatus[])
 
+      // 2. Fetch Policies
       const policyNames = Object.keys(POLICY_DEFAULT_VALUES)
       const loaded: PolicyConfig[] = []
       for (const name of policyNames) {
@@ -802,14 +1000,20 @@ export function CategoriesPage() {
       }
       setPolicies(loaded)
 
+      // 3. Fetch Priority Points
       try {
         const ptRes = await housingProjectStatusesApi.getPriorityPoints()
         const ptData = (ptRes && typeof ptRes === 'object' && 'data' in ptRes ? (ptRes as any).data : ptRes) as PriorityPointsTableDto
         if (ptData?.pointsTable && Array.isArray(ptData.pointsTable) && ptData.pointsTable.length > 0) {
           setPriorityPoints(ptData.pointsTable)
+          setSavedPriorityPoints(ptData.pointsTable)
+        } else {
+          setPriorityPoints(DEFAULT_PRIORITY_POINTS)
+          setSavedPriorityPoints(DEFAULT_PRIORITY_POINTS)
         }
       } catch {
-        // use default fallback
+        setPriorityPoints(DEFAULT_PRIORITY_POINTS)
+        setSavedPriorityPoints(DEFAULT_PRIORITY_POINTS)
       }
     } catch (err) {
       setError(formatError(err))
@@ -818,18 +1022,33 @@ export function CategoriesPage() {
     }
   }
 
-  useEffect(() => { void load() }, [])
+  useEffect(() => {
+    void load()
+  }, [])
 
-  const savePolicy = async (name: string) => {
-    setMsg(null)
-    try {
-      await housingProjectStatusesApi.updatePolicy(name, { policyValue: editValue })
-      setMsg({ type: 'success', text: `Đã cập nhật: ${policyTitle(name)}.` })
-      setEditPolicyName(null)
-      await load()
-    } catch (err) {
-      setMsg({ type: 'error', text: formatError(err) })
-    }
+  // Check if priority points were modified
+  const isPriorityPointsDirty = JSON.stringify(priorityPoints) !== JSON.stringify(savedPriorityPoints)
+
+  const handlePointChange = (idx: number, delta: number) => {
+    setPriorityPoints((prev) =>
+      prev.map((p, i) => {
+        if (i !== idx) return p
+        const nextVal = Math.max(0, Math.min(100, (p.points || 0) + delta))
+        return { ...p, points: nextVal }
+      }),
+    )
+  }
+
+  const handleDirectPointInput = (idx: number, val: number) => {
+    const clamped = Math.max(0, Math.min(100, val || 0))
+    setPriorityPoints((prev) =>
+      prev.map((p, i) => (i === idx ? { ...p, points: clamped } : p)),
+    )
+  }
+
+  const resetPriorityPointsToDefault = () => {
+    setPriorityPoints(DEFAULT_PRIORITY_POINTS)
+    setMsg({ type: 'success', text: 'Đã khôi phục ma trận điểm chuẩn theo Điều 76 Luật Nhà ở 2023. Hãy nhấn "Lưu bảng điểm" để cập nhật lên máy chủ.' })
   }
 
   const savePriorityPoints = async () => {
@@ -837,7 +1056,8 @@ export function CategoriesPage() {
     setMsg(null)
     try {
       await housingProjectStatusesApi.updatePriorityPoints({ pointsTable: priorityPoints })
-      setMsg({ type: 'success', text: 'Đã cập nhật bảng điểm ưu tiên NOXH thành công.' })
+      setSavedPriorityPoints(priorityPoints)
+      setMsg({ type: 'success', text: 'Đã lưu thành công ma trận điểm ưu tiên NOXH vào hệ thống.' })
     } catch (err) {
       setMsg({ type: 'error', text: formatError(err) })
     } finally {
@@ -845,128 +1065,824 @@ export function CategoriesPage() {
     }
   }
 
+  const openEditPolicyModal = (p: PolicyConfig) => {
+    setEditingPolicy(p)
+    setEditValue(p.policyValue)
+  }
+
+  const savePolicyModal = async () => {
+    if (!editingPolicy) return
+    setSavingPolicy(true)
+    setMsg(null)
+    try {
+      await housingProjectStatusesApi.updatePolicy(editingPolicy.policyName, { policyValue: editValue })
+      setMsg({ type: 'success', text: `Đã cập nhật quy chuẩn: ${policyTitle(editingPolicy.policyName)} thành công.` })
+      setEditingPolicy(null)
+      await load()
+    } catch (err) {
+      setMsg({ type: 'error', text: formatError(err) })
+    } finally {
+      setSavingPolicy(false)
+    }
+  }
+
+  // Filtered Priority Items
+  const filteredPriorityPoints = priorityPoints.filter((item) => {
+    if (!searchPriority.trim()) return true
+    const q = searchPriority.toLowerCase().trim()
+    return item.groupName.toLowerCase().includes(q) || item.groupCode.toLowerCase().includes(q) || (item.description || '').toLowerCase().includes(q)
+  })
+
+  // Filtered Policies
+  const filteredPolicies = policies.filter((p) => {
+    if (selectedPolicyCategory !== 'ALL') {
+      const cat = POLICY_CATEGORIES[selectedPolicyCategory]
+      if (cat && !cat.keys.includes(p.policyName)) return false
+    }
+    if (searchPolicy.trim()) {
+      const q = searchPolicy.toLowerCase().trim()
+      const title = policyTitle(p.policyName).toLowerCase()
+      const hint = (POLICY_META_VI[p.policyName]?.hint || p.description || '').toLowerCase()
+      const val = p.policyValue.toLowerCase()
+      return title.includes(q) || hint.includes(q) || val.includes(q) || p.policyName.toLowerCase().includes(q)
+    }
+    return true
+  })
+
+  // Filtered Statuses
+  const filteredStatuses = statuses.filter((s) => {
+    if (!searchStatus.trim()) return true
+    const q = searchStatus.toLowerCase().trim()
+    const name = (s.statusName || '').toLowerCase()
+    const code = (s.statusCode || '').toLowerCase()
+    const desc = (s.description || '').toLowerCase()
+    const label = labelProjectStatus(s.statusCode || s.statusName).toLowerCase()
+    return name.includes(q) || code.includes(q) || desc.includes(q) || label.includes(q)
+  })
+
   return (
     <div className="space-y-6">
-      <PageCard className="p-6">
-        {msg && <Alert variant={msg.type === 'error' ? 'error' : 'success'} className="mb-3">{msg.text}</Alert>}
-        {error && <Alert variant="error" className="mb-3">{error}</Alert>}
-        {loading ? (
-          <p className="text-sm text-slate-500 dark:text-slate-400">Đang tải...</p>
-        ) : (
-          <>
-            {/* Bảng điểm ưu tiên NOXH */}
-            <div className="mb-8">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                    🏆 Ma trận điểm ưu tiên NOXH (Điều 76 Luật Nhà ở 2023)
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Cấu hình trọng số điểm ưu tiên chấm tự động khi xét duyệt hồ sơ đăng ký.
-                  </p>
-                </div>
-                <Button variant="accent" size="sm" disabled={savingPoints} onClick={() => void savePriorityPoints()}>
-                  {savingPoints ? 'Đang lưu...' : '💾 Lưu bảng điểm ưu tiên'}
-                </Button>
+      {/* Hero Header */}
+      <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-6 text-white shadow-xl dark:border-slate-800">
+        <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-cyan-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-20 -left-10 h-64 w-64 rounded-full bg-indigo-500/10 blur-3xl" />
+
+        <div className="relative flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-1.5">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-400/30 bg-cyan-500/10 px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-cyan-300 backdrop-blur-md">
+              <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
+              Cấu hình hệ thống · System Configuration
+            </span>
+            <h1 className="text-2xl font-extrabold tracking-tight text-white md:text-3xl">
+              Quản lý danh mục &amp; Cấu hình chính sách
+            </h1>
+            <p className="max-w-2xl text-xs text-slate-300 md:text-sm">
+              Thiết lập ma trận điểm ưu tiên theo Điều 76 Luật Nhà ở 2023, tham số quy chuẩn xét duyệt tự động và từ điển vòng đời trạng thái dự án.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2.5">
+            {activeTab === 'priority' && isPriorityPointsDirty && (
+              <Button
+                variant="accent"
+                onClick={() => void savePriorityPoints()}
+                disabled={savingPoints}
+                className="h-10 rounded-xl bg-emerald-600 px-4 text-xs font-bold text-white shadow-lg shadow-emerald-900/30 hover:bg-emerald-500"
+              >
+                <Save className={`mr-1.5 h-3.5 w-3.5 ${savingPoints ? 'animate-spin' : ''}`} />
+                {savingPoints ? 'Đang lưu...' : 'Lưu ma trận điểm'}
+              </Button>
+            )}
+
+            <Button
+              onClick={() => void load()}
+              disabled={loading}
+              className="h-10 rounded-xl bg-white/10 px-4 text-xs font-semibold text-white backdrop-blur-md transition hover:bg-white/20 hover:text-white"
+            >
+              <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+              {loading ? 'Đang đồng bộ...' : 'Làm mới'}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Global Alerts */}
+      {msg && (
+        <Alert variant={msg.type === 'error' ? 'error' : 'success'} className="rounded-xl shadow-sm">
+          {msg.text}
+        </Alert>
+      )}
+      {error && (
+        <Alert variant="error" className="rounded-xl shadow-sm">
+          {error}
+        </Alert>
+      )}
+
+      {/* Top KPI Cards */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Nhóm ưu tiên</span>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400">
+              <Trophy className="h-4 w-4" />
+            </div>
+          </div>
+          <p className="mt-2 text-2xl font-black text-slate-900 dark:text-white">{loading ? '—' : priorityPoints.length}</p>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Đối tượng hưởng điểm cộng NOXH</p>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Quy chuẩn chính sách</span>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400">
+              <Settings2 className="h-4 w-4" />
+            </div>
+          </div>
+          <p className="mt-2 text-2xl font-black text-slate-900 dark:text-white">{loading ? '—' : policies.length}</p>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Tham số thẩm định hồ sơ tự động</p>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Trạng thái dự án</span>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400">
+              <Layers className="h-4 w-4" />
+            </div>
+          </div>
+          <p className="mt-2 text-2xl font-black text-slate-900 dark:text-white">{loading ? '—' : statuses.length}</p>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Vòng đời quy trình dự án NOXH</p>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Khung pháp lý</span>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400">
+              <Scale className="h-4 w-4" />
+            </div>
+          </div>
+          <p className="mt-2 text-base font-extrabold text-indigo-700 dark:text-indigo-400">Luật Nhà ở 2023</p>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Điều 76 &amp; Nghị định 100/2024</p>
+        </div>
+      </div>
+
+      {/* Navigation Tabs */}
+      <div className="flex border-b border-slate-200 dark:border-slate-800">
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab('priority')}
+            className={`group relative flex items-center gap-2 px-4 py-3 text-xs font-bold transition-all ${
+              activeTab === 'priority'
+                ? 'text-indigo-600 dark:text-indigo-400'
+                : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+            }`}
+          >
+            <Trophy className="h-4 w-4" />
+            <span>Ma trận điểm ưu tiên NOXH</span>
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${
+              activeTab === 'priority'
+                ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'
+                : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+            }`}>
+              {priorityPoints.length}
+            </span>
+            {activeTab === 'priority' && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 dark:bg-indigo-400" />
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('policy')}
+            className={`group relative flex items-center gap-2 px-4 py-3 text-xs font-bold transition-all ${
+              activeTab === 'policy'
+                ? 'text-indigo-600 dark:text-indigo-400'
+                : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+            }`}
+          >
+            <Settings2 className="h-4 w-4" />
+            <span>Quy chuẩn &amp; Chính sách</span>
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${
+              activeTab === 'policy'
+                ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'
+                : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+            }`}>
+              {policies.length}
+            </span>
+            {activeTab === 'policy' && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 dark:bg-indigo-400" />
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('status')}
+            className={`group relative flex items-center gap-2 px-4 py-3 text-xs font-bold transition-all ${
+              activeTab === 'status'
+                ? 'text-indigo-600 dark:text-indigo-400'
+                : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+            }`}
+          >
+            <Layers className="h-4 w-4" />
+            <span>Trạng thái dự án</span>
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${
+              activeTab === 'status'
+                ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'
+                : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+            }`}>
+              {statuses.length}
+            </span>
+            {activeTab === 'status' && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 dark:bg-indigo-400" />
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* TAB 1: MA TRẬN ĐIỂM ƯU TIÊN */}
+      {activeTab === 'priority' && (
+        <div className="space-y-4">
+          {/* Legal Info Card */}
+          <div className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50/60 p-4 dark:border-amber-900/50 dark:bg-amber-950/20 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300">
+                <Info className="h-4 w-4" />
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                  Cơ chế chấm điểm tự động theo Điều 76 Luật Nhà ở 2023
+                </p>
+                <p className="text-xs text-amber-700 dark:text-amber-400">
+                  Điểm ưu tiên được Rule Engine cộng dồn tự động vào hồ sơ dựa trên giấy tờ chứng minh đối tượng đã được cán bộ thẩm định xác thực.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-end sm:self-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={resetPriorityPointsToDefault}
+                className="h-8 rounded-xl border-amber-300 bg-white/80 text-xs font-semibold text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-slate-900 dark:text-amber-300"
+              >
+                <RotateCcw className="mr-1 h-3.5 w-3.5" />
+                Chuẩn mặc định
+              </Button>
+
+              <Button
+                variant="accent"
+                size="sm"
+                disabled={savingPoints || !isPriorityPointsDirty}
+                onClick={() => void savePriorityPoints()}
+                className="h-8 rounded-xl bg-indigo-600 px-3 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50"
+              >
+                <Save className={`mr-1 h-3.5 w-3.5 ${savingPoints ? 'animate-spin' : ''}`} />
+                {savingPoints ? 'Đang lưu...' : 'Lưu bảng điểm'}
+              </Button>
+            </div>
+          </div>
+
+          {/* Table Container */}
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            {/* Search toolbar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4 dark:border-slate-800">
+              <div className="relative flex-1 min-w-[240px]">
+                <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Tìm nhóm đối tượng hoặc mã quy định..."
+                  value={searchPriority}
+                  onChange={(e) => setSearchPriority(e.target.value)}
+                  className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-10 pr-4 text-xs font-medium text-slate-900 transition focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                />
+                {searchPriority && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchPriority('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
 
-              <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 dark:bg-slate-800/80">
-                    <tr className="border-b border-slate-200 dark:border-slate-700">
-                      <th className="px-3 py-2.5 font-semibold text-slate-700 dark:text-slate-300">Nhóm đối tượng ưu tiên</th>
-                      <th className="px-3 py-2.5 font-semibold text-slate-700 dark:text-slate-300">Mô tả quy định</th>
-                      <th className="px-3 py-2.5 text-right font-semibold text-slate-700 dark:text-slate-300">Điểm số</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {priorityPoints.map((item, idx) => (
-                      <tr key={item.groupCode || idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
-                        <td className="px-3 py-2 font-semibold text-slate-900 dark:text-slate-100">{item.groupName}</td>
-                        <td className="px-3 py-2 text-slate-500 dark:text-slate-400">{item.description || '—'}</td>
-                        <td className="px-3 py-2 text-right">
-                          <input
-                            type="number"
-                            min={0}
-                            max={100}
-                            value={item.points}
-                            onChange={(e) => {
-                              const val = Number(e.target.value) || 0
-                              setPriorityPoints((prev) =>
-                                prev.map((p, i) => (i === idx ? { ...p, points: val } : p)),
-                              )
-                            }}
-                            className="w-16 rounded-md border border-slate-200 bg-white px-2 py-1 text-right text-xs font-bold text-indigo-600 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-indigo-400"
-                          />
+              {isPriorityPointsDirty && (
+                <div className="flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
+                  <AlertCircle className="h-3.5 w-3.5 text-amber-600" />
+                  <span>Có thay đổi chưa lưu</span>
+                </div>
+              )}
+            </div>
+
+            {/* Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="border-b border-slate-200 bg-slate-50 font-bold uppercase tracking-wider text-slate-500 dark:border-slate-800 dark:bg-slate-800/80 dark:text-slate-400">
+                  <tr>
+                    <th className="px-5 py-3.5">Nhóm đối tượng ưu tiên</th>
+                    <th className="px-4 py-3.5">Mã nhóm</th>
+                    <th className="px-4 py-3.5">Căn cứ &amp; Mô tả quy định</th>
+                    <th className="px-4 py-3.5 text-center">Thang điểm (0 - 10)</th>
+                    <th className="px-5 py-3.5 text-right">Điểm thiết lập</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {filteredPriorityPoints.map((item) => {
+                    const idx = priorityPoints.findIndex((p) => p.groupCode === item.groupCode)
+                    const meta = getPriorityGroupMeta(item.groupCode)
+                    const GroupIcon = meta.Icon
+                    const percentage = Math.min(100, Math.max(0, (item.points / 10) * 100))
+
+                    return (
+                      <tr
+                        key={item.groupCode || idx}
+                        className="group transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-800/40"
+                      >
+                        {/* Nhóm đối tượng */}
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center gap-3">
+                            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${meta.badge}`}>
+                              <GroupIcon className="h-4 w-4" />
+                            </div>
+                            <div>
+                              <p className="font-bold text-slate-900 dark:text-slate-100">{item.groupName}</p>
+                              <p className="text-[11px] text-slate-400">Hạng mục ưu tiên cấp nhà</p>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Mã nhóm */}
+                        <td className="px-4 py-3.5 whitespace-nowrap">
+                          <span className="font-mono text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                            {item.groupCode}
+                          </span>
+                        </td>
+
+                        {/* Mô tả */}
+                        <td className="px-4 py-3.5 max-w-xs">
+                          <p className="line-clamp-2 text-xs text-slate-600 dark:text-slate-300">
+                            {item.description || 'Quy định theo Luật Nhà ở 2023'}
+                          </p>
+                        </td>
+
+                        {/* Gauge bar */}
+                        <td className="px-4 py-3.5 w-36">
+                          <div className="flex flex-col gap-1 items-center">
+                            <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all duration-300 ${meta.barColor}`}
+                                style={{ width: `${percentage}%` }}
+                              />
+                            </div>
+                            <span className="text-[10px] font-semibold text-slate-400">
+                              {item.points} / 10 điểm chuẩn
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Điểm số & Bộ điều khiển */}
+                        <td className="px-5 py-3.5 text-right whitespace-nowrap">
+                          <div className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-800">
+                            <button
+                              type="button"
+                              onClick={() => handlePointChange(idx, -1)}
+                              disabled={item.points <= 0}
+                              className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-slate-600 shadow-sm transition hover:bg-slate-100 disabled:opacity-40 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
+                              title="Giảm 1 điểm"
+                            >
+                              <Minus className="h-3.5 w-3.5" />
+                            </button>
+
+                            <input
+                              type="number"
+                              min={0}
+                              max={100}
+                              value={item.points}
+                              onChange={(e) => handleDirectPointInput(idx, Number(e.target.value))}
+                              className="w-12 bg-transparent text-center font-mono text-sm font-extrabold text-indigo-600 focus:outline-none dark:text-indigo-400"
+                            />
+
+                            <button
+                              type="button"
+                              onClick={() => handlePointChange(idx, 1)}
+                              disabled={item.points >= 100}
+                              className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-slate-600 shadow-sm transition hover:bg-slate-100 disabled:opacity-40 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
+                              title="Tăng 1 điểm"
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Bottom action bar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-slate-50/50 px-5 py-3.5 dark:border-slate-800 dark:bg-slate-900/50">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Hiển thị <strong className="font-semibold text-slate-800 dark:text-slate-200">{filteredPriorityPoints.length}</strong> / {priorityPoints.length} nhóm đối tượng ưu tiên
+              </p>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={resetPriorityPointsToDefault}
+                  className="h-8 rounded-xl text-xs"
+                >
+                  <RotateCcw className="mr-1 h-3.5 w-3.5" />
+                  Khôi phục chuẩn
+                </Button>
+
+                <Button
+                  variant="accent"
+                  size="sm"
+                  disabled={savingPoints || !isPriorityPointsDirty}
+                  onClick={() => void savePriorityPoints()}
+                  className="h-8 rounded-xl bg-indigo-600 px-4 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  <Save className={`mr-1.5 h-3.5 w-3.5 ${savingPoints ? 'animate-spin' : ''}`} />
+                  {savingPoints ? 'Đang lưu...' : 'Lưu bảng điểm ưu tiên'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: QUY CHUẨN & CHÍNH SÁCH */}
+      {activeTab === 'policy' && (
+        <div className="space-y-4">
+          {/* Categories Filter Toolbar */}
+          <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:flex-row lg:items-center lg:justify-between">
+            {/* Filter pills */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setSelectedPolicyCategory('ALL')}
+                className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
+                  selectedPolicyCategory === 'ALL'
+                    ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-200 dark:shadow-none'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+                }`}
+              >
+                Tất cả quy chuẩn ({policies.length})
+              </button>
+
+              {Object.entries(POLICY_CATEGORIES).map(([catKey, cat]) => {
+                const CatIcon = cat.icon
+                const count = policies.filter((p) => cat.keys.includes(p.policyName)).length
+                const active = selectedPolicyCategory === catKey
+                return (
+                  <button
+                    key={catKey}
+                    type="button"
+                    onClick={() => setSelectedPolicyCategory(catKey)}
+                    className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
+                      active
+                        ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-200 dark:shadow-none'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    <CatIcon className="h-3.5 w-3.5" />
+                    <span>{cat.label}</span>
+                    <span className={`rounded-full px-1.5 py-0.2 text-[10px] ${active ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300'}`}>
+                      {count}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Search */}
+            <div className="relative min-w-[240px]">
+              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Tìm quy chuẩn, mức tiền, ngày..."
+                value={searchPolicy}
+                onChange={(e) => setSearchPolicy(e.target.value)}
+                className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-9 pr-3 text-xs font-medium text-slate-900 transition focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+              />
+              {searchPolicy && (
+                <button
+                  type="button"
+                  onClick={() => setSearchPolicy('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Policies Grid */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {filteredPolicies.map((p) => {
+              const meta = POLICY_META_VI[p.policyName]
+              const PolicyIcon = getPolicyIcon(p.policyName)
+              const formattedVal = formatPolicyValue(p.policyName, p.policyValue)
+
+              return (
+                <div
+                  key={p.policyName}
+                  className="group relative flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-indigo-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-indigo-700"
+                >
+                  <div>
+                    {/* Top Header */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400">
+                        <PolicyIcon className="h-5 w-5" />
+                      </div>
+
+                      <span className="font-mono text-[10px] font-semibold text-slate-400 truncate max-w-[120px]">
+                        {p.policyName}
+                      </span>
+                    </div>
+
+                    {/* Title & Description */}
+                    <div className="mt-3 space-y-1">
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                        {policyTitle(p.policyName)}
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">
+                        {meta?.hint || p.description || 'Tham số thẩm định chính sách NOXH.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Value & Action */}
+                  <div className="mt-5 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Giá trị áp dụng</p>
+                      <p className="text-sm font-extrabold text-indigo-600 dark:text-indigo-400">
+                        {formattedVal}
+                      </p>
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openEditPolicyModal(p)}
+                      className="h-8 rounded-xl border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-700 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-indigo-950/40"
+                    >
+                      <Edit3 className="mr-1 h-3.5 w-3.5" />
+                      Điều chỉnh
+                    </Button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: TRẠNG THÁI DỰ ÁN & VÒNG ĐỜI */}
+      {activeTab === 'status' && (
+        <div className="space-y-6">
+          {/* Lifecycle Pipeline Infographic */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="mb-4">
+              <span className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                <Layers className="h-3.5 w-3.5" />
+                Vòng đời dự án nhà ở xã hội
+              </span>
+              <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
+                Quy trình phân bổ &amp; kiểm soát trạng thái chuẩn
+              </h3>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <div className="relative rounded-xl border border-slate-200 bg-slate-50/60 p-3 dark:border-slate-700 dark:bg-slate-800/40">
+                <span className="text-[10px] font-extrabold uppercase text-slate-400">Bước 1</span>
+                <p className="mt-0.5 text-xs font-bold text-slate-800 dark:text-slate-200">Khởi tạo &amp; Dự thảo</p>
+                <p className="mt-1 text-[11px] text-slate-500">Chủ đầu tư lập thông tin dự án, cấu hình quỹ căn và giá bán.</p>
+              </div>
+
+              <div className="relative rounded-xl border border-amber-200 bg-amber-50/40 p-3 dark:border-amber-900/40 dark:bg-amber-950/20">
+                <span className="text-[10px] font-extrabold uppercase text-amber-600 dark:text-amber-400">Bước 2</span>
+                <p className="mt-0.5 text-xs font-bold text-amber-900 dark:text-amber-200">Sở Xây dựng duyệt</p>
+                <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-400">Thẩm định tính pháp lý và điều kiện nhận hồ sơ.</p>
+              </div>
+
+              <div className="relative rounded-xl border border-emerald-200 bg-emerald-50/40 p-3 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+                <span className="text-[10px] font-extrabold uppercase text-emerald-600 dark:text-emerald-400">Bước 3</span>
+                <p className="mt-0.5 text-xs font-bold text-emerald-900 dark:text-emerald-200">Mở nhận hồ sơ</p>
+                <p className="mt-1 text-[11px] text-emerald-700 dark:text-emerald-400">Công khai nhận hồ sơ tối thiểu 30 ngày theo luật.</p>
+              </div>
+
+              <div className="relative rounded-xl border border-indigo-200 bg-indigo-50/40 p-3 dark:border-indigo-900/40 dark:bg-indigo-950/20">
+                <span className="text-[10px] font-extrabold uppercase text-indigo-600 dark:text-indigo-400">Bước 4</span>
+                <p className="mt-0.5 text-xs font-bold text-indigo-900 dark:text-indigo-200">Đóng hồ sơ &amp; Bốc thăm</p>
+                <p className="mt-1 text-[11px] text-indigo-700 dark:text-indigo-400">Chấm điểm tự động, đối soát và bốc thăm công khai.</p>
+              </div>
+
+              <div className="relative rounded-xl border border-slate-200 bg-slate-100 p-3 dark:border-slate-700 dark:bg-slate-800">
+                <span className="text-[10px] font-extrabold uppercase text-slate-500">Bước 5</span>
+                <p className="mt-0.5 text-xs font-bold text-slate-800 dark:text-slate-200">Hết suất / Bàn giao</p>
+                <p className="mt-1 text-[11px] text-slate-500">Ký hợp đồng mua bán và bàn giao căn hộ cho công dân.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Status List Cards */}
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4 dark:border-slate-800">
+              <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                Danh mục trạng thái trong cơ sở dữ liệu ({statuses.length})
+              </h4>
+
+              <div className="relative min-w-[240px]">
+                <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Tìm trạng thái..."
+                  value={searchStatus}
+                  onChange={(e) => setSearchStatus(e.target.value)}
+                  className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-9 pr-3 text-xs font-medium text-slate-900 transition focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                />
               </div>
             </div>
 
-            <h3 className="mb-2 font-semibold">Trạng thái dự án</h3>
-            <div className="mb-6 space-y-2">
-              {statuses.map((s) => (
-                <div key={s.id} className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
-                  <p className="font-medium">{labelProjectStatus(s.statusCode || s.statusName)}</p>
-                  {s.description && <p className="text-xs text-slate-500">{s.description}</p>}
-                </div>
-              ))}
-            </div>
+            <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredStatuses.map((s) => {
+                const meta = getProjectStatusMeta(s)
+                const StatusIcon = meta.Icon
 
-            <h3 className="mb-2 font-semibold">Cấu hình chính sách nhà ở xã hội</h3>
-            <div className="space-y-2">
-              {policies.map((p) => {
-                const meta = POLICY_META_VI[p.policyName]
-                const kind = meta?.kind ?? 'number'
                 return (
-                  <div key={p.policyName} className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex-1">
-                        <p className="font-medium">{policyTitle(p.policyName)}</p>
-                        <p className="text-xs text-slate-500">{meta?.hint || p.description || ''}</p>
+                  <div
+                    key={s.id}
+                    className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-indigo-200 dark:border-slate-800 dark:bg-slate-800/60"
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-bold ${meta.badge}`}>
+                          <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
+                          <StatusIcon className="h-3.5 w-3.5" />
+                          <span>{meta.label}</span>
+                        </span>
+
+                        <span className="font-mono text-[10px] font-bold text-slate-400">
+                          {meta.code}
+                        </span>
                       </div>
-                      {editPolicyName === p.policyName ? (
-                        <div className="flex gap-2">
-                          {kind === 'bool' ? (
-                            <Select
-                              value={/^(true|1|yes)$/i.test(editValue) ? 'true' : 'false'}
-                              onChange={(e) => setEditValue(e.target.value)}
-                              className="text-sm"
-                            >
-                              <option value="true">Có</option>
-                              <option value="false">Không</option>
-                            </Select>
-                          ) : (
-                            <Input
-                              value={editValue}
-                              onChange={(e) => setEditValue(e.target.value)}
-                              className="text-sm"
-                            />
-                          )}
-                          <Button variant="accent" size="sm" onClick={() => void savePolicy(p.policyName)}>Lưu</Button>
-                          <Button variant="outline" size="sm" onClick={() => setEditPolicyName(null)}>Huỷ</Button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <span className="rounded-md bg-slate-100 px-2 py-1 text-sm font-medium text-slate-800 dark:bg-slate-800 dark:text-slate-100">
-                            {formatPolicyValue(p.policyName, p.policyValue)}
-                          </span>
-                          <Button variant="outline" size="sm" onClick={() => { setEditPolicyName(p.policyName); setEditValue(p.policyValue) }}>
-                            Sửa
-                          </Button>
-                        </div>
-                      )}
+
+                      <p className="text-xs text-slate-600 dark:text-slate-300">
+                        {meta.desc}
+                      </p>
+                    </div>
+
+                    <div className="mt-4 pt-2 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-[11px] text-slate-400">
+                      <span>Phân nhóm: <strong>{meta.stage}</strong></span>
+                      <span className="font-mono text-[10px] text-slate-400">ID: {s.id.slice(0, 8)}</span>
                     </div>
                   </div>
                 )
               })}
             </div>
-          </>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Policy Modal */}
+      <Modal
+        open={!!editingPolicy}
+        onClose={() => setEditingPolicy(null)}
+        title="Điều chỉnh quy chuẩn chính sách"
+        description={editingPolicy ? `Khóa cấu hình: ${editingPolicy.policyName}` : ''}
+        size="md"
+      >
+        {editingPolicy && (
+          <div className="space-y-4 text-xs">
+            <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-800/60">
+              <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                {policyTitle(editingPolicy.policyName)}
+              </p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                {POLICY_META_VI[editingPolicy.policyName]?.hint || editingPolicy.description || 'Quy chuẩn xét duyệt hệ thống.'}
+              </p>
+            </div>
+
+            {/* Input Control */}
+            <div className="space-y-2">
+              <label className="block font-bold text-slate-700 dark:text-slate-300">
+                Giá trị thiết lập mới:
+              </label>
+
+              {POLICY_META_VI[editingPolicy.policyName]?.kind === 'bool' ? (
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setEditValue('true')}
+                    className={`flex items-center justify-center gap-2 rounded-xl border p-3 font-bold transition-all ${
+                      /^(true|1|yes)$/i.test(editValue)
+                        ? 'border-indigo-600 bg-indigo-50 text-indigo-700 dark:border-indigo-500 dark:bg-indigo-950/60 dark:text-indigo-300'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                    }`}
+                  >
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                    <span>Có (Cho phép / Bật)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setEditValue('false')}
+                    className={`flex items-center justify-center gap-2 rounded-xl border p-3 font-bold transition-all ${
+                      !/^(true|1|yes)$/i.test(editValue)
+                        ? 'border-indigo-600 bg-indigo-50 text-indigo-700 dark:border-indigo-500 dark:bg-indigo-950/60 dark:text-indigo-300'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                    }`}
+                  >
+                    <XCircle className="h-4 w-4 text-rose-600" />
+                    <span>Không (Vô hiệu / Tắt)</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="relative">
+                    <input
+                      type={POLICY_META_VI[editingPolicy.policyName]?.kind === 'rate' ? 'text' : 'number'}
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 font-mono text-sm font-bold text-slate-900 transition focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                    />
+                    {POLICY_META_VI[editingPolicy.policyName]?.unit && (
+                      <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                        {POLICY_META_VI[editingPolicy.policyName]?.unit}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Preview Formatted */}
+                  <div className="flex items-center justify-between rounded-lg bg-indigo-50/50 px-3 py-1.5 text-xs text-indigo-700 dark:bg-indigo-950/30 dark:text-indigo-300">
+                    <span>Xem trước định dạng:</span>
+                    <strong className="font-bold">{formatPolicyValue(editingPolicy.policyName, editValue)}</strong>
+                  </div>
+
+                  {/* Preset Quick Actions */}
+                  {POLICY_META_VI[editingPolicy.policyName]?.kind === 'money' && (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      <span className="self-center text-[10px] text-slate-400">Chọn nhanh:</span>
+                      {['15000000', '20000000', '30000000', '40000000'].map((val) => (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => setEditValue(val)}
+                          className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                        >
+                          {Number(val).toLocaleString('vi-VN')} đ
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {POLICY_META_VI[editingPolicy.policyName]?.kind === 'days' && (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      <span className="self-center text-[10px] text-slate-400">Chọn nhanh:</span>
+                      {['15', '20', '30', '45', '60'].map((val) => (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => setEditValue(val)}
+                          className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                        >
+                          {val} ngày
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setEditingPolicy(null)}
+                disabled={savingPolicy}
+                className="h-9 rounded-xl text-xs"
+              >
+                Hủy
+              </Button>
+              <Button
+                variant="accent"
+                size="sm"
+                onClick={() => void savePolicyModal()}
+                disabled={savingPolicy}
+                className="h-9 rounded-xl bg-indigo-600 px-4 text-xs font-bold text-white shadow-sm hover:bg-indigo-700"
+              >
+                <Save className={`mr-1.5 h-3.5 w-3.5 ${savingPolicy ? 'animate-spin' : ''}`} />
+                {savingPolicy ? 'Đang lưu...' : 'Lưu cấu hình'}
+              </Button>
+            </div>
+          </div>
         )}
-      </PageCard>
+      </Modal>
     </div>
   )
 }
