@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import {
-  Activity,
   ArrowRight,
   CircleUserRound,
   Database,
-  HardDrive,
   ShieldCheck,
   Sparkles,
   UserCheck,
@@ -205,7 +203,7 @@ export function AdminHomePage() {
         <div className="led-strip absolute inset-x-0 top-0" aria-hidden />
         <div aria-hidden className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-cyan-300/40 blur-3xl" />
         <div aria-hidden className="pointer-events-none absolute -bottom-32 -left-10 h-64 w-64 rounded-full bg-sky-300/40 blur-3xl" />
-        <div className="relative grid gap-4 md:grid-cols-[1.6fr_1fr]">
+        <div className="relative">
           <div>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-[0.16em] text-primary backdrop-blur-md">
               <Sparkles className="h-3 w-3 text-primary" />
@@ -214,7 +212,7 @@ export function AdminHomePage() {
             <h1 className="mt-3 text-2xl font-extrabold leading-tight text-[#003D7A] md:text-3xl dark:text-[#003D7A]">
               Quản lý tài khoản hệ thống
             </h1>
-            <p className="mt-2 max-w-2xl text-sm text-slate-600">
+            <p className="mt-2 max-w-2xl text-sm text-slate-600 dark:text-slate-600">
               Giám sát tài khoản Chủ đầu tư, Sở Xây dựng và người dùng.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
@@ -225,27 +223,6 @@ export function AdminHomePage() {
                 <UserCheck className="mr-1 h-3.5 w-3.5" /> Thêm tài khoản
               </Button>
             </div>
-          </div>
-
-          {/* Mini stat strip với data thật */}
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { label: 'Tài khoản', value: loading ? '—' : data.totalStaff, icon: Users, accent: 'from-cyan-500 to-sky-500' },
-              { label: 'Hoạt động', value: loading ? '—' : data.activeStaff, icon: Activity, accent: 'from-emerald-500 to-teal-500' },
-              { label: 'Hồ sơ', value: loading ? '—' : data.totalApplications, icon: Database, accent: 'from-blue-500 to-cyan-500' },
-              { label: 'Dự án', value: loading ? '—' : data.totalProjects, icon: HardDrive, accent: 'from-amber-500 to-orange-500' },
-            ].map((m) => {
-              const Icon = m.icon
-              return (
-                <div key={m.label} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-                  <div className={`mb-2 flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br ${m.accent} text-white shadow-md`}>
-                    <Icon className="h-4 w-4" />
-                  </div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{m.label}</p>
-                  <p className="text-xl font-extrabold tabular-nums text-slate-900">{m.value}</p>
-                </div>
-              )
-            })}
           </div>
         </div>
       </motion.section>
