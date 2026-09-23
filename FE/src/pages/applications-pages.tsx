@@ -1253,18 +1253,81 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
     }
   }
 
-  const sxdReview = async (action: string, needNote = false) => {
-    if (acting) return
-    let note: string | null = null
-    if (needNote) {
-      note = window.prompt('Nhập ghi chú / lý do:')
-      if (!note?.trim()) { setMsg({ type: 'error', text: 'Ghi chú là bắt buộc.' }); return }
+  // Action note modal (thay thế window.prompt)
+  const [actionModal, setActionModal] = useState<{
+    open: boolean
+    type: 'reject' | 'request-docs' | 'flag' | ''
+    title: string
+    description: string
+    placeholder: string
+    confirmLabel: string
+    confirmVariant: 'primary' | 'destructive' | 'warning'
+  }>({
+    open: false,
+    type: '',
+    title: '',
+    description: '',
+    placeholder: '',
+    confirmLabel: '',
+    confirmVariant: 'primary',
+  })
+  const [actionNote, setActionNote] = useState('')
+  const [actionError, setActionError] = useState('')
+
+  const handleConfirmAction = async () => {
+    if (!actionNote.trim()) {
+      setActionError('Vui lòng nhập nội dung ghi chú / lý do.')
+      return
     }
+    setActionError('')
+    const note = actionNote.trim()
+
+    if (actionModal.type === 'reject') {
+      setActing('Department Of Construction-REJECT')
+      try {
+        await housingApplicationsApi.sxdReview(appId, { action: 'REJECT', note })
+        setActionModal((prev) => ({ ...prev, open: false }))
+        await refresh()
+        setMsg({ type: 'success', text: 'Đã từ chối hồ sơ.' })
+      } catch (err) {
+        setMsg({ type: 'error', text: formatError(err) })
+      } finally {
+        setActing('')
+      }
+    } else if (actionModal.type === 'request-docs') {
+      setActing('request-docs')
+      try {
+        await housingApplicationsApi.sxdRequestDocs(appId, note)
+        setActionModal((prev) => ({ ...prev, open: false }))
+        await refresh()
+        setMsg({ type: 'success', text: 'Đã gửi yêu cầu bổ sung giấy tờ.' })
+      } catch (err) {
+        setMsg({ type: 'error', text: formatError(err) })
+      } finally {
+        setActing('')
+      }
+    } else if (actionModal.type === 'flag') {
+      setActing('flag')
+      try {
+        await housingApplicationsApi.flagViolation(appId, note)
+        setActionModal((prev) => ({ ...prev, open: false }))
+        await refresh()
+        setMsg({ type: 'success', text: 'Đã gắn cờ vi phạm cho hồ sơ.' })
+      } catch (err) {
+        setMsg({ type: 'error', text: formatError(err) })
+      } finally {
+        setActing('')
+      }
+    }
+  }
+
+  const sxdReview = async (action: string) => {
+    if (acting) return
     setActing(`Department Of Construction-${action}`)
     try {
-      await housingApplicationsApi.sxdReview(appId, { action, note: note?.trim() || null })
+      await housingApplicationsApi.sxdReview(appId, { action, note: null })
       await refresh()
-      setMsg({ type: 'success', text: 'Cập nhật hồ sơ thành công.' })
+      setMsg({ type: 'success', text: action === 'APPROVE' ? 'Phê duyệt hồ sơ thành công.' : 'Cập nhật hồ sơ thành công.' })
     } catch (err) {
       setMsg({ type: 'error', text: formatError(err) })
     } finally {
@@ -1534,7 +1597,19 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
                   size="sm"
                   className="font-medium text-rose-700 border-slate-300 hover:border-rose-400 hover:bg-rose-50 dark:text-rose-300 dark:border-slate-700"
                   disabled={!!acting}
-                  onClick={() => void sxdReview('REJECT', true)}
+                  onClick={() => {
+                    setActionNote('')
+                    setActionError('')
+                    setActionModal({
+                      open: true,
+                      type: 'reject',
+                      title: 'Từ chối hồ sơ',
+                      description: 'Vui lòng nhập lý do từ chối để thông báo đến người nộp và Chủ đầu tư.',
+                      placeholder: 'Nhập lý do từ chối (bắt buộc)...',
+                      confirmLabel: 'Xác nhận từ chối',
+                      confirmVariant: 'destructive',
+                    })
+                  }}
                 >
                   <XCircle className="mr-1.5 h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
                   Từ chối
@@ -1544,19 +1619,18 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
                   size="sm"
                   className="font-medium text-amber-700 border-slate-300 hover:border-amber-400 hover:bg-amber-50 dark:text-amber-300 dark:border-slate-700"
                   disabled={!!acting}
-                  onClick={async () => {
-                    const note = window.prompt('Yêu cầu CĐT bổ sung giấy tờ — nhập nội dung:')
-                    if (!note?.trim()) return
-                    setActing('request-docs')
-                    try {
-                      await housingApplicationsApi.sxdRequestDocs(app.applicationId, note.trim())
-                      await refresh()
-                      setMsg({ type: 'success', text: 'Đã gửi yêu cầu bổ sung giấy tờ.' })
-                    } catch (err) {
-                      setMsg({ type: 'error', text: formatError(err) })
-                    } finally {
-                      setActing('')
-                    }
+                  onClick={() => {
+                    setActionNote('')
+                    setActionError('')
+                    setActionModal({
+                      open: true,
+                      type: 'request-docs',
+                      title: 'Yêu cầu bổ sung giấy tờ',
+                      description: 'Nhập nội dung các giấy tờ / thông tin cần người nộp bổ sung:',
+                      placeholder: 'Nhập chi tiết tài liệu cần bổ sung (bắt buộc)...',
+                      confirmLabel: 'Gửi yêu cầu',
+                      confirmVariant: 'warning',
+                    })
                   }}
                 >
                   <FilePlus className="mr-1.5 h-3.5 w-3.5" /> Yêu cầu bổ sung
@@ -1591,19 +1665,18 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
                     className="border-rose-400 text-rose-700 dark:text-rose-300"
                     disabled={!!acting}
                     title="Gắn khi phát hiện gian lận (trùng CCCD, đã có nhà đất). Loại khỏi bốc thăm / chốt suất."
-                    onClick={async () => {
-                      const reason = window.prompt('Lý do gắn cờ vi phạm (VD: CCCD trùng, đã có nhà đất):')
-                      if (!reason?.trim()) return
-                      setActing('flag')
-                      try {
-                        await housingApplicationsApi.flagViolation(app.applicationId, reason.trim())
-                        await refresh()
-                        setMsg({ type: 'success', text: 'Đã gắn cờ vi phạm cho hồ sơ.' })
-                      } catch (err) {
-                        setMsg({ type: 'error', text: formatError(err) })
-                      } finally {
-                        setActing('')
-                      }
+                    onClick={() => {
+                      setActionNote('')
+                      setActionError('')
+                      setActionModal({
+                        open: true,
+                        type: 'flag',
+                        title: 'Gắn cờ vi phạm hồ sơ',
+                        description: 'Hồ sơ bị gắn cờ sẽ bị loại khỏi danh sách bốc thăm và phân bổ quyền mua.',
+                        placeholder: 'Lý do gắn cờ vi phạm (bắt buộc, VD: Trùng CCCD, đã sở hữu nhà đất)...',
+                        confirmLabel: 'Xác nhận gắn cờ',
+                        confirmVariant: 'destructive',
+                      })
                     }}
                   >
                     <AlertTriangle className="mr-1.5 h-3.5 w-3.5" /> Gắn cờ vi phạm
@@ -2606,6 +2679,55 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
           <Button variant="accent" onClick={() => window.print()}>
             <Printer className="mr-1.5 h-4 w-4" /> In phiếu
           </Button>
+        </div>
+      </Modal>
+
+      {/* ===== MODAL: GHI CHÚ / LÝ DO HÀNH ĐỘNG (THAY THẾ WINDOW.PROMPT) ===== */}
+      <Modal
+        open={actionModal.open}
+        onClose={() => { if (!acting) setActionModal((prev) => ({ ...prev, open: false })) }}
+        title={actionModal.title}
+        description={actionModal.description}
+      >
+        <div className="space-y-4">
+          {actionError && <Alert variant="error">{actionError}</Alert>}
+          <FormField label="Nội dung ghi chú / lý do *" htmlFor="action-modal-note">
+            <Textarea
+              id="action-modal-note"
+              rows={4}
+              value={actionNote}
+              onChange={(e) => {
+                setActionNote(e.target.value)
+                if (actionError && e.target.value.trim()) setActionError('')
+              }}
+              placeholder={actionModal.placeholder}
+              disabled={!!acting}
+              autoFocus
+            />
+          </FormField>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              variant="outline"
+              disabled={!!acting}
+              onClick={() => setActionModal((prev) => ({ ...prev, open: false }))}
+            >
+              Huỷ
+            </Button>
+            <Button
+              variant={actionModal.confirmVariant === 'destructive' ? 'outline' : 'accent'}
+              className={
+                actionModal.confirmVariant === 'destructive'
+                  ? 'bg-rose-600 hover:bg-rose-700 text-white border-transparent'
+                  : actionModal.confirmVariant === 'warning'
+                    ? 'bg-amber-600 hover:bg-amber-700 text-white border-transparent'
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+              }
+              disabled={!!acting}
+              onClick={() => void handleConfirmAction()}
+            >
+              {acting ? 'Đang xử lý...' : actionModal.confirmLabel}
+            </Button>
+          </div>
         </div>
       </Modal>
     </div>

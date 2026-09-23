@@ -123,15 +123,22 @@ export function toApiFilter(filter: HousingSearchFilter): HousingProjectFilter {
   }
 }
 
-export function matchesOpenStatus(statusLabel: string): boolean {
-  // Nghiệp vụ mới: chỉ cho phép nộp hồ sơ khi dự án ở trạng thái OPEN (Đang mở đăng ký).
-  // UPCOMING (Sắp mở bán) là giai đoạn chờ 30 ngày — Applicant phải đợi, không được nộp.
+export function matchesOpenStatus(statusLabel?: string | null): boolean {
+  if (!statusLabel) return false
   const s = statusLabel.toLowerCase()
   return (
     s === 'open' ||
+    s === 'open_for_registration' ||
     s.includes('đang mở đăng ký') ||
-    s.includes('mở đăng ký')
+    s.includes('mở đăng ký') ||
+    s.includes('mở bán')
   )
+}
+
+function isHcmProvince(prov?: string | null): boolean {
+  if (!prov) return true
+  const s = prov.toLowerCase()
+  return s.includes('hồ chí minh') || s.includes('hcm') || s.includes('thành phố')
 }
 
 export function applyClientFilters(
@@ -149,14 +156,15 @@ export function applyClientFilters(
 
   return projects.filter((p) => {
     const name = (p.projectName || p.name || '').toLowerCase()
+    const desc = (p.description ?? '').toLowerCase()
+    const docNum = (p.decisionNumber ?? '').toLowerCase()
     const loc = [p.district, p.ward, p.province, p.address, p.location].filter(Boolean).join(' ').toLowerCase()
-    if (q && !name.includes(q) && !loc.includes(q) && !(p.description ?? '').toLowerCase().includes(q)) return false
+    if (q && !name.includes(q) && !loc.includes(q) && !desc.includes(q) && !docNum.includes(q)) return false
 
-    if (p.province && p.province !== HCM_PROVINCE) return false
+    if (p.province && !isHcmProvince(p.province)) return false
     if (ward) {
       const pw = (p.ward || '').toLowerCase()
       const pd = (p.district || '').toLowerCase()
-      // Exact match — đồng bộ CRUD lưu District = Ward = tên phường v2
       if (pw !== ward && pd !== ward && !loc.includes(ward)) return false
     }
 
@@ -164,40 +172,44 @@ export function applyClientFilters(
     const maxP = p.maxPrice ?? minP
     if (minM != null) {
       const targetMin = minM * 1_000_000
-      if (maxP > 0 && maxP < targetMin) return false
+      if (maxP <= 0 || maxP < targetMin) return false
     }
     if (maxM != null) {
       const targetMax = maxM * 1_000_000
-      if (minP > 0 && minP > targetMax) return false
+      if (minP <= 0 || minP > targetMax) return false
     }
 
     const minA = p.minArea ?? 0
     const maxA = p.maxArea ?? minA
-    if (minArea != null && maxA > 0 && maxA < minArea) return false
-    if (maxArea != null && minA > 0 && minA > maxArea) return false
+    if (minArea != null) {
+      if (maxA <= 0 || maxA < minArea) return false
+    }
+    if (maxArea != null) {
+      if (minA <= 0 || minA > maxArea) return false
+    }
 
-    if (p.availableUnits != null && p.availableUnits < minAvailable) return false
+    if (minAvailable > 0 && (p.availableUnits == null || p.availableUnits < minAvailable)) return false
 
-    const effective = effectiveProjectStatus(p)
+    const effective = (effectiveProjectStatus(p) || '').toUpperCase()
     const rawStatus = (p.status || '').toUpperCase()
 
     if (!filter.statusCode && !filter.statusId && !options?.allowUnapproved) {
-      if (effective === 'PENDING' || effective === 'REJECTED') return false
+      if (effective === 'PENDING' || effective === 'REJECTED' || rawStatus === 'PENDING' || rawStatus === 'REJECTED') return false
     }
 
     if (filter.statusId && p.housingProjectStatusId !== filter.statusId) return false
     if (filter.statusCode) {
       const want = filter.statusCode.toUpperCase()
       if (want === 'OPEN' || want === 'OPEN_FOR_REGISTRATION') {
-        if (effective !== 'OPEN' && !matchesOpenStatus(p.status || '')) return false
-      } else if (want === 'UPCOMING') {
-        if (effective !== 'UPCOMING' && !/upcoming|sắp mở/i.test(p.status || '')) return false
-      } else if (want === 'CLOSED') {
-        if (effective !== 'CLOSED' && effective !== 'FULL' && !/closed|đã đóng|đóng đăng ký|hết căn/i.test(p.status || '')) return false
-      } else if (want === 'PENDING') {
-        if (effective !== 'PENDING' && !/pending|chờ|thẩm định|nháp/i.test(p.status || '')) return false
-      } else if (want === 'REJECTED') {
-        if (effective !== 'REJECTED' && !/reject|từ chối/i.test(p.status || '')) return false
+        if (effective !== 'OPEN' && effective !== 'OPEN_FOR_REGISTRATION' && !matchesOpenStatus(p.status)) return false
+      } else if (want === 'UPCOMING' || want === 'SAP_MO_BAN') {
+        if (effective !== 'UPCOMING' && effective !== 'SAP_MO_BAN' && !/upcoming|sắp mở/i.test(p.status || '')) return false
+      } else if (want === 'CLOSED' || want === 'DA_DONG') {
+        if (effective !== 'CLOSED' && effective !== 'FULL' && !/closed|đã đóng|đóng đăng ký|hết căn|đã kết thúc/i.test(p.status || '')) return false
+      } else if (want === 'PENDING' || want === 'CHO_DUYET') {
+        if (effective !== 'PENDING' && effective !== 'CHO_DUYET' && !/pending|chờ|thẩm định|nháp/i.test(p.status || '')) return false
+      } else if (want === 'REJECTED' || want === 'TU_CHOI') {
+        if (effective !== 'REJECTED' && effective !== 'TU_CHOI' && !/reject|từ chối|bị từ chối/i.test(p.status || '')) return false
       } else {
         if (effective !== want && !rawStatus.includes(want)) return false
       }

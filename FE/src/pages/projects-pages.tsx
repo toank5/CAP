@@ -75,7 +75,6 @@ import {
   applyClientFilters,
   EMPTY_HOUSING_SEARCH,
   sortHousingProjects,
-  toApiFilter,
   type HousingSearchFilter,
 } from '@/lib/housing-search'
 import type { ApartmentDto, CreateApartmentDto, CreateHousingProjectRequestDto, HousingProjectDto } from '@/types'
@@ -97,12 +96,11 @@ export function ProjectsPage() {
   const isSxd = getRole() === 'Department Of Construction' || getRole() === 'SXD Staff'
   const PAGE_SIZE = 12
 
-  const load = async (nextFilter: HousingSearchFilter = filter) => {
+  const load = async () => {
     setLoading(true)
     setError('')
     try {
       const data = await housingProjectsApi.list({
-        ...toApiFilter(nextFilter),
         pageIndex: 1,
         pageSize: 200,
       })
@@ -119,16 +117,16 @@ export function ProjectsPage() {
   const refreshProjects = () => setReloadKey((k) => k + 1)
 
   useEffect(() => {
-    void load(EMPTY_HOUSING_SEARCH)
+    void load()
   }, [reloadKey])
 
   useEffect(() => {
     const handler = () => {
-      void load(filter)
+      void load()
     }
     window.addEventListener('fecaps:project-status-changed', handler)
     return () => window.removeEventListener('fecaps:project-status-changed', handler)
-  }, [filter])
+  }, [])
 
   useEffect(() => {
     const name = sessionStorage.getItem(FLASH_CREATE_PROJECT_KEY)
@@ -428,7 +426,6 @@ export function ProjectsPage() {
         loading={loading}
         onSubmit={(next) => {
           setFilter(next)
-          void load(next)
         }}
       />
 

@@ -14,7 +14,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Alert } from '@/components/ui/alert'
 import { FormField } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
+import { Input, Textarea } from '@/components/ui/input'
+import { Modal } from '@/components/ui/modal'
 import { PageCard } from '@/components/layout/page-header'
 import { navigate } from '@/hooks/useHashRoute'
 import { formatError } from '@/lib/format-error'
@@ -275,6 +276,9 @@ export function AuditDetailPage() {
   const [editing, setEditing] = useState(false)
   const [checks, setChecks] = useState<AuditCheck[]>(DEFAULT_CHECK_TEMPLATES)
   const [summary, setSummary] = useState('')
+  const [rejectModalOpen, setRejectModalOpen] = useState(false)
+  const [rejectReason, setRejectReason] = useState('')
+  const [rejectError, setRejectError] = useState('')
 
   const reload = async () => {
     if (!id) return
@@ -471,9 +475,9 @@ export function AuditDetailPage() {
               className="text-rose-600 dark:text-rose-400"
               disabled={!!busy}
               onClick={() => {
-                const reason = window.prompt('Lý do từ chối:')
-                if (!reason?.trim()) return
-                void action('Từ chối', () => auditApi.reject(record!.id, reason.trim()))
+                setRejectReason('')
+                setRejectError('')
+                setRejectModalOpen(true)
               }}
             >
               <XCircle className="mr-1.5 h-4 w-4" />
@@ -481,6 +485,53 @@ export function AuditDetailPage() {
             </Button>
           </div>
         )}
+
+        <Modal
+          open={rejectModalOpen}
+          onClose={() => { if (!busy) setRejectModalOpen(false) }}
+          title="Từ chối hồ sơ hậu kiểm"
+          description={`Nhập lý do từ chối cho hồ sơ: ${record.title}`}
+        >
+          <div className="space-y-4">
+            <FormField label="Lý do từ chối *" htmlFor="audit-reject-reason" error={rejectError}>
+              <Textarea
+                id="audit-reject-reason"
+                value={rejectReason}
+                onChange={(e) => {
+                  setRejectReason(e.target.value)
+                  if (rejectError) setRejectError('')
+                }}
+                placeholder="Nhập chi tiết lý do từ chối hồ sơ hậu kiểm..."
+                rows={4}
+                autoFocus
+              />
+            </FormField>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                disabled={!!busy}
+                onClick={() => setRejectModalOpen(false)}
+              >
+                Huỷ bỏ
+              </Button>
+              <Button
+                variant="accent"
+                className="bg-rose-600 hover:bg-rose-700 text-white"
+                disabled={!!busy}
+                onClick={async () => {
+                  if (!rejectReason.trim()) {
+                    setRejectError('Vui lòng nhập lý do từ chối.')
+                    return
+                  }
+                  setRejectModalOpen(false)
+                  await action('Từ chối', () => auditApi.reject(record.id, rejectReason.trim()))
+                }}
+              >
+                {busy === 'Từ chối' ? 'Đang xử lý...' : 'Xác nhận từ chối'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
       </PageCard>
     </div>
   )
