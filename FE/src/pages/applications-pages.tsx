@@ -2258,8 +2258,8 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
             })()}
           </div>
 
-          {/* PHẦN KIỂM TRA AI (CHỈ DÀNH CHO CHỦ ĐẦU TƯ) */}
-          {isDeveloper && (
+          {/* PHẦN KIỂM TRA AI — Chủ đầu tư (thẩm định) & Người dân (tự soát trước khi nộp) */}
+          {(isDeveloper || (isApplicant && canEditDocs)) && (
             <div className="rounded-2xl border border-violet-200/90 bg-gradient-to-br from-violet-50/70 via-white to-sky-50/50 p-5 shadow-sm dark:border-violet-900/60 dark:from-violet-950/30 dark:via-slate-900 dark:to-sky-950/20">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-violet-100 pb-3 dark:border-violet-900/40">
                 <div className="flex items-center gap-2">
@@ -2268,10 +2268,12 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
                   </div>
                   <div>
                     <h3 className="font-bold text-slate-900 dark:text-slate-100">
-                      Kiểm tra hồ sơ bằng AI
+                      {isApplicant ? 'Tự kiểm tra hồ sơ bằng AI' : 'Kiểm tra hồ sơ bằng AI'}
                     </h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Đối chiếu tự động OCR tài liệu & dữ liệu đăng ký
+                      {isApplicant
+                        ? 'Tự soát lỗi giấy tờ trước khi nộp để tăng khả năng được duyệt'
+                        : 'Đối chiếu tự động OCR tài liệu & dữ liệu đăng ký'}
                     </p>
                   </div>
                 </div>
@@ -2312,12 +2314,21 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
                   <p className="text-xs font-medium">AI đang đọc {app.documents?.length ?? 0} tài liệu và đối chiếu các trường thông tin...</p>
                 </div>
               ) : aiAuditResult ? (
-                <div className="mt-4">
+                <div className="mt-4 space-y-3">
                   <AiAuditResultPanel result={aiAuditResult} />
+                  {isApplicant && (
+                    <p className="rounded-xl bg-slate-100/70 p-3 text-[11px] leading-relaxed text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">
+                      Đây chỉ là kết quả <strong>tự kiểm tra tham khảo</strong> bằng AI, giúp bạn soát lại giấy tờ trước khi nộp. Kết quả này <strong>không thay thế</strong> quá trình thẩm định chính thức của Chủ đầu tư/Sở Xây dựng và <strong>không ảnh hưởng</strong> đến việc bạn nộp hồ sơ.
+                    </p>
+                  )}
                 </div>
               ) : (
                 <div className="mt-3 rounded-xl bg-violet-100/50 p-3 text-xs leading-relaxed text-slate-600 dark:bg-violet-950/20 dark:text-slate-300">
-                  Nhấn <strong>"Chạy kiểm tra AI"</strong> để hệ thống tự động bóc tách thông tin từ các tệp CCCD, bảng lương, xác nhận nhà ở... và so khớp với biểu mẫu người dân kê khai nhằm phát hiện sai lệch và cảnh báo rủi ro cho Chủ đầu tư.
+                  {isApplicant ? (
+                    <>Nhấn <strong>"Chạy kiểm tra AI"</strong> để hệ thống tự động đọc các tệp CCCD, bảng lương, xác nhận nhà ở... và so khớp với thông tin bạn đã kê khai, giúp bạn phát hiện sai lệch và bổ sung kịp thời <strong>trước khi nộp</strong>. Đây là bước tham khảo, không bắt buộc và không ảnh hưởng đến việc nộp hồ sơ.</>
+                  ) : (
+                    <>Nhấn <strong>"Chạy kiểm tra AI"</strong> để hệ thống tự động bóc tách thông tin từ các tệp CCCD, bảng lương, xác nhận nhà ở... và so khớp với biểu mẫu người dân kê khai nhằm phát hiện sai lệch và cảnh báo rủi ro cho Chủ đầu tư.</>
+                  )}
                 </div>
               )}
             </div>

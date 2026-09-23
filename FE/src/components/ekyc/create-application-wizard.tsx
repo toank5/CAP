@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { housingApplicationsApi } from '@/api/housing-applications'
 import { housingProjectsApi } from '@/api/housing-projects'
+import { lookupApi } from '@/api/lookup'
 import { usersApi } from '@/api/users'
 import { FileDropzone } from '@/components/shared/file-dropzone'
 import { Alert } from '@/components/ui/alert'
@@ -159,6 +160,24 @@ function extractPrefill(data: unknown): PrefillData {
   const o = data as Record<string, unknown>
   const payload = (o.data ?? o.Data ?? o) as Record<string, unknown>
   return payload as PrefillData
+}
+
+/** Chuẩn hóa danh sách giấy tờ bắt buộc từ API /lookup/document-types/required. */
+function parseRequiredDocItems(data: unknown): { code: string; label: string }[] {
+  const raw = Array.isArray(data)
+    ? data
+    : ((data as { data?: unknown; Data?: unknown })?.data ??
+      (data as { data?: unknown; Data?: unknown })?.Data ??
+      [])
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((x) => {
+      const o = (x ?? {}) as Record<string, unknown>
+      const code = String(o.code ?? o.Code ?? o.documentType ?? o.DocumentType ?? '')
+      const label = String(o.label ?? o.Label ?? o.documentTypeLabel ?? o.DocumentTypeLabel ?? '')
+      return { code, label }
+    })
+    .filter((i) => i.code)
 }
 
 function SummaryRow({ label, value }: { label: string; value?: string | null }) {
@@ -333,11 +352,47 @@ export function CreateApplicationWizard() {
     return () => { cancelled = true }
   }, [])
 
+  // Danh sách giấy tờ bắt buộc — lấy từ API backend (nguồn dùng để validate lúc nộp),
+  // không dùng hằng số cứng ở FE để tránh lệch số loại giấy tờ.
+  const [requiredDocItems, setRequiredDocItems] = useState<{ code: string; label: string }[]>([])
+  const [requiredDocsLoading, setRequiredDocsLoading] = useState(false)
+
+  useEffect(() => {
+    const group = selectedPriorityGroup?.trim()
+    if (!group) {
+      setRequiredDocItems([])
+      return
+    }
+    let cancelled = false
+    const fallback = () =>
+      getRequiredDocsForPriorityGroup(group).map((code) => ({
+        code,
+        label: DOC_TYPE_LABELS[code] ?? code,
+      }))
+    setRequiredDocsLoading(true)
+    void lookupApi
+      .requiredDocumentTypes(group)
+      .then((data) => {
+        if (cancelled) return
+        const items = parseRequiredDocItems(data)
+        setRequiredDocItems(items.length ? items : fallback())
+      })
+      .catch(() => {
+        if (!cancelled) setRequiredDocItems(fallback())
+      })
+      .finally(() => {
+        if (!cancelled) setRequiredDocsLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [selectedPriorityGroup])
+
+  const requiredDocs = useMemo(() => requiredDocItems.map((i) => i.code), [requiredDocItems])
+  const docLabel = (code: string) =>
+    requiredDocItems.find((i) => i.code === code)?.label ?? DOC_TYPE_LABELS[code] ?? code
+
   // Cập nhật docs khi đổi nhóm đối tượng hoặc khi prefill load xong
-  const requiredDocs = useMemo(
-    () => getRequiredDocsForPriorityGroup(selectedPriorityGroup),
-    [selectedPriorityGroup],
-  )
   useEffect(() => {
     setDocs((prev) => {
       const next: Record<string, DocUpload | null> = {}
@@ -372,7 +427,9 @@ export function CreateApplicationWizard() {
     return missing
   }, [prefill])
 
-  const allDocsReady = requiredDocs.every((k) => docs[k]?.state === 'uploaded' || docs[k]?.state === 'vault')
+  const allDocsReady =
+    requiredDocs.length > 0 &&
+    requiredDocs.every((k) => docs[k]?.state === 'uploaded' || docs[k]?.state === 'vault')
 
   const buildCreateBody = (): CreateApplicationDto | null => {
     if (!selectedProjectId || !selectedPriorityGroup || !prefill) return null
@@ -793,6 +850,13 @@ export function CreateApplicationWizard() {
                   <span className="font-medium text-emerald-600 dark:text-emerald-400">tự động sử dụng</span>.
                 </p>
 
+                {requiredDocsLoading && requiredDocs.length === 0 && (
+                  <div className="flex items-center gap-2 rounded-xl bg-slate-50 p-4 dark:bg-slate-800/40">
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                    <span className="text-sm text-slate-500">Đang tải danh sách giấy tờ bắt buộc...</span>
+                  </div>
+                )}
+
                 <div className="space-y-3">
                   {requiredDocs.map((key) => {
                     const doc = docs[key]
@@ -808,7 +872,7 @@ export function CreateApplicationWizard() {
                           }`}
                       >
                         <div className="flex items-center justify-between gap-2 mb-2">
-                          <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{DOC_TYPE_LABELS[key] ?? key}</p>
+                          <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{docLabel(key)}</p>
                           {(isVault || isUploaded) && (
                             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
                               <CheckCircle2 className="h-3 w-3" />
@@ -934,7 +998,7 @@ export function CreateApplicationWizard() {
                           {ok
                             ? <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
                             : <X className="h-4 w-4 text-amber-500 shrink-0" />}
-                          <span className="text-sm">{DOC_TYPE_LABELS[key] ?? key}</span>
+                          <span className="text-sm">{docLabel(key)}</span>
                           {d?.state === 'vault' && <span className="text-xs text-slate-400">(từ hồ sơ)</span>}
                         </li>
                       )
