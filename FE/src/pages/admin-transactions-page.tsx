@@ -211,7 +211,7 @@ export function AdminTransactionsPage() {
     try {
       const query: AdminTransactionQueryParams = {
         page: 1,
-        pageSize: 500, // Tải danh sách tổng quát để lọc chính xác
+        pageSize: 100, // Tối đa 100 theo quy định của máy chủ Backend
       }
       if (searchKeyword.trim()) query.searchKeyword = searchKeyword.trim()
       if (projectIdFilter !== 'ALL') query.projectId = projectIdFilter

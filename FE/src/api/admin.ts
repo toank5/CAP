@@ -102,8 +102,10 @@ export const adminApi = {
 
   getTransactions: (query: AdminTransactionQueryParams = {}) => {
     const params = new URLSearchParams()
-    if (query.page != null) params.set('Page', String(query.page))
-    if (query.pageSize != null) params.set('PageSize', String(query.pageSize))
+    const pageNum = Math.max(1, query.page ?? 1)
+    const pageSizeNum = Math.min(100, Math.max(1, query.pageSize ?? 100))
+    params.set('Page', String(pageNum))
+    params.set('PageSize', String(pageSizeNum))
     if (query.status) params.set('Status', query.status)
     if (query.projectId) params.set('ProjectId', query.projectId)
     if (query.userId) params.set('UserId', query.userId)
