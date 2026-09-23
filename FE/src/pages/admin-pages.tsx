@@ -450,11 +450,10 @@ export function AdminStaffPage() {
                   setPage(1)
                   navigateWithQuery('admin-staff', { tab: item.id })
                 }}
-                className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
-                  active
+                className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${active
                     ? 'bg-rose-600 text-white shadow-sm shadow-rose-600/20'
                     : 'bg-slate-100/80 text-slate-600 hover:bg-slate-200/70 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
-                }`}
+                  }`}
               >
                 {item.label}
               </button>
@@ -666,11 +665,10 @@ export function AdminStaffPage() {
             className="pointer-events-none fixed bottom-6 left-1/2 z-[60] -translate-x-1/2"
           >
             <div
-              className={`pointer-events-auto flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white shadow-2xl ${
-                toast.type === 'success'
+              className={`pointer-events-auto flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white shadow-2xl ${toast.type === 'success'
                   ? 'bg-gradient-to-r from-emerald-500 to-emerald-600'
                   : 'bg-gradient-to-r from-red-500 to-red-600'
-              }`}
+                }`}
               role="status"
             >
               <span className="h-2 w-2 rounded-full bg-white/90" />
