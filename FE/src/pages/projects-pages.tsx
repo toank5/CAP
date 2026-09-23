@@ -323,20 +323,18 @@ export function ProjectsPage() {
               setActiveTab('all')
               setFilter((prev) => ({ ...prev, statusCode: '', statusId: '' }))
             }}
-            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-bold transition-all ${
-              activeTab === 'all'
+            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-bold transition-all ${activeTab === 'all'
                 ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/30'
                 : 'bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-700'
-            }`}
+              }`}
           >
             <Layers className="h-4 w-4" />
             Tất cả dự án
             <span
-              className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold ${
-                activeTab === 'all'
+              className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold ${activeTab === 'all'
                   ? 'bg-white/20 text-white'
                   : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
-              }`}
+                }`}
             >
               {counts.all}
             </span>
@@ -348,20 +346,18 @@ export function ProjectsPage() {
               setActiveTab('approved')
               setFilter((prev) => ({ ...prev, statusCode: '', statusId: '' }))
             }}
-            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-bold transition-all ${
-              activeTab === 'approved'
+            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-bold transition-all ${activeTab === 'approved'
                 ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/30'
                 : 'bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-700'
-            }`}
+              }`}
           >
             <CheckCircle2 className="h-4 w-4 text-emerald-400" />
             Đã duyệt / Công khai
             <span
-              className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold ${
-                activeTab === 'approved'
+              className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold ${activeTab === 'approved'
                   ? 'bg-white/20 text-white'
                   : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
-              }`}
+                }`}
             >
               {counts.approved}
             </span>
@@ -373,20 +369,18 @@ export function ProjectsPage() {
               setActiveTab('pending')
               setFilter((prev) => ({ ...prev, statusCode: '', statusId: '' }))
             }}
-            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-bold transition-all ${
-              activeTab === 'pending'
+            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-bold transition-all ${activeTab === 'pending'
                 ? 'bg-amber-600 text-white shadow-sm shadow-amber-600/30'
                 : 'bg-white text-amber-700 hover:bg-amber-50 hover:text-amber-800 border border-amber-200 dark:bg-slate-800 dark:text-amber-400 dark:border-amber-900/50 dark:hover:bg-amber-950/20'
-            }`}
+              }`}
           >
             <Clock className={`h-4 w-4 ${counts.pending > 0 ? 'text-amber-500 animate-pulse' : 'text-amber-400'}`} />
             Chờ SXD duyệt
             <span
-              className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold ${
-                activeTab === 'pending'
+              className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold ${activeTab === 'pending'
                   ? 'bg-white/20 text-white'
                   : 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200'
-              }`}
+                }`}
             >
               {counts.pending}
             </span>
@@ -399,20 +393,18 @@ export function ProjectsPage() {
                 setActiveTab('rejected')
                 setFilter((prev) => ({ ...prev, statusCode: '', statusId: '' }))
               }}
-              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-bold transition-all ${
-                activeTab === 'rejected'
+              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-bold transition-all ${activeTab === 'rejected'
                   ? 'bg-rose-600 text-white shadow-sm shadow-rose-600/30'
                   : 'bg-white text-rose-700 hover:bg-rose-50 hover:text-rose-800 border border-rose-200 dark:bg-slate-800 dark:text-rose-400 dark:border-rose-900/50 dark:hover:bg-rose-950/20'
-              }`}
+                }`}
             >
               <AlertTriangle className="h-4 w-4 text-rose-500" />
               Bị từ chối
               <span
-                className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold ${
-                  activeTab === 'rejected'
+                className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold ${activeTab === 'rejected'
                     ? 'bg-white/20 text-white'
                     : 'bg-rose-100 text-rose-800 dark:bg-rose-900/60 dark:text-rose-200'
-                }`}
+                  }`}
               >
                 {counts.rejected}
               </span>
@@ -1561,15 +1553,14 @@ function ProjectDetailView({
             {/* Hạn chót tiếp nhận — hạn này có hiệu lực thật ở BE nên phải hiện trước khi bấm nộp */}
             {intakeClose.closeAt && showApply && (
               <div
-                className={`mt-4 flex items-start gap-2.5 rounded-2xl border p-4 text-sm ${
-                  intakeClose.tone === 'closed'
+                className={`mt-4 flex items-start gap-2.5 rounded-2xl border p-4 text-sm ${intakeClose.tone === 'closed'
                     ? 'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300'
                     : intakeClose.tone === 'urgent'
                       ? 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200'
                       : intakeClose.tone === 'soon'
                         ? 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200'
                         : 'border-teal-200 bg-teal-50 text-teal-800 dark:border-teal-900/60 dark:bg-teal-950/40 dark:text-teal-200'
-                }`}
+                  }`}
               >
                 <Clock className="mt-0.5 h-4 w-4 shrink-0" />
                 <div>
@@ -1803,41 +1794,41 @@ function ProjectDetailView({
             Chủ đầu tư chưa công bố lịch thanh toán cho dự án này.
           </p>
         ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {milestonesList.map((m: any, idx: number) => {
-            const phaseOrder = m.phaseOrder || idx + 1
-            const pct = Number(m.percentage) || 0
-            const eventLabel = TRIGGER_EVENT_LABELS[m.triggerEvent] || m.triggerEvent || 'Theo tiến độ'
-            const days = m.dueDays || 7
-            return (
-              <div
-                key={idx}
-                className="relative flex flex-col justify-between rounded-2xl border border-teal-100 bg-gradient-to-b from-teal-50/40 to-white p-5 dark:border-teal-900/30 dark:from-slate-800/60 dark:to-slate-900"
-              >
-                <div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-600 text-xs font-bold text-white">
-                      {phaseOrder}
-                    </span>
-                    <span className="rounded-full bg-teal-100 px-2.5 py-0.5 text-xs font-bold text-teal-800 dark:bg-teal-900/60 dark:text-teal-200">
-                      {pct}%
-                    </span>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {milestonesList.map((m: any, idx: number) => {
+              const phaseOrder = m.phaseOrder || idx + 1
+              const pct = Number(m.percentage) || 0
+              const eventLabel = TRIGGER_EVENT_LABELS[m.triggerEvent] || m.triggerEvent || 'Theo tiến độ'
+              const days = m.dueDays || 7
+              return (
+                <div
+                  key={idx}
+                  className="relative flex flex-col justify-between rounded-2xl border border-teal-100 bg-gradient-to-b from-teal-50/40 to-white p-5 dark:border-teal-900/30 dark:from-slate-800/60 dark:to-slate-900"
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-600 text-xs font-bold text-white">
+                        {phaseOrder}
+                      </span>
+                      <span className="rounded-full bg-teal-100 px-2.5 py-0.5 text-xs font-bold text-teal-800 dark:bg-teal-900/60 dark:text-teal-200">
+                        {pct}%
+                      </span>
+                    </div>
+                    <h4 className="mt-3 text-sm font-bold text-slate-900 dark:text-white">
+                      {m.phaseName || `Đợt ${phaseOrder}`}
+                    </h4>
+                    <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                      Sự kiện: <strong>{eventLabel}</strong>
+                    </p>
                   </div>
-                  <h4 className="mt-3 text-sm font-bold text-slate-900 dark:text-white">
-                    {m.phaseName || `Đợt ${phaseOrder}`}
-                  </h4>
-                  <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
-                    Sự kiện: <strong>{eventLabel}</strong>
-                  </p>
+                  <div className="mt-4 pt-3 border-t border-teal-100/60 text-[11px] text-slate-500 dark:border-slate-800 flex items-center gap-1.5">
+                    <Clock className="h-3.5 w-3.5 text-teal-600" />
+                    <span>Thời hạn nộp: <strong>{days} ngày</strong> kể từ khi có thông báo</span>
+                  </div>
                 </div>
-                <div className="mt-4 pt-3 border-t border-teal-100/60 text-[11px] text-slate-500 dark:border-slate-800 flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5 text-teal-600" />
-                  <span>Thời hạn nộp: <strong>{days} ngày</strong> kể từ khi có thông báo</span>
-                </div>
-              </div>
-            )
-          })}
-        </div>
+              )
+            })}
+          </div>
         )}
       </div>
 

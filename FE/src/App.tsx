@@ -77,6 +77,7 @@ const SxdPaymentsPage = lazy(() => import('@/pages/sxd-payments-page').then(m =>
 
 const SystemLogsPage = lazy(() => import('@/pages/admin-extras-pages').then(m => ({ default: m.SystemLogsPage })))
 const CategoriesPage = lazy(() => import('@/pages/admin-extras-pages').then(m => ({ default: m.CategoriesPage })))
+const AdminTransactionsPage = lazy(() => import('@/pages/admin-transactions-page').then(m => ({ default: m.AdminTransactionsPage })))
 
 function PageLoadingFallback() {
   return (
@@ -139,6 +140,7 @@ function RouteView({ route }: { route: RouteId }) {
     case 'sxd-payments': return <SxdPaymentsPage />
     case 'admin-logs': return <SystemLogsPage />
     case 'admin-categories': return <CategoriesPage />
+    case 'admin-transactions': return <AdminTransactionsPage />
     default: return null
   }
 }

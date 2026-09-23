@@ -1,4 +1,4 @@
-import { FolderTree, Home, ListTree, Users } from 'lucide-react'
+import { CreditCard, FolderTree, Home, ListTree, Users } from 'lucide-react'
 import { useHashRoute, navigate } from '@/hooks/useHashRoute'
 import { type RouteId } from '@/router'
 
@@ -14,6 +14,7 @@ const ITEMS: NavItem[] = [
   { route: 'admin-staff', label: 'Quản lý', icon: Users, aliases: ['create-staff', 'staff-detail'] },
   { route: 'admin-logs', label: 'Log hệ thống', icon: ListTree },
   { route: 'admin-categories', label: 'Quản lý danh mục', icon: FolderTree },
+  { route: 'admin-transactions', label: 'Lịch sử thanh toán', icon: CreditCard },
 ]
 
 export const ADMIN_SUB_NAV_ROUTES: RouteId[] = [
@@ -23,6 +24,7 @@ export const ADMIN_SUB_NAV_ROUTES: RouteId[] = [
   'staff-detail',
   'admin-logs',
   'admin-categories',
+  'admin-transactions',
   'profile',
   'change-password',
   'notifications',

@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import {
   ArrowRight,
   CircleUserRound,
+  CreditCard,
   Database,
   ShieldCheck,
   Sparkles,
@@ -221,6 +222,9 @@ export function AdminHomePage() {
               </Button>
               <Button size="sm" variant="outline" onClick={() => navigate('create-staff')} className="rounded-md border-primary/30 bg-white font-semibold text-primary hover:bg-primary/5">
                 <UserCheck className="mr-1 h-3.5 w-3.5" /> Thêm tài khoản
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => navigate('admin-transactions')} className="rounded-md border-primary/30 bg-white font-semibold text-primary hover:bg-primary/5">
+                <CreditCard className="mr-1 h-3.5 w-3.5 text-emerald-600" /> Lịch sử thanh toán
               </Button>
             </div>
           </div>

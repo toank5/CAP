@@ -99,4 +99,65 @@ export const adminApi = {
     if (query.action) params.set('action', query.action)
     return request<unknown>(`/api/Admin/audit-logs?${params.toString()}`, { auth: true })
   },
+
+  getTransactions: (query: AdminTransactionQueryParams = {}) => {
+    const params = new URLSearchParams()
+    if (query.page != null) params.set('Page', String(query.page))
+    if (query.pageSize != null) params.set('PageSize', String(query.pageSize))
+    if (query.status) params.set('Status', query.status)
+    if (query.projectId) params.set('ProjectId', query.projectId)
+    if (query.userId) params.set('UserId', query.userId)
+    if (query.fromDate) params.set('FromDate', query.fromDate)
+    if (query.toDate) params.set('ToDate', query.toDate)
+    if (query.searchKeyword) params.set('SearchKeyword', query.searchKeyword)
+    return request<AdminTransactionListResponseDto>(`/api/Admin/transactions?${params.toString()}`, { auth: true })
+  },
+
+  getTransactionDetail: (id: string) =>
+    request<AdminTransactionDetailDto>(`/api/Admin/transactions/${id}`, { auth: true }),
+}
+
+export interface AdminTransactionDetailDto {
+  id: string
+  orderId?: string | null
+  orderInfo?: string | null
+  amount: number
+  status?: string | null
+  userId?: string | null
+  userFullName?: string | null
+  userEmail?: string | null
+  userPhoneNumber?: string | null
+  housingProjectId?: string | null
+  projectName?: string | null
+  applicationId?: string | null
+  slotCode?: string | null
+  pdfUrl?: string | null
+  vnpResponseCode?: string | null
+  vnpTransactionNo?: string | null
+  vnpBankCode?: string | null
+  vnpBankTranNo?: string | null
+  vnpCardType?: string | null
+  vnpPayDate?: string | null
+  vnpTransactionStatus?: string | null
+  createdAt?: string | null
+  paidAt?: string | null
+}
+
+export interface AdminTransactionListResponseDto {
+  items: AdminTransactionDetailDto[]
+  totalCount: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
+export interface AdminTransactionQueryParams {
+  page?: number
+  pageSize?: number
+  status?: string
+  projectId?: string
+  userId?: string
+  fromDate?: string
+  toDate?: string
+  searchKeyword?: string
 }

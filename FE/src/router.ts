@@ -55,6 +55,7 @@ export type RouteId =
   // Admin extras (mock)
   | 'admin-logs'
   | 'admin-categories'
+  | 'admin-transactions'
 
 export type NavGroup = 'access' | 'security' | 'workspace'
 
@@ -543,6 +544,16 @@ export const routes: RouteConfig[] = [
     subtitle: 'Danh mục trạng thái dự án, loại giấy tờ và nhóm thu nhập.',
     cta: 'Thêm danh mục',
   },
+  {
+    id: 'admin-transactions',
+    label: 'Lịch sử thanh toán',
+    group: 'workspace',
+    auth: true,
+    roles: ['System Administrator'],
+    title: 'Lịch sử thanh toán toàn hệ thống',
+    subtitle: 'Theo dõi toàn bộ dòng tiền và giao dịch thanh toán qua cổng VNPay trong hệ thống.',
+    cta: '',
+  },
 ] as const
 
 export function getRouteConfig(id: RouteId): RouteConfig {
@@ -687,6 +698,7 @@ const ROLE_ACCESS: Record<string, RouteId[]> = {
     'admin-staff',
     'admin-logs',
     'admin-categories',
+    'admin-transactions',
     'notifications',
     'profile',
     'change-password',
@@ -777,7 +789,7 @@ export function publicNavRoutes(): RouteId[] {
 }
 
 const NAV_BY_ROLE: Record<string, RouteId[]> = {
-  'System Administrator': ['admin-staff', 'admin-logs', 'admin-categories', 'notifications', 'profile'],
+  'System Administrator': ['admin-staff', 'admin-logs', 'admin-categories', 'admin-transactions', 'notifications', 'profile'],
   'Housing Developer': ['home-developer', 'applications', 'projects', 'lottery-sessions', 'lottery-live', 'contracts', 'notifications', 'profile'],
   'Department Of Construction': ['home-sxd', 'applications', 'sxd-projects', 'sxd-announcements', 'lottery-sessions', 'lottery-live', 'sxd-payments', 'audit-list', 'contracts', 'notifications', 'profile'],
   Applicant: ['home-user', 'quan-tam', 'applications', 'projects', 'my-lottery', 'contracts', 'notifications', 'profile'],
