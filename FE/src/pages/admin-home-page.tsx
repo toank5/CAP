@@ -3,7 +3,6 @@ import { motion } from 'framer-motion'
 import {
   Activity,
   ArrowRight,
-  BadgeCheck,
   CircleUserRound,
   Database,
   HardDrive,
@@ -47,8 +46,6 @@ interface DashData {
   roleDistribution: { label: string; value: number; color: string }[]
   // Status distribution
   appStatusDist: { label: string; value: number; color: string }[]
-  // Recent applications
-  recentApps: Array<{ name: string; project: string; status: string; at: string }>
 }
 
 function buildBuckets<T extends { createdAt?: string }>(items: T[], now = Date.now()): number[] {
@@ -105,7 +102,7 @@ export function AdminHomePage() {
     totalApplications: 0, pendingApps: 0, approvedApps: 0, rejectedApps: 0,
     totalProjects: 0, sxdStaff: 0, developerStaff: 0,
     weeklyLogins: new Array(12).fill(0), weeklySignups: new Array(12).fill(0),
-    roleDistribution: [], appStatusDist: [], recentApps: [],
+    roleDistribution: [], appStatusDist: [],
   })
 
   useEffect(() => {
@@ -113,7 +110,7 @@ export function AdminHomePage() {
     const load = async () => {
       try {
         const [
-          staffRes, allAppsRes, pendingRes, approvedRes, rejectedRes, projectsRes, recentRes,
+          staffRes, allAppsRes, pendingRes, approvedRes, rejectedRes, projectsRes,
         ] = await Promise.allSettled([
           adminApi.getStaffList({ pageSize: 1000 }),
           housingApplicationsApi.getAll({ pageSize: 1 }),
@@ -121,7 +118,6 @@ export function AdminHomePage() {
           housingApplicationsApi.getAll({ pageSize: 1, status: 'APPROVED' }),
           housingApplicationsApi.getAll({ pageSize: 1, status: 'REJECTED' }),
           housingProjectsApi.list({ pageSize: 1 }),
-          housingApplicationsApi.getAll({ pageSize: 6 }),
         ])
 
         // Staff
@@ -167,16 +163,6 @@ export function AdminHomePage() {
           ? weeklySignups.map((v) => v * 3 + Math.max(2, Math.round(v * 1.5)))
           : [12, 18, 22, 28, 31, 35, 42, 47, 51, 56, 63, 70]
 
-        // Recent apps
-        const recentApps = recentRes.status === 'fulfilled'
-          ? parsePagedApplications(recentRes.value).map((a) => ({
-              name: a.applicantFullName,
-              project: a.projectName,
-              status: statusLabel(a.applicationStatus),
-              at: a.submittedAt || a.createdAt,
-            }))
-          : []
-
         if (!cancelled) {
           setData({
             totalStaff: staffList.length, activeStaff: active, inactiveStaff: inactive, suspendedStaff: suspended,
@@ -184,7 +170,6 @@ export function AdminHomePage() {
             totalProjects: proj, sxdStaff: sxd, developerStaff: dev,
             weeklyLogins, weeklySignups,
             roleDistribution: roleDist, appStatusDist: statusDist,
-            recentApps,
           })
           setLoading(false)
         }
@@ -443,150 +428,97 @@ export function AdminHomePage() {
         </motion.div>
       </div>
 
-      {/* Recent activity + quick actions */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        {/* Recent applications */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.12 }}
-          className="relative overflow-hidden rounded-2xl border border-white/60 bg-white/85 shadow-[0_18px_50px_-18px_rgb(15_23_42_/_25%)] backdrop-blur-md dark:border-slate-700/70 dark:bg-slate-900/70 lg:col-span-2"
+      {/* Quick actions */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <motion.button
+          type="button"
+          whileHover={{ y: -2 }}
+          whileFocus={{ y: -2 }}
+          transition={{ type: 'spring', stiffness: 320, damping: 22 }}
+          onClick={() => navigate('admin-staff')}
+          className="gov-card group block w-full overflow-hidden rounded-2xl p-0 text-left transition hover:shadow-[0_22px_60px_-18px_rgb(15_23_42_/_30%)] will-change-transform"
         >
-          <div className="led-strip absolute inset-x-0 top-0" aria-hidden />
-          <div className="flex items-center justify-between border-b border-primary/10 px-5 py-3 dark:border-slate-800">
-            <h3 className="text-sm font-bold text-[#003D7A] dark:text-white">Hồ sơ gần đây</h3>
-            <span className="chip-glass">
-              <BadgeCheck className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
-              6 mới nhất
+          <div className="bg-gradient-to-r from-cyan-700 via-sky-700 to-indigo-700 px-5 py-3 text-white">
+            <div className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              <span className="font-bold">Quản lý tài khoản</span>
+            </div>
+          </div>
+          <div className="p-4">
+            <p className="text-xs text-slate-600 dark:text-slate-300">
+              {loading ? 'Đang tải…' : `${data.totalStaff} tài khoản · ${data.activeStaff} đang hoạt động`}
+            </p>
+            <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary">
+              Mở <ArrowRight className="h-3 w-3 transition group-hover:translate-x-0.5" />
             </span>
           </div>
-          <div className="divide-y divide-slate-200/60 dark:divide-slate-800">
-            {loading ? (
-              Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="flex items-center gap-3 px-5 py-3.5">
-                  <div className="h-9 w-9 animate-pulse rounded-full bg-slate-200 dark:bg-slate-800" />
-                  <div className="flex-1 space-y-1.5">
-                    <div className="h-3 w-40 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
-                    <div className="h-2.5 w-24 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
-                  </div>
-                </div>
-              ))
-            ) : data.recentApps.length === 0 ? (
-              <div className="px-5 py-8 text-center text-sm text-slate-500 dark:text-slate-400">Chưa có hồ sơ nào.</div>
-            ) : (
-              data.recentApps.map((a, i) => (
-                <div key={i} className="flex items-center gap-3 px-5 py-3.5 transition hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-sky-500 text-xs font-extrabold text-white shadow-md ring-2 ring-white/40">
-                    {a.name.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase() || '?'}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{a.name}</p>
-                    <p className="truncate text-xs text-slate-500 dark:text-slate-400">{a.project}</p>
-                  </div>
-                  <div className="text-right">
-                    <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                      {a.status}
-                    </span>
-                    <p className="mt-0.5 text-[10px] tabular-nums text-slate-400">{a.at ? new Date(a.at).toLocaleDateString('vi-VN') : ''}</p>
-                  </div>
-                </div>
-              ))
-            )}
+        </motion.button>
+
+        <motion.button
+          type="button"
+          whileHover={{ y: -2 }}
+          whileFocus={{ y: -2 }}
+          transition={{ type: 'spring', stiffness: 320, damping: 22 }}
+          onClick={() => navigate('create-staff')}
+          className="gov-card group block w-full overflow-hidden rounded-2xl p-0 text-left transition hover:shadow-[0_22px_60px_-18px_rgb(15_23_42_/_30%)] will-change-transform"
+        >
+          <div className="bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-700 px-5 py-3 text-white">
+            <div className="flex items-center gap-2">
+              <UserCheck className="h-5 w-5" />
+              <span className="font-bold">Thêm cán bộ mới</span>
+            </div>
           </div>
-        </motion.div>
+          <div className="p-4">
+            <p className="text-xs text-slate-600 dark:text-slate-300">Tạo tài khoản Sở Xây dựng hoặc Chủ đầu tư.</p>
+            <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary">
+              Tạo tài khoản <ArrowRight className="h-3 w-3 transition group-hover:translate-x-0.5" />
+            </span>
+          </div>
+        </motion.button>
 
-        {/* Quick actions */}
-        <div className="space-y-3">
-          <motion.button
-            type="button"
-            whileHover={{ y: -2 }}
-            whileFocus={{ y: -2 }}
-            transition={{ type: 'spring', stiffness: 320, damping: 22 }}
-            onClick={() => navigate('admin-staff')}
-            className="gov-card group block w-full overflow-hidden rounded-2xl p-0 text-left transition hover:shadow-[0_22px_60px_-18px_rgb(15_23_42_/_30%)] will-change-transform"
-          >
-            <div className="bg-gradient-to-r from-cyan-700 via-sky-700 to-indigo-700 px-5 py-3 text-white">
-              <div className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                <span className="font-bold">Quản lý tài khoản</span>
-              </div>
+        <motion.button
+          type="button"
+          whileHover={{ y: -2 }}
+          whileFocus={{ y: -2 }}
+          transition={{ type: 'spring', stiffness: 320, damping: 22 }}
+          onClick={() => navigate('admin-logs')}
+          className="gov-card group block w-full overflow-hidden rounded-2xl p-0 text-left transition hover:shadow-[0_22px_60px_-18px_rgb(15_23_42_/_30%)] will-change-transform"
+        >
+          <div className="bg-gradient-to-r from-slate-700 via-slate-800 to-slate-900 px-5 py-3 text-white">
+            <div className="flex items-center gap-2">
+              <Activity className="h-5 w-5" />
+              <span className="font-bold">Log hệ thống</span>
             </div>
-            <div className="p-4">
-              <p className="text-xs text-slate-600 dark:text-slate-300">
-                {loading ? 'Đang tải…' : `${data.totalStaff} tài khoản · ${data.activeStaff} đang hoạt động`}
-              </p>
-              <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary">
-                Mở <ArrowRight className="h-3 w-3 transition group-hover:translate-x-0.5" />
-              </span>
-            </div>
-          </motion.button>
+          </div>
+          <div className="p-4">
+            <p className="text-xs text-slate-600 dark:text-slate-300">Theo dõi toàn bộ hoạt động (INFO / WARN / ERROR / AUDIT).</p>
+            <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary">
+              Xem log <ArrowRight className="h-3 w-3 transition group-hover:translate-x-0.5" />
+            </span>
+          </div>
+        </motion.button>
 
-          <motion.button
-            type="button"
-            whileHover={{ y: -2 }}
-            whileFocus={{ y: -2 }}
-            transition={{ type: 'spring', stiffness: 320, damping: 22 }}
-            onClick={() => navigate('create-staff')}
-            className="gov-card group block w-full overflow-hidden rounded-2xl p-0 text-left transition hover:shadow-[0_22px_60px_-18px_rgb(15_23_42_/_30%)] will-change-transform"
-          >
-            <div className="bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-700 px-5 py-3 text-white">
-              <div className="flex items-center gap-2">
-                <UserCheck className="h-5 w-5" />
-                <span className="font-bold">Thêm cán bộ mới</span>
-              </div>
+        <motion.button
+          type="button"
+          whileHover={{ y: -2 }}
+          whileFocus={{ y: -2 }}
+          transition={{ type: 'spring', stiffness: 320, damping: 22 }}
+          onClick={() => navigate('admin-categories')}
+          className="gov-card group block w-full overflow-hidden rounded-2xl p-0 text-left transition hover:shadow-[0_22px_60px_-18px_rgb(15_23_42_/_30%)] will-change-transform"
+        >
+          <div className="bg-gradient-to-r from-blue-700 via-blue-600 to-cyan-700 px-5 py-3 text-white">
+            <div className="flex items-center gap-2">
+              <ListTree className="h-5 w-5" />
+              <span className="font-bold">Quản lý danh mục</span>
             </div>
-            <div className="p-4">
-              <p className="text-xs text-slate-600 dark:text-slate-300">Tạo tài khoản Sở Xây dựng hoặc Chủ đầu tư.</p>
-              <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary">
-                Tạo tài khoản <ArrowRight className="h-3 w-3 transition group-hover:translate-x-0.5" />
-              </span>
-            </div>
-          </motion.button>
-
-          <motion.button
-            type="button"
-            whileHover={{ y: -2 }}
-            whileFocus={{ y: -2 }}
-            transition={{ type: 'spring', stiffness: 320, damping: 22 }}
-            onClick={() => navigate('admin-logs')}
-            className="gov-card group block w-full overflow-hidden rounded-2xl p-0 text-left transition hover:shadow-[0_22px_60px_-18px_rgb(15_23_42_/_30%)] will-change-transform"
-          >
-            <div className="bg-gradient-to-r from-slate-700 via-slate-800 to-slate-900 px-5 py-3 text-white">
-              <div className="flex items-center gap-2">
-                <Activity className="h-5 w-5" />
-                <span className="font-bold">Log hệ thống</span>
-              </div>
-            </div>
-            <div className="p-4">
-              <p className="text-xs text-slate-600 dark:text-slate-300">Theo dõi toàn bộ hoạt động (INFO / WARN / ERROR / AUDIT).</p>
-              <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary">
-                Xem log <ArrowRight className="h-3 w-3 transition group-hover:translate-x-0.5" />
-              </span>
-            </div>
-          </motion.button>
-
-          <motion.button
-            type="button"
-            whileHover={{ y: -2 }}
-            whileFocus={{ y: -2 }}
-            transition={{ type: 'spring', stiffness: 320, damping: 22 }}
-            onClick={() => navigate('admin-categories')}
-            className="gov-card group block w-full overflow-hidden rounded-2xl p-0 text-left transition hover:shadow-[0_22px_60px_-18px_rgb(15_23_42_/_30%)] will-change-transform"
-          >
-            <div className="bg-gradient-to-r from-blue-700 via-blue-600 to-cyan-700 px-5 py-3 text-white">
-              <div className="flex items-center gap-2">
-                <ListTree className="h-5 w-5" />
-                <span className="font-bold">Quản lý danh mục</span>
-              </div>
-            </div>
-            <div className="p-4">
-              <p className="text-xs text-slate-600 dark:text-slate-300">Trạng thái dự án, loại giấy tờ, nhóm thu nhập.</p>
-              <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary">
-                Mở danh mục <ArrowRight className="h-3 w-3 transition group-hover:translate-x-0.5" />
-              </span>
-            </div>
-          </motion.button>
-        </div>
+          </div>
+          <div className="p-4">
+            <p className="text-xs text-slate-600 dark:text-slate-300">Trạng thái dự án, loại giấy tờ, nhóm thu nhập.</p>
+            <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary">
+              Mở danh mục <ArrowRight className="h-3 w-3 transition group-hover:translate-x-0.5" />
+            </span>
+          </div>
+        </motion.button>
       </div>
 
       {/* Permission scope */}
