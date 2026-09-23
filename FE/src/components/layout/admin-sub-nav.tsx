@@ -48,8 +48,8 @@ export function AdminSubNav({ inline = false }: { inline?: boolean }) {
               type="button"
               onClick={() => navigate(item.route)}
               className={`relative inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs xl:text-[13px] font-semibold transition-all duration-150 whitespace-nowrap ${active
-                  ? 'bg-rose-600 font-bold text-white shadow-md shadow-rose-500/25 dark:bg-rose-600 dark:text-white'
-                  : 'text-slate-700 hover:bg-rose-50 hover:text-rose-700 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white'
+                ? 'bg-rose-600 font-bold text-white shadow-md shadow-rose-500/25 dark:bg-rose-600 dark:text-white'
+                : 'text-slate-700 hover:bg-rose-50 hover:text-rose-700 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white'
                 }`}
             >
               <Icon className={`h-4 w-4 shrink-0 ${active ? 'text-white' : 'text-slate-500 dark:text-slate-400'}`} />
