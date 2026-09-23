@@ -135,10 +135,20 @@ export function matchesOpenStatus(statusLabel?: string | null): boolean {
   )
 }
 
+export function removeVietnameseTones(str: string): string {
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+    .trim()
+}
+
 function isHcmProvince(prov?: string | null): boolean {
   if (!prov) return true
-  const s = prov.toLowerCase()
-  return s.includes('hồ chí minh') || s.includes('hcm') || s.includes('thành phố')
+  const s = removeVietnameseTones(prov)
+  return s.includes('ho chi minh') || s.includes('hcm') || s.includes('thanh pho')
 }
 
 export function applyClientFilters(
@@ -151,49 +161,62 @@ export function applyClientFilters(
   const maxM = parseNum(filter.maxPriceMillion)
   const minArea = parseNum(filter.minArea)
   const maxArea = parseNum(filter.maxArea)
-  const q = filter.search.trim().toLowerCase()
-  const ward = filter.ward.trim().toLowerCase()
+  const rawQ = filter.search.trim()
+  const q = removeVietnameseTones(rawQ)
+  const rawWard = filter.ward.trim()
+  const ward = removeVietnameseTones(rawWard)
 
   return projects.filter((p) => {
     const name = (p.projectName || p.name || '').toLowerCase()
     const desc = (p.description ?? '').toLowerCase()
     const docNum = (p.decisionNumber ?? '').toLowerCase()
-    const loc = [p.district, p.ward, p.province, p.address, p.location].filter(Boolean).join(' ').toLowerCase()
-    if (q && !name.includes(q) && !loc.includes(q) && !desc.includes(q) && !docNum.includes(q)) return false
+    const rawLoc = [p.district, p.ward, p.province, p.address, p.location].filter(Boolean).join(' ').toLowerCase()
+    const cleanSearchText = removeVietnameseTones(`${name} ${desc} ${docNum} ${rawLoc}`)
+
+    if (q && !cleanSearchText.includes(q)) return false
 
     if (p.province && !isHcmProvince(p.province)) return false
+
     if (ward) {
-      const pw = (p.ward || '').toLowerCase()
-      const pd = (p.district || '').toLowerCase()
-      if (pw !== ward && pd !== ward && !loc.includes(ward)) return false
+      const cleanLoc = removeVietnameseTones(rawLoc)
+      const cleanWardPrefix = ward.replace(/^(phuong|xa|thi tran|quan|huyen|thanh pho|tp\.?)\s+/i, '').trim()
+      const pw = removeVietnameseTones(p.ward || '')
+      const pd = removeVietnameseTones(p.district || '')
+
+      const match =
+        cleanLoc.includes(ward) ||
+        (cleanWardPrefix && (cleanLoc.includes(cleanWardPrefix) || pw.includes(cleanWardPrefix) || pd.includes(cleanWardPrefix)))
+      if (!match) return false
     }
 
     const minP = p.minPrice ?? 0
     const maxP = p.maxPrice ?? minP
-    if (minM != null) {
+    if (minM != null && minM > 0) {
       const targetMin = minM * 1_000_000
-      if (maxP <= 0 || maxP < targetMin) return false
+      if (maxP > 0 && maxP < targetMin) return false
     }
-    if (maxM != null) {
+    if (maxM != null && maxM > 0) {
       const targetMax = maxM * 1_000_000
-      if (minP <= 0 || minP > targetMax) return false
+      if (minP > 0 && minP > targetMax) return false
     }
 
     const minA = p.minArea ?? 0
     const maxA = p.maxArea ?? minA
-    if (minArea != null) {
-      if (maxA <= 0 || maxA < minArea) return false
+    if (minArea != null && minArea > 0) {
+      if (maxA > 0 && maxA < minArea) return false
     }
-    if (maxArea != null) {
-      if (minA <= 0 || minA > maxArea) return false
+    if (maxArea != null && maxArea > 0) {
+      if (minA > 0 && minA > maxArea) return false
     }
 
-    if (minAvailable > 0 && (p.availableUnits == null || p.availableUnits < minAvailable)) return false
+    if (minAvailable > 0 && (p.availableUnits != null && p.availableUnits < minAvailable)) return false
 
     const effective = (effectiveProjectStatus(p) || '').toUpperCase()
     const rawStatus = (p.status || '').toUpperCase()
 
-    if (!filter.statusCode && !filter.statusId && !options?.allowUnapproved) {
+    const hasSpecificStatusFilter = Boolean(filter.statusCode || filter.statusId)
+
+    if (!hasSpecificStatusFilter && !options?.allowUnapproved) {
       if (effective === 'PENDING' || effective === 'REJECTED' || rawStatus === 'PENDING' || rawStatus === 'REJECTED') return false
     }
 

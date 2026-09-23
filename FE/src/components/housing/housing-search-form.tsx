@@ -100,7 +100,7 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
         </div>
 
         {/* Phường/Xã / Khu vực */}
-        <div className="w-full sm:w-52">
+        <div className="w-full sm:w-56">
           <div className="relative">
             <select
               className="w-full rounded-xl border border-slate-200 bg-slate-50/70 py-2.5 pl-3 pr-8 text-xs font-medium text-slate-700 transition focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 appearance-none"
@@ -112,10 +112,38 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
                 submit(next)
               }}
             >
-              <option value="">Khu vực: {wardsLoading ? 'Đang tải...' : 'Toàn TP. HCM'}</option>
-              {wards.map((w) => (
-                <option key={w} value={w}>{w}</option>
-              ))}
+              <option value="">Khu vực: Toàn TP. Hồ Chí Minh</option>
+              <optgroup label="📍 Quận / Huyện / TP. Thủ Đức">
+                <option value="Thành phố Thủ Đức">Thành phố Thủ Đức</option>
+                <option value="Quận 1">Quận 1</option>
+                <option value="Quận 3">Quận 3</option>
+                <option value="Quận 4">Quận 4</option>
+                <option value="Quận 5">Quận 5</option>
+                <option value="Quận 6">Quận 6</option>
+                <option value="Quận 7">Quận 7</option>
+                <option value="Quận 8">Quận 8</option>
+                <option value="Quận 10">Quận 10</option>
+                <option value="Quận 11">Quận 11</option>
+                <option value="Quận 12">Quận 12</option>
+                <option value="Quận Bình Thạnh">Quận Bình Thạnh</option>
+                <option value="Quận Gò Vấp">Quận Gò Vấp</option>
+                <option value="Quận Phú Nhuận">Quận Phú Nhuận</option>
+                <option value="Quận Tân Bình">Quận Tân Bình</option>
+                <option value="Quận Tân Phú">Quận Tân Phú</option>
+                <option value="Quận Bình Tân">Quận Bình Tân</option>
+                <option value="Huyện Bình Chánh">Huyện Bình Chánh</option>
+                <option value="Huyện Hóc Môn">Huyện Hóc Môn</option>
+                <option value="Huyện Củ Chi">Huyện Củ Chi</option>
+                <option value="Huyện Nhà Bè">Huyện Nhà Bè</option>
+                <option value="Huyện Cần Giờ">Huyện Cần Giờ</option>
+              </optgroup>
+              {wards.length > 0 && (
+                <optgroup label="🏘️ Phường / Xã chi tiết">
+                  {wards.map((w) => (
+                    <option key={w} value={w}>{w}</option>
+                  ))}
+                </optgroup>
+              )}
             </select>
             <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           </div>
@@ -185,7 +213,7 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
         <button
           type="button"
           onClick={() => {
-            const next = { ...EMPTY_HOUSING_SEARCH, search: locked.search, ward: locked.ward, sort: locked.sort }
+            const next = { ...EMPTY_HOUSING_SEARCH }
             onChange(next)
             submit(next)
           }}

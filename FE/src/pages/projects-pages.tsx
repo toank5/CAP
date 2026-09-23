@@ -25,6 +25,8 @@ import {
   Box,
   ExternalLink,
   AlertTriangle,
+  RotateCcw,
+  Search,
 } from 'lucide-react'
 import { housingProjectsApi, parseApartments } from '@/api/housing-projects'
 import { housingProjectStatusesApi, parseStatuses } from '@/api/housing-project-statuses'
@@ -73,6 +75,7 @@ import {
 } from '@/lib/project-status-flow'
 import {
   applyClientFilters,
+  countActiveFilters,
   EMPTY_HOUSING_SEARCH,
   sortHousingProjects,
   type HousingSearchFilter,
@@ -316,7 +319,10 @@ export function ProjectsPage() {
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3 dark:border-slate-800">
           <button
             type="button"
-            onClick={() => setActiveTab('all')}
+            onClick={() => {
+              setActiveTab('all')
+              setFilter((prev) => ({ ...prev, statusCode: '', statusId: '' }))
+            }}
             className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-bold transition-all ${
               activeTab === 'all'
                 ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/30'
@@ -338,7 +344,10 @@ export function ProjectsPage() {
 
           <button
             type="button"
-            onClick={() => setActiveTab('approved')}
+            onClick={() => {
+              setActiveTab('approved')
+              setFilter((prev) => ({ ...prev, statusCode: '', statusId: '' }))
+            }}
             className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-bold transition-all ${
               activeTab === 'approved'
                 ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/30'
@@ -360,7 +369,10 @@ export function ProjectsPage() {
 
           <button
             type="button"
-            onClick={() => setActiveTab('pending')}
+            onClick={() => {
+              setActiveTab('pending')
+              setFilter((prev) => ({ ...prev, statusCode: '', statusId: '' }))
+            }}
             className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-bold transition-all ${
               activeTab === 'pending'
                 ? 'bg-amber-600 text-white shadow-sm shadow-amber-600/30'
@@ -383,7 +395,10 @@ export function ProjectsPage() {
           {counts.rejected > 0 && (
             <button
               type="button"
-              onClick={() => setActiveTab('rejected')}
+              onClick={() => {
+                setActiveTab('rejected')
+                setFilter((prev) => ({ ...prev, statusCode: '', statusId: '' }))
+              }}
               className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-bold transition-all ${
                 activeTab === 'rejected'
                   ? 'bg-rose-600 text-white shadow-sm shadow-rose-600/30'
@@ -450,7 +465,41 @@ export function ProjectsPage() {
           ))}
         </div>
       ) : paginatedProjects.length === 0 ? (
-        activeTab === 'pending' ? (
+        countActiveFilters(filter) > 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center dark:border-slate-800 dark:bg-slate-900 shadow-sm">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400">
+              <Search className="h-7 w-7" />
+            </div>
+            <h3 className="mt-4 text-base font-bold text-slate-900 dark:text-white">
+              Không tìm thấy dự án phù hợp với bộ lọc
+            </h3>
+            <p className="mt-1.5 max-w-md text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+              Các điều kiện lọc hiện tại (khu vực, mức giá, diện tích hoặc trạng thái) không khớp với dự án nào trong hệ thống.
+            </p>
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+              <Button
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs px-4 py-2.5 shadow-md shadow-emerald-600/20"
+                onClick={() => {
+                  setFilter({ ...EMPTY_HOUSING_SEARCH })
+                  setActiveTab('all')
+                }}
+              >
+                <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                Đặt lại bộ lọc (Hiện lại tất cả {counts.all} dự án)
+              </Button>
+              {!isApplicant && (
+                <Button
+                  variant="outline"
+                  className="rounded-xl text-xs font-semibold"
+                  onClick={() => setShowCreateProject(true)}
+                >
+                  <Plus className="mr-1.5 h-3.5 w-3.5" />
+                  Tạo dự án mới
+                </Button>
+              )}
+            </div>
+          </div>
+        ) : activeTab === 'pending' ? (
           <EmptyState
             title="Không có dự án nào đang chờ duyệt"
             description="Tất cả dự án đã được Sở Xây Dựng phê duyệt hoặc chưa có dự án mới khởi tạo."
