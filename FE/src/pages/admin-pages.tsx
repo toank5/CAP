@@ -18,7 +18,6 @@ import {
   Users,
 } from 'lucide-react'
 import { adminApi } from '@/api/admin'
-import { GovHeroBanner } from '@/components/layout/gov-hero-banner'
 import { Alert } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -419,13 +418,6 @@ export function AdminStaffPage() {
 
   return (
     <div className="space-y-6">
-      <GovHeroBanner
-        badge="Quản trị tài khoản"
-        title="Quản lý"
-        subtitle={`${totalCount} ${currentTab.label.toLowerCase()} trong hệ thống`}
-        compact
-      />
-
       <div className="gov-card overflow-hidden p-0">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 px-5 py-4 dark:border-slate-800">
           <div className="flex items-center gap-2">
@@ -705,17 +697,15 @@ export function CreateStaffPage() {
 
   return (
     <div className="space-y-6">
-      <GovHeroBanner
-        badge="Tạo tài khoản"
-        title={`Thêm ${presetLabel.toLowerCase()}`}
-        subtitle="Tạo tài khoản Chủ đầu tư hoặc Sở Xây dựng với mật khẩu tạm. Người dân tự đăng ký."
-        compact
-      />
-
       <div className="gov-card mx-auto max-w-lg p-6">
         <Button variant="ghost" size="sm" className="mb-4 -ml-2" onClick={() => navigateWithQuery('admin-staff', { tab: backTab })}>
           <ArrowLeft className="mr-1 h-4 w-4" /> Quay lại danh sách
         </Button>
+
+        <div className="mb-4 border-b border-slate-100 pb-3 dark:border-slate-800">
+          <h2 className="text-xl font-bold text-[#003D7A] dark:text-white">Thêm {presetLabel.toLowerCase()}</h2>
+          <p className="mt-1 text-xs text-slate-500">Tạo tài khoản Chủ đầu tư hoặc Sở Xây dựng với mật khẩu tạm. Người dân tự đăng ký.</p>
+        </div>
 
         <form
           className="space-y-4"
@@ -815,17 +805,15 @@ export function StaffDetailPage() {
 
   return (
     <div className="space-y-6">
-      <GovHeroBanner
-        badge={staff && isApplicantRole(staff.roleName) ? 'Chi tiết người dùng' : 'Chi tiết tài khoản'}
-        title={staff?.fullName ?? 'Đang tải...'}
-        subtitle={staff ? `${staffRoleLabel(staff.roleName)} · ${staff.email}` : undefined}
-        compact
-      />
-
       <div className="gov-card mx-auto max-w-2xl p-6">
         <Button variant="ghost" size="sm" className="mb-4 -ml-2" onClick={() => navigate('admin-staff')}>
           <ArrowLeft className="mr-1 h-4 w-4" /> Danh sách
         </Button>
+
+        <div className="mb-4 border-b border-slate-100 pb-3 dark:border-slate-800">
+          <h2 className="text-xl font-bold text-[#003D7A] dark:text-white">{staff?.fullName ?? 'Chi tiết tài khoản'}</h2>
+          {staff && <p className="mt-1 text-xs text-slate-500">{staffRoleLabel(staff.roleName)} · {staff.email}</p>}
+        </div>
 
         {loading && <Skeleton className="h-64 w-full" />}
 
