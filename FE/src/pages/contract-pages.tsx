@@ -14,7 +14,7 @@ import {
   type PaymentInstallment,
   type ContractStatus,
 } from '@/api/contracts'
-import { parseApplicationDetail } from '@/api/housing-applications'
+import { parseApplicationDetail, parsePagedApplications } from '@/api/housing-applications'
 import { request } from '@/api/http'
 import type { ApplicationDetailDto } from '@/types'
 import { APPLICATION_STATUS } from '@/lib/constants'
@@ -116,19 +116,24 @@ export function ContractsPage() {
       let data: ApplicationSummaryDto[] = []
       if (isApplicant) {
         const res = await housingApplicationsApi.getMy({ pageIndex: 1, pageSize: 50 })
-        data = Array.isArray((res as { items?: ApplicationSummaryDto[] }).items)
-          ? (res as { items: ApplicationSummaryDto[] }).items
-          : []
+        data = parsePagedApplications(res)
       } else if (isDev) {
-        const res = await housingApplicationsApi.getDeveloperDashboard({ pageIndex: 1, pageSize: 50 })
-        data = Array.isArray((res as { items?: ApplicationSummaryDto[] }).items)
-          ? (res as { items: ApplicationSummaryDto[] }).items
-          : []
+        const [res, pendingCancel] = await Promise.all([
+          housingApplicationsApi.getDeveloperDashboard({ pageIndex: 1, pageSize: 50 }),
+          housingApplicationsApi.getDeveloperDashboard({
+            pageIndex: 1,
+            pageSize: 50,
+            status: 'CANCELLATION_REQUESTED',
+          }),
+        ])
+        const byId = new Map<string, ApplicationSummaryDto>()
+        for (const item of [...parsePagedApplications(res), ...parsePagedApplications(pendingCancel)]) {
+          if (item.applicationId) byId.set(item.applicationId, item)
+        }
+        data = [...byId.values()]
       } else {
         const res = await housingApplicationsApi.getAll({ pageIndex: 1, pageSize: 50 })
-        data = Array.isArray((res as { items?: ApplicationSummaryDto[] }).items)
-          ? (res as { items: ApplicationSummaryDto[] }).items
-          : []
+        data = parsePagedApplications(res)
       }
       // Hồ sơ từ chờ ký → đã ký → đã đặt cọc (và các trạng thái thanh toán tiếp theo)
       const eligible = data.filter((a) =>
@@ -143,8 +148,13 @@ export function ContractsPage() {
           'PAID',
           'FULLY_PAID',
           'FINALIZED',
+          'CANCELLATION_REQUESTED',
         ].includes(a.applicationStatus),
       )
+      eligible.sort((a, b) => {
+        const rank = (status: string) => (status === 'CANCELLATION_REQUESTED' ? 0 : 1)
+        return rank(a.applicationStatus) - rank(b.applicationStatus)
+      })
       setApplications(eligible)
     } catch (err) {
       setError(formatError(err))
@@ -193,6 +203,11 @@ export function ContractsPage() {
                 <p className="text-xs text-slate-400">
                   CCCD: {a.citizenId} · Trạng thái: {formatAppStatusVi(a.applicationStatus)}
                 </p>
+                {a.applicationStatus === 'CANCELLATION_REQUESTED' && (
+                  <p className="mt-1 text-xs font-semibold text-rose-600 dark:text-rose-400">
+                    Đơn xin ngừng thanh toán đang chờ duyệt hoặc từ chối
+                  </p>
+                )}
               </div>
               <Wallet className="h-5 w-5 text-emerald-500" />
             </button>
@@ -908,7 +923,10 @@ export function ContractDetailPage() {
     role === 'Housing Developer' ||
     role === 'Department Of Construction' ||
     role === 'System Administrator'
-  const reviewStatus = status?.applicationStatus || appDetail?.applicationStatus || ''
+  const reviewStatus =
+    appDetail?.applicationStatus === 'CANCELLATION_REQUESTED' || status?.applicationStatus === 'CANCELLATION_REQUESTED'
+      ? 'CANCELLATION_REQUESTED'
+      : status?.applicationStatus || appDetail?.applicationStatus || ''
 
   useEffect(() => {
     const projectId = readProjectId() || appDetail?.projectId || ''
@@ -1008,7 +1026,12 @@ export function ContractDetailPage() {
   const derivedStatus = mapStatus(status)
   const { paid, remaining, progress } = summarizeInstallments(installments)
   const hasApartment = appDetail?.apartmentId != null
-  const effectiveStatus = status?.applicationStatus || appDetail?.applicationStatus || ''
+  const detailStatus = appDetail?.applicationStatus || ''
+  const signStatus = status?.applicationStatus || ''
+  const effectiveStatus =
+    detailStatus === 'CANCELLATION_REQUESTED' || signStatus === 'CANCELLATION_REQUESTED'
+      ? 'CANCELLATION_REQUESTED'
+      : signStatus || detailStatus
   const deposit1Paid = isPhase1Paid(installments, effectiveStatus)
   const canSign =
     role === 'Applicant' &&

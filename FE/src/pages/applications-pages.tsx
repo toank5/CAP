@@ -2071,7 +2071,7 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
           />
 
           {/* ĐIỀU HƯỚNG KÝ HĐ & THANH TOÁN QUA MỤC HỢP ĐỒNG */}
-          {(['CONTRACT_PENDING', 'CONTRACT_SIGNED', 'PARTIALLY_PAID', 'PAID', 'FULLY_PAID', 'DEPOSIT_PAID', 'DEPOSIT_PENDING'].includes(app.applicationStatus) || !!app.apartmentId) && (
+          {(['CONTRACT_PENDING', 'CONTRACT_SIGNED', 'PARTIALLY_PAID', 'PAID', 'FULLY_PAID', 'DEPOSIT_PAID', 'DEPOSIT_PENDING', 'INSTALLMENT_IN_PROGRESS', 'CANCELLATION_REQUESTED'].includes(app.applicationStatus) || !!app.apartmentId) && (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-blue-200 bg-blue-50/70 p-4 dark:border-blue-900/60 dark:bg-blue-950/30">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-md shadow-blue-500/20">
@@ -2082,7 +2082,9 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
                     Ký hợp đồng & Thanh toán từng đợt
                   </h4>
                   <p className="text-xs text-blue-700/80 dark:text-blue-300/80">
-                    Ký hợp đồng mua bán điện tử và thực hiện thanh toán các đợt tiền được quản lý tại mục <strong>Hợp đồng</strong>.
+                    {app.applicationStatus === 'CANCELLATION_REQUESTED'
+                      ? 'Hồ sơ đang xin ngừng thanh toán. Mở hợp đồng để duyệt hoặc từ chối đơn.'
+                      : 'Ký hợp đồng mua bán điện tử và thực hiện thanh toán các đợt tiền được quản lý tại mục Hợp đồng.'}
                   </p>
                 </div>
               </div>
@@ -2091,8 +2093,12 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
                 size="sm"
                 className="gap-1.5"
                 onClick={() => {
+                  sessionStorage.setItem('contractApplicationId', appId)
                   sessionStorage.setItem('current_application_id', appId)
-                  if (app.projectId) sessionStorage.setItem('current_project_id', app.projectId)
+                  if (app.projectId) {
+                    sessionStorage.setItem('contractProjectId', app.projectId)
+                    sessionStorage.setItem('current_project_id', app.projectId)
+                  }
                   navigate('contract-detail')
                 }}
               >
