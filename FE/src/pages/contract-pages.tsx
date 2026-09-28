@@ -21,8 +21,9 @@ import { APPLICATION_STATUS } from '@/lib/constants'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Alert } from '@/components/ui/alert'
+import { Modal } from '@/components/ui/modal'
 import { PageCard } from '@/components/layout/page-header'
-import { SignContractSection } from '@/components/payment/payment-section'
+import { SignContractSection, WithdrawalRequestModal } from '@/components/payment/payment-section'
 import { navigate } from '@/hooks/useHashRoute'
 import { formatError } from '@/lib/format-error'
 import { getRole } from '@/router'
@@ -35,7 +36,7 @@ import {
   scheduleLoadErrorCopy,
   scheduleMismatchHint,
 } from '@/lib/payment-schedule-copy'
-import { extractOrderId, extractPaymentUrl, paymentApi, downloadContractPdf } from '@/api/payment'
+import { extractOrderId, extractPaymentUrl, paymentApi, downloadContractPdf, parseCancellationRequests, type CancellationRequestItemDto } from '@/api/payment'
 import { housingApplicationsApi } from '@/api/housing-applications'
 import { openVnPayPopupAndWait, vnPayResultMessage } from '@/lib/vnpay-popup'
 import type { ApplicationSummaryDto } from '@/types'
@@ -847,6 +848,12 @@ export function ContractDetailPage() {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [appDetail, setAppDetail] = useState<ApplicationDetailDto | null>(null)
+  const [withdrawOpen, setWithdrawOpen] = useState(false)
+  const [cancelRequest, setCancelRequest] = useState<CancellationRequestItemDto | null>(null)
+  const [rejectOpen, setRejectOpen] = useState(false)
+  const [rejectReason, setRejectReason] = useState('')
+  const [rejectError, setRejectError] = useState('')
+  const [decisionBusy, setDecisionBusy] = useState(false)
 
   const reload = async () => {
     if (!id) return
@@ -896,6 +903,69 @@ export function ContractDetailPage() {
   }
 
   useEffect(() => { void reload() }, [id])
+
+  const canReviewCancellation =
+    role === 'Housing Developer' ||
+    role === 'Department Of Construction' ||
+    role === 'System Administrator'
+  const reviewStatus = status?.applicationStatus || appDetail?.applicationStatus || ''
+
+  useEffect(() => {
+    const projectId = readProjectId() || appDetail?.projectId || ''
+    if (!id || !projectId || reviewStatus !== 'CANCELLATION_REQUESTED' || !canReviewCancellation) {
+      setCancelRequest(null)
+      return
+    }
+    let cancelled = false
+    void paymentApi.getCancellationRequests(projectId)
+      .then((data) => {
+        if (cancelled) return
+        setCancelRequest(parseCancellationRequests(data).find((item) => item.applicationId === id) ?? null)
+      })
+      .catch(() => {
+        if (!cancelled) setCancelRequest(null)
+      })
+    return () => { cancelled = true }
+  }, [id, appDetail, reviewStatus, canReviewCancellation])
+
+  const approveCancellation = async () => {
+    if (!id || decisionBusy) return
+    const name = cancelRequest?.applicantName || appDetail?.fullName || 'người mua'
+    if (!window.confirm(`Duyệt đơn xin rút hồ sơ của ${name}? Tiền cọc Đợt 1 bị giữ, các khoản sau được hoàn theo bảng kê, căn trả về quỹ.`)) return
+    setDecisionBusy(true)
+    setMsg(null)
+    try {
+      await paymentApi.approveCancellation(id)
+      setMsg({ type: 'success', text: 'Đã duyệt đơn rút hồ sơ. Căn hộ được thu hồi.' })
+      await reload()
+    } catch (err) {
+      setMsg({ type: 'error', text: formatError(err) })
+    } finally {
+      setDecisionBusy(false)
+    }
+  }
+
+  const rejectCancellation = async () => {
+    if (!id || decisionBusy) return
+    if (!rejectReason.trim()) {
+      setRejectError('Vui lòng nhập lý do từ chối.')
+      return
+    }
+    setDecisionBusy(true)
+    setRejectError('')
+    setMsg(null)
+    try {
+      await paymentApi.rejectCancellation(id, { reason: rejectReason.trim() })
+      setRejectOpen(false)
+      setRejectReason('')
+      setMsg({ type: 'success', text: 'Đã từ chối đơn rút hồ sơ. Hồ sơ được khôi phục.' })
+      await reload()
+    } catch (err) {
+      setRejectError(formatError(err))
+    } finally {
+      setDecisionBusy(false)
+    }
+  }
 
   const signContract = async () => {
     if (!id || busy) return
@@ -1124,6 +1194,106 @@ export function ContractDetailPage() {
             {emptyScheduleNoApartmentCopy(role).body}
           </Alert>
         )}
+
+        {role === 'Applicant' && effectiveStatus === 'CANCELLATION_REQUESTED' && (
+          <Alert variant="info">Đơn xin ngừng thanh toán đã gửi và đang chờ chủ đầu tư duyệt hoặc từ chối.</Alert>
+        )}
+
+        {canReviewCancellation && effectiveStatus === 'CANCELLATION_REQUESTED' && (
+          <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50/70 p-4 dark:border-amber-900/50 dark:bg-amber-950/20">
+            <div>
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white">Đơn xin rút hồ sơ đang chờ duyệt</h4>
+              <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                Duyệt sẽ giữ tiền cọc Đợt 1, hoàn các khoản sau và thu hồi căn. Từ chối sẽ khôi phục hồ sơ để người dân tiếp tục thanh toán.
+              </p>
+            </div>
+            <div className="grid gap-2 text-xs sm:grid-cols-3">
+              <p>Đã thanh toán: <b>{Number(cancelRequest?.totalPaid ?? 0).toLocaleString('vi-VN')} VNĐ</b></p>
+              <p className="text-rose-700 dark:text-rose-300">Phạt mất cọc: <b>{Number(cancelRequest?.forfeitedAmount ?? 0).toLocaleString('vi-VN')} VNĐ</b></p>
+              <p className="text-emerald-700 dark:text-emerald-300">Hoàn lại: <b>{Number(cancelRequest?.refundAmount ?? 0).toLocaleString('vi-VN')} VNĐ</b></p>
+            </div>
+            {cancelRequest?.reason && (
+              <p className="text-xs text-slate-600 dark:text-slate-300">Lý do: {cancelRequest.reason}</p>
+            )}
+            {(cancelRequest?.bankAccountNumber || cancelRequest?.bankName) && (
+              <p className="text-xs text-slate-600 dark:text-slate-300">
+                Tài khoản hoàn: {cancelRequest.bankName || 'Ngân hàng'} · {cancelRequest.bankAccountNumber || '—'} · {cancelRequest.accountHolderName || ''}
+              </p>
+            )}
+            <div className="flex flex-wrap justify-end gap-2 border-t border-amber-200 pt-3 dark:border-amber-900/50">
+              <Button
+                variant="outline"
+                disabled={decisionBusy}
+                className="border-rose-300 text-rose-700 hover:bg-rose-50 dark:text-rose-300"
+                onClick={() => {
+                  setRejectReason('')
+                  setRejectError('')
+                  setRejectOpen(true)
+                }}
+              >
+                Từ chối đơn
+              </Button>
+              <Button
+                disabled={decisionBusy}
+                className="bg-emerald-600 text-white hover:bg-emerald-700"
+                onClick={() => void approveCancellation()}
+              >
+                {decisionBusy ? 'Đang xử lý...' : 'Duyệt đơn rút hồ sơ'}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {role === 'Applicant' && !['CANCELLATION_REQUESTED', 'CANCELED', 'REJECTED', 'EXPIRED', 'LOTTERY_LOST'].includes(effectiveStatus) && (
+          <div className="flex justify-end border-t border-slate-200 pt-4 dark:border-slate-700">
+            <Button
+              variant="ghost"
+              className="text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/40"
+              onClick={() => setWithdrawOpen(true)}
+            >
+              <XCircle className="mr-1.5 h-4 w-4" />
+              Xin rút hồ sơ / Hủy hợp đồng
+            </Button>
+          </div>
+        )}
+
+        <WithdrawalRequestModal
+          open={withdrawOpen}
+          onClose={() => setWithdrawOpen(false)}
+          applicationId={id}
+          onSuccess={() => {
+            setMsg({ type: 'success', text: 'Đã gửi đơn xin rút hồ sơ. Chủ đầu tư sẽ duyệt hoặc từ chối.' })
+            void reload()
+          }}
+        />
+
+        <Modal
+          open={rejectOpen}
+          onClose={decisionBusy ? () => undefined : () => setRejectOpen(false)}
+          title="Từ chối đơn rút hồ sơ"
+          description="Lý do này được gửi lại cho người dân. Hồ sơ quay về trạng thái trước khi xin rút."
+        >
+          <div className="space-y-3">
+            {rejectError && <Alert variant="error">{rejectError}</Alert>}
+            <textarea
+              rows={3}
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="VD: Chưa đủ căn cứ để chấm dứt hợp đồng / thông tin tài khoản hoàn tiền chưa khớp."
+              className="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" disabled={decisionBusy} onClick={() => setRejectOpen(false)}>Hủy</Button>
+              <Button
+                disabled={decisionBusy || !rejectReason.trim()}
+                className="bg-rose-600 text-white hover:bg-rose-700"
+                onClick={() => void rejectCancellation()}
+              >
+                {decisionBusy ? 'Đang gửi...' : 'Xác nhận từ chối'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
       </PageCard>
     </div>
   )
