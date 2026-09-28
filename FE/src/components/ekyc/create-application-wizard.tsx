@@ -14,7 +14,7 @@ import {
   X,
   ExternalLink,
 } from 'lucide-react'
-import { housingApplicationsApi } from '@/api/housing-applications'
+import { housingApplicationsApi, parseApplicationDetail } from '@/api/housing-applications'
 import { housingProjectsApi } from '@/api/housing-projects'
 import { lookupApi } from '@/api/lookup'
 import { usersApi } from '@/api/users'
@@ -31,6 +31,7 @@ import {
   HOUSING_STATUS_LABELS,
   canCreateNewApplication,
   getRequiredDocsForPriorityGroup,
+  subjectProofsOutsideGroup,
 } from '@/lib/constants'
 import {
   validateDocumentFile,
@@ -191,9 +192,19 @@ const MARITAL_DOC_BY_STATUS: Record<string, string> = {
 type Step2DocItem = { code: string; label: string; required: boolean }
 
 /** Bộ giấy bước 2: giấy bắt buộc theo nhóm + giấy nhân thân/cư trú/phụ thuộc + giấy đã có trong kho. */
+async function dropStaleApplicationProofs(applicationId: string, priorityGroup: string) {
+  const created = parseApplicationDetail(await housingApplicationsApi.getById(applicationId))
+  const staleOnApp = subjectProofsOutsideGroup(created?.documents ?? [], priorityGroup)
+  if (staleOnApp.length === 0) return
+  await Promise.all(
+    staleOnApp.map((document) => housingApplicationsApi.deleteDocument(applicationId, document.documentId)),
+  )
+}
+
 function buildStep2DocItems(
   required: { code: string; label: string }[],
   prefill: PrefillData | null,
+  priorityGroup?: string | null,
 ): Step2DocItem[] {
   const items: Step2DocItem[] = required
     .filter((item) => item.code && !IDENTITY_DOC_TYPES.has(item.code.toUpperCase()))
@@ -213,6 +224,7 @@ function buildStep2DocItems(
   if (prefill?.householdMembers?.some((member) => member.isDependent)) add('DEPENDENT_PROOF')
 
   for (const doc of prefill?.availableVaultDocuments ?? []) {
+    if (subjectProofsOutsideGroup([doc], priorityGroup).length > 0) continue
     add(doc.documentType, doc.documentTypeLabel)
   }
 
@@ -429,8 +441,8 @@ export function CreateApplicationWizard() {
 
   const requiredDocs = useMemo(() => requiredDocItems.map((i) => i.code), [requiredDocItems])
   const step2Docs = useMemo(
-    () => buildStep2DocItems(requiredDocItems, prefill),
-    [requiredDocItems, prefill],
+    () => buildStep2DocItems(requiredDocItems, prefill, selectedPriorityGroup),
+    [requiredDocItems, prefill, selectedPriorityGroup],
   )
   const docLabel = (code: string) =>
     step2Docs.find((i) => i.code === code)?.label ?? DOC_TYPE_LABELS[code] ?? code
@@ -533,15 +545,26 @@ export function CreateApplicationWizard() {
           priorityGroup: body.priorityGroup, householdMembers: body.householdMembers,
         }
         await housingApplicationsApi.update(draftId, updateBody)
+        await dropStaleApplicationProofs(draftId, body.priorityGroup)
         setDraftStatus('DRAFT')
         return draftId
       }
+      const staleVault = subjectProofsOutsideGroup(
+        prefill?.availableVaultDocuments ?? [],
+        prefill?.priorityGroup,
+      )
+      await Promise.all(
+        staleVault
+          .filter((document) => document.documentId)
+          .map((document) => usersApi.deleteDocument(document.documentId)),
+      )
       const data = await housingApplicationsApi.create(body)
       const appId = extractApplicationId(data)
       if (!appId) {
         setMsg({ type: 'error', text: 'BE không trả về mã hồ sơ. Vui lòng thử lại.' })
         return null
       }
+      await dropStaleApplicationProofs(appId, body.priorityGroup)
       setDraftId(appId)
       setDraftStatus('DRAFT')
       return appId
@@ -610,6 +633,7 @@ export function CreateApplicationWizard() {
     setBusy('submit')
     setMsg(null)
     try {
+      await dropStaleApplicationProofs(draftId, selectedPriorityGroup)
       const result = await housingApplicationsApi.submit(draftId) as { newStatus?: string; NewStatus?: string }
       const newStatus = result?.newStatus ?? result?.NewStatus ?? 'SUBMITTED'
       setDraftStatus(newStatus)

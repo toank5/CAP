@@ -88,6 +88,7 @@ import {
   GENDER_LABELS,
   getRequiredDocsForPriorityGroup,
   documentsForPriorityGroup,
+  subjectProofsOutsideGroup,
   MAX_AVG_AREA_PER_PERSON_M2,
 } from '@/lib/constants'
 import { formatError } from '@/lib/format-error'
@@ -1062,6 +1063,25 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
         }
       } catch {
         /* ignore */
+      }
+    }
+
+    const canDropStaleProofs =
+      Boolean(parsed) &&
+      isApplicant &&
+      (parsed?.applicationStatus === 'DRAFT' || parsed?.applicationStatus === 'NEED_MORE_DOCUMENTS')
+    const staleProofs = subjectProofsOutsideGroup(parsed?.documents ?? [], parsed?.priorityGroup)
+    if (parsed && canDropStaleProofs && staleProofs.length > 0) {
+      const applicationId = parsed.applicationId
+      try {
+        await Promise.all(
+          staleProofs.map((document) =>
+            housingApplicationsApi.deleteDocument(applicationId, document.documentId),
+          ),
+        )
+        parsed = parseApplicationDetail(await housingApplicationsApi.getById(appId)) ?? parsed
+      } catch {
+        // Giữ bản đang xem; bộ lọc tab vẫn ẩn giấy của nhóm khác.
       }
     }
 

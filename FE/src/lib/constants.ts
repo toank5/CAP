@@ -260,6 +260,27 @@ export function documentsForPriorityGroup<T extends { documentType: string }>(
   )
 }
 
+/** Giấy chứng minh đối tượng của nhóm khác (hộ nghèo, cán bộ...). Không gồm thu nhập, nhà ở, hộ khẩu. */
+const SUBJECT_PROOF_DOC_TYPES = new Set(
+  Object.values(REQUIRED_DOCS_BY_PRIORITY_GROUP)
+    .flat()
+    .filter((code) => code !== 'HOUSING_CONDITION_PROOF' && code !== 'INCOME_CERTIFICATE'),
+)
+
+export function subjectProofsOutsideGroup<T extends { documentType: string }>(
+  documents: T[],
+  priorityGroup?: string | null,
+): T[] {
+  const group = priorityGroup?.trim().toUpperCase() ?? ''
+  const required = REQUIRED_DOCS_BY_PRIORITY_GROUP[group]
+  if (!required) return []
+  const allowed = new Set(required)
+  return documents.filter((doc) => {
+    const type = doc.documentType.trim().toUpperCase()
+    return SUBJECT_PROOF_DOC_TYPES.has(type) && !allowed.has(type)
+  })
+}
+
 export const DIRECTION_LABELS: Record<string, string> = {
   EAST: 'Đông',
   WEST: 'Tây',

@@ -13,7 +13,7 @@ import { formatError, formatSuccess } from '@/lib/format-error'
 import { labelRole } from '@/lib/labels'
 import { extractProfileImageUrl } from '@/lib/user-display'
 import { validateDocumentFile } from '@/lib/ekyc-helpers'
-import { MAX_AVG_AREA_PER_PERSON_M2 } from '@/lib/constants'
+import { MAX_AVG_AREA_PER_PERSON_M2, subjectProofsOutsideGroup } from '@/lib/constants'
 import { useUserProfile } from '@/providers/user-profile-provider'
 
 const MARITAL_STATUS_OPTIONS = [
@@ -379,12 +379,36 @@ export function ProfilePage() {
   }, [refreshProfile])
 
   useEffect(() => {
+    let cancelled = false
     void Promise.all([
-      lookupApi.profileDocumentTypes().then((data) => setProfileDocumentTypes(parseDocumentTypes(data))),
-      usersApi.getDocuments().then((data) => setUserDocuments(parseUserDocuments(data))),
-      usersApi.getHouseholdMembers().then((data) => setHouseholdMembers(parseHouseholdMembers(data).map(toHouseholdDraft))),
-      lookupApi.householdRelationships().then((data) => setHouseholdRelationships(parseDocumentTypes(data))),
+      lookupApi.profileDocumentTypes().then((data) => {
+        if (!cancelled) setProfileDocumentTypes(parseDocumentTypes(data))
+      }),
+      (async () => {
+        const [docData, profileData] = await Promise.all([
+          usersApi.getDocuments(),
+          usersApi.getFullProfile().catch(() => usersApi.getProfile()),
+        ])
+        const vault = parseUserDocuments(docData)
+        const savedGroup = String(unwrapProfile(profileData)?.priorityGroup ?? unwrapProfile(profileData)?.PriorityGroup ?? '')
+        const staleProofs = subjectProofsOutsideGroup(vault, savedGroup)
+        if (staleProofs.length > 0) {
+          await Promise.all(staleProofs.map((document) => usersApi.deleteDocument(document.id)))
+        }
+        if (!cancelled) {
+          setUserDocuments(vault.filter((document) => !staleProofs.some((stale) => stale.id === document.id)))
+        }
+      })(),
+      usersApi.getHouseholdMembers().then((data) => {
+        if (!cancelled) setHouseholdMembers(parseHouseholdMembers(data).map(toHouseholdDraft))
+      }),
+      lookupApi.householdRelationships().then((data) => {
+        if (!cancelled) setHouseholdRelationships(parseDocumentTypes(data))
+      }),
     ]).catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   useEffect(() => {
@@ -536,6 +560,11 @@ export function ProfilePage() {
         if (member.memberId) await usersApi.updateHouseholdMember(member.memberId, body)
         else await usersApi.createHouseholdMember(body)
       }
+
+      const vault = parseUserDocuments(await usersApi.getDocuments())
+      const staleProofs = subjectProofsOutsideGroup(vault, citizenInfo.priorityGroup)
+      await Promise.all(staleProofs.map((document) => usersApi.deleteDocument(document.id)))
+      setUserDocuments(vault.filter((document) => !staleProofs.some((stale) => stale.id === document.id)))
 
       const [freshHousehold] = await Promise.all([
         usersApi.getHouseholdMembers(),
