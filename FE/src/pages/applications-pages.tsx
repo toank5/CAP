@@ -1389,6 +1389,12 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
     }
   }
 
+  // Phải gọi trước mọi return. Lần render đang tải không được bỏ hook này.
+  const visibleDocuments = useMemo(
+    () => documentsForPriorityGroup(app?.documents ?? [], app?.priorityGroup),
+    [app?.documents, app?.priorityGroup],
+  )
+
   if (loading) return (
     <div className="flex flex-col items-center justify-center gap-3 py-16 text-slate-500">
       <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
@@ -1409,11 +1415,6 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
   const deposit2Paid = installments.some(i => i.ordinal === 2 && i.status === 'PAID')
   const depositCountdown = !deposit1Paid && !deposit2Paid ? formatDepositCountdown(app.applicationStatus, app.updatedAt) : null
 
-  // Chỉ giấy đúng nhóm đối tượng của hồ sơ. Kho cá nhân copy cả giấy nhóm khác vào đơn.
-  const visibleDocuments = useMemo(
-    () => documentsForPriorityGroup(app.documents ?? [], app.priorityGroup),
-    [app.documents, app.priorityGroup],
-  )
   const currentDoc = visibleDocuments.find((d) => d.documentId === selectedDocId) || visibleDocuments[0]
   const isPdf = currentDoc ? currentDoc.fileUrl?.toLowerCase().includes('.pdf') || currentDoc.fileName?.toLowerCase().endsWith('.pdf') : false
 
