@@ -831,7 +831,7 @@ export function WithdrawalRequestModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const reason = resolveWithdrawReason(CONTRACT_WITHDRAW_REASONS, selectedReason, otherReason)
+    const reason = resolveWithdrawReason(selectedReason, otherReason)
     if (!reason) {
       setError('Vui lòng chọn lý do xin rút hồ sơ / hủy hợp đồng.')
       return
@@ -954,7 +954,7 @@ export function WithdrawalRequestModal({
             <Button
               type="submit"
               variant="outline"
-              disabled={submitting || !resolveWithdrawReason(CONTRACT_WITHDRAW_REASONS, selectedReason, otherReason)}
+              disabled={submitting || !resolveWithdrawReason(selectedReason, otherReason)}
               className="border-rose-300 bg-rose-600 font-bold text-white hover:bg-rose-700 hover:text-white"
             >
               {submitting ? 'Đang gửi yêu cầu...' : 'Xác nhận xin rút hồ sơ'}

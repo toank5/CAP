@@ -15,7 +15,7 @@ export const CONTRACT_WITHDRAW_REASONS = [
   'Lý do khác',
 ]
 
-export function resolveWithdrawReason(reasons: string[], selected: string, otherText: string): string {
+export function resolveWithdrawReason(selected: string, otherText: string): string {
   if (!selected) return ''
   if (selected === 'Lý do khác') return otherText.trim()
   return selected

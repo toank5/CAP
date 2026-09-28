@@ -1348,7 +1348,7 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
 
 
   const confirmWithdraw = async () => {
-    const reason = resolveWithdrawReason(APPLICATION_WITHDRAW_REASONS, withdrawSelected, withdrawOther)
+    const reason = resolveWithdrawReason(withdrawSelected, withdrawOther)
     if (!reason) {
       setMsg({ type: 'error', text: 'Vui lòng chọn lý do rút hồ sơ.' })
       return
