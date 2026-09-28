@@ -5,6 +5,7 @@ import { Alert } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { extractList } from '@/lib/parsers'
 import { formatError } from '@/lib/format-error'
+import { formatHousingVnd } from '@/lib/money'
 import { paymentStatusBadge } from '@/lib/labels'
 import type { PaymentInfoDto } from '@/types'
 
@@ -44,7 +45,7 @@ export function PaymentsPage() {
                   </div>
                   <Badge variant={st.variant}>{st.text}</Badge>
                 </div>
-                <p className="mt-2 text-sm">{Number(p.amount).toLocaleString('vi-VN')} VNĐ · {new Date(p.createdAt ?? '').toLocaleString('vi-VN')}</p>
+                <p className="mt-2 text-sm">{formatHousingVnd(p.amount)} · {new Date(p.createdAt ?? '').toLocaleString('vi-VN')}</p>
               </div>
             )
           })}

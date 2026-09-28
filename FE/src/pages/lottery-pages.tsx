@@ -1834,7 +1834,7 @@ export function LotteryDetailPage() {
                   <Button variant="accent" disabled={!!busy} onClick={() => action('Mở sảnh', () => lotteryApi.openLobby(projectId))}>
                     Mở sảnh chờ
                   </Button>
-                  <Button variant="outline" onClick={() => navigate('lottery-live')}>Xem màn giám sát</Button>
+                  <Button variant="outline" onClick={() => { persistProjectId(projectId); navigate('lottery-live') }}>Xem màn giám sát</Button>
                 </div>
               </>
             )}
@@ -1855,7 +1855,7 @@ export function LotteryDetailPage() {
                   >
                     <Play className="mr-1.5 h-4 w-4" /> Bắt đầu quay số
                   </Button>
-                  <Button variant="outline" onClick={() => navigate('lottery-live')}>Màn quay số trực tiếp</Button>
+                  <Button variant="outline" onClick={() => { persistProjectId(projectId); navigate('lottery-live') }}>Màn quay số trực tiếp</Button>
                 </div>
               </>
             )}
@@ -1869,7 +1869,7 @@ export function LotteryDetailPage() {
                 <div className="flex flex-wrap gap-2">
                   <Button
                     variant="outline"
-                    onClick={() => navigate('lottery-live')}
+                    onClick={() => { persistProjectId(projectId); navigate('lottery-live') }}
                   >
                     🎯 Mở sảnh quay số
                   </Button>
@@ -1899,7 +1899,7 @@ export function LotteryDetailPage() {
                 <div className="flex flex-wrap gap-2">
                   <Button
                     variant="outline"
-                    onClick={() => navigate('lottery-live')}
+                    onClick={() => { persistProjectId(projectId); navigate('lottery-live') }}
                   >
                     🎯 Mở sảnh quay số
                   </Button>
@@ -1970,7 +1970,7 @@ export function LotteryDetailPage() {
                   {schedule?.joinCode ? <> · Mã vào sảnh người dân: <strong>{schedule.joinCode}</strong></> : null}
                 </Alert>
                 <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" onClick={() => navigate('lottery-live')}>Màn giám sát trực tiếp</Button>
+                  <Button variant="outline" onClick={() => { persistProjectId(projectId); navigate('lottery-live') }}>Màn giám sát trực tiếp</Button>
                 </div>
               </>
             )}
@@ -1984,7 +1984,7 @@ export function LotteryDetailPage() {
                   <Button variant="accent" disabled={!!busy} onClick={() => action('Công bố', () => lotteryApi.publishSession(projectId))}>
                     Công bố kết quả
                   </Button>
-                  <Button variant="outline" onClick={() => navigate('lottery-live')}>Xem nhật ký quay số</Button>
+                  <Button variant="outline" onClick={() => { persistProjectId(projectId); navigate('lottery-live') }}>Xem nhật ký quay số</Button>
                 </div>
               </>
             )}
@@ -2245,6 +2245,7 @@ export function LotteryLobbyPage() {
       connectionRef.current = null
       setJoined(true)
       setMsg({ type: 'success', text: 'Xác thực thành công. Đang chuyển vào trường quay…' })
+      persistProjectId(projectId)
       setTimeout(() => navigate('lottery-live'), 400)
     } catch (err) {
       setMsg({ type: 'error', text: formatError(err) })
@@ -2306,7 +2307,7 @@ export function LotteryLobbyPage() {
               Xác thực thành công. Đang kết nối trực tiếp với trường quay…
             </Alert>
             <div className="flex flex-wrap gap-2">
-              <Button variant="accent" onClick={() => navigate('lottery-live')}>
+              <Button variant="accent" onClick={() => { persistProjectId(projectId); navigate('lottery-live') }}>
                 🎯 Vào trường quay — theo dõi trực tiếp
               </Button>
               <Button variant="outline" onClick={() => {

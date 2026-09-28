@@ -383,10 +383,14 @@ export function parseApplicationDetail(data: unknown): ApplicationDetailDto | nu
 /** Một mục check do AI trả về khi audit hồ sơ (giúp CĐT duyệt nhanh). */
 export interface AuditChecklistItem {
   field: string
-  status: 'OK' | 'WARN' | 'FAIL' | string
+  status: 'OK' | 'WARN' | 'FAIL' | 'MISSING' | string
   note?: string | null
   /** Tên tài liệu liên quan, nếu có */
   documentName?: string | null
+  nameMatch?: boolean | null
+  typeMatch?: boolean | null
+  nameDetail?: string | null
+  typeDetail?: string | null
 }
 
 /** Response từ BE khi gọi API audit tài liệu hồ sơ. */
@@ -405,26 +409,68 @@ function pickAuditBody(data: unknown): Record<string, unknown> | null {
   return (o.data ?? o.Data ?? o) as Record<string, unknown>
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' ? value as Record<string, unknown> : null
+}
+
+function auditStatus(raw: string, isCorrect?: boolean): AuditChecklistItem['status'] {
+  const s = raw.toUpperCase()
+  if (s === 'MATCH' || s === 'OK' || s === 'COMPLETE') return 'OK'
+  if (s === 'MISSING' || s === 'INCOMPLETE') return 'MISSING'
+  if (s === 'ERROR' || s === 'WARN') return 'WARN'
+  if (s === 'MISMATCH' || s === 'FAIL') return 'FAIL'
+  if (isCorrect === true) return 'OK'
+  if (isCorrect === false) return 'FAIL'
+  return s || 'WARN'
+}
+
+function pickAuditRows(o: Record<string, unknown>): Record<string, unknown>[] {
+  const raw = o.checkedDocuments ?? o.CheckedDocuments
+    ?? o.checklist ?? o.Checklist
+    ?? o.documents ?? o.Documents
+    ?? o.checklistItems ?? o.ChecklistItems
+    ?? o.checks ?? o.Checks
+  return Array.isArray(raw) ? raw.map(asRecord).filter((row): row is Record<string, unknown> => !!row) : []
+}
+
 /** Parse response trả về từ API POST /documents/audit (linh hoạt camelCase + PascalCase). */
 export function parseAuditChecklist(data: unknown): AuditChecklistResponse | null {
   const o = pickAuditBody(data)
   if (!o) return null
-  const checksRaw = (o.checks ?? o.Checks) as unknown
-  const checks: AuditChecklistItem[] = Array.isArray(checksRaw)
-    ? (checksRaw as Array<Record<string, unknown>>).map((c) => ({
-      field: String(c.field ?? c.Field ?? ''),
-      status: String(c.status ?? c.Status ?? 'OK').toUpperCase(),
-      note: (c.note ?? c.Note) as string | null | undefined,
-      documentName: (c.documentName ?? c.DocumentName) as string | null | undefined,
-    }))
-    : []
+  const checks: AuditChecklistItem[] = pickAuditRows(o).map((c) => {
+    const formStatus = String(c.formMatchStatus ?? c.FormMatchStatus ?? c.status ?? c.Status ?? '')
+    const isCorrect = c.isCorrectForm ?? c.IsCorrectForm
+    const name = String(c.documentTypeName ?? c.DocumentTypeName ?? c.field ?? c.Field ?? c.documentType ?? c.DocumentType ?? 'Giấy tờ')
+    return {
+      field: name,
+      status: auditStatus(formStatus, typeof isCorrect === 'boolean' ? isCorrect : undefined),
+      note: (c.details ?? c.Details ?? c.note ?? c.Note) as string | null | undefined,
+      documentName: (c.fileName ?? c.FileName ?? c.documentName ?? c.DocumentName) as string | null | undefined,
+      nameMatch: (c.isNameMatch ?? c.IsNameMatch) as boolean | null | undefined,
+      typeMatch: (c.isDocumentTypeMatch ?? c.IsDocumentTypeMatch) as boolean | null | undefined,
+      nameDetail: (c.nameCheckDetails ?? c.NameCheckDetails) as string | null | undefined,
+      typeDetail: (c.documentTypeCheckDetails ?? c.DocumentTypeCheckDetails) as string | null | undefined,
+    }
+  })
+  const passed = Number(o.passedCount ?? o.PassedCount ?? checks.filter((c) => c.status === 'OK').length)
+  const total = Number(o.totalCount ?? o.TotalCount ?? checks.length)
+  const isComplete = Boolean(o.isComplete ?? o.IsComplete)
+  const hasFail = checks.some((c) => c.status === 'FAIL' || c.status === 'MISSING')
+  const riskLevel = (o.riskLevel ?? o.RiskLevel) as string | undefined
+    ?? (checks.length === 0 ? undefined : isComplete && !hasFail ? 'LOW' : hasFail ? 'HIGH' : 'MEDIUM')
   return {
     applicationId: (o.applicationId ?? o.ApplicationId) as string | undefined,
-    overallScore: o.overallScore != null ? Number(o.overallScore) : o.OverallScore != null ? Number(o.OverallScore) : undefined,
-    summary: (o.summary ?? o.Summary) as string | undefined,
-    riskLevel: (o.riskLevel ?? o.RiskLevel) as string | undefined,
+    overallScore: o.overallScore != null
+      ? Number(o.overallScore)
+      : o.OverallScore != null
+        ? Number(o.OverallScore)
+        : total > 0
+          ? Math.round((passed / total) * 100)
+          : undefined,
+    summary: (o.summary ?? o.Summary ?? o.summaryNote ?? o.SummaryNote) as string | undefined,
+    riskLevel,
     checks,
-    rawText: (o.rawText ?? o.RawText) as string | undefined,
+    rawText: (o.rawText ?? o.RawText ?? o.summaryNote ?? o.SummaryNote) as string | undefined,
   }
 }
 
@@ -602,6 +648,7 @@ export const housingApplicationsApi = {
   ) =>
     request<ApiResult>(`/api/housing-applications/${applicationId}/documents/audit`, {
       method: 'POST',
+      timeoutMs: 120_000,
       body: JSON.stringify({
         context: context?.applicationInfo
           ? {

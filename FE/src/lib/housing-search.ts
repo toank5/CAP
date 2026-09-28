@@ -114,8 +114,8 @@ export function toApiFilter(filter: HousingSearchFilter): HousingProjectFilter {
     search: filter.search.trim() || undefined,
     province: HCM_PROVINCE,
     ward: filter.ward || undefined,
-    minPrice: minM != null ? minM * 1_000_000 : undefined,
-    maxPrice: maxM != null ? maxM * 1_000_000 : undefined,
+    minPrice: minM != null ? minM * 1_000 : undefined,
+    maxPrice: maxM != null ? maxM * 1_000 : undefined,
     minArea: parseNum(filter.minArea),
     maxArea: parseNum(filter.maxArea),
     statusId: filter.statusId || undefined,
@@ -192,11 +192,11 @@ export function applyClientFilters(
     const minP = p.minPrice ?? 0
     const maxP = p.maxPrice ?? minP
     if (minM != null && minM > 0) {
-      const targetMin = minM * 1_000_000
+      const targetMin = minM * 1_000
       if (maxP > 0 && maxP < targetMin) return false
     }
     if (maxM != null && maxM > 0) {
-      const targetMax = maxM * 1_000_000
+      const targetMax = maxM * 1_000
       if (minP > 0 && minP > targetMax) return false
     }
 

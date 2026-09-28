@@ -240,6 +240,26 @@ export function getRequiredDocsForPriorityGroup(priorityGroup: string): string[]
   return REQUIRED_DOCS_BY_PRIORITY_GROUP[priorityGroup] ?? ['HOUSING_CONDITION_PROOF']
 }
 
+/** Giấy chứng minh đối tượng / thu nhập / nhà ở — chỉ hiện khi thuộc nhóm của hồ sơ. */
+const APPLICATION_SCOPED_DOC_TYPES = new Set(Object.values(REQUIRED_DOCS_BY_PRIORITY_GROUP).flat())
+
+/**
+ * Giấy nhân thân (CCCD, hôn nhân, cư trú...) luôn giữ.
+ * Giấy của nhóm đối tượng khác (ví dụ giấy cán bộ trên hồ sơ công nhân) bị loại,
+ * vì lúc tạo hồ sơ kho cá nhân được copy nguyên, không lọc theo nhóm.
+ */
+export function documentsForPriorityGroup<T extends { documentType: string }>(
+  documents: T[],
+  priorityGroup?: string | null,
+): T[] {
+  const required = REQUIRED_DOCS_BY_PRIORITY_GROUP[priorityGroup ?? '']
+  if (!required) return documents
+  const allowed = new Set(required)
+  return documents.filter(
+    (doc) => !APPLICATION_SCOPED_DOC_TYPES.has(doc.documentType) || allowed.has(doc.documentType),
+  )
+}
+
 export const DIRECTION_LABELS: Record<string, string> = {
   EAST: 'Đông',
   WEST: 'Tây',

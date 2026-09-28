@@ -10,12 +10,10 @@ import {
 } from 'lucide-react'
 import type { ApartmentDto } from '@/types'
 import { DIRECTION_LABELS } from '@/lib/constants'
+import { formatHousingVnd } from '@/lib/money'
 
 function formatPrice(v?: number) {
-  if (!v) return '—'
-  if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(2)} tỷ`
-  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)} triệu`
-  return `${Number(v).toLocaleString('vi-VN')} VNĐ`
+  return formatHousingVnd(v)
 }
 
 interface Apartment3DViewerProps {

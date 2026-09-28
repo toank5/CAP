@@ -18,14 +18,11 @@ import {
   type LotteryScheduleDto,
   type WaitlistEntryDto,
 } from '@/api/lottery'
-import { housingProjectsApi } from '@/api/housing-projects'
 import { housingApplicationsApi } from '@/api/housing-applications'
-import type { HousingProjectSummaryDto } from '@/types'
 import { WAITLIST_CONFIRM_HOURS_DEFAULT } from '@/lib/lottery-allocation'
 import { connectLotteryHub, stopLotteryHub } from '@/api/lotteryHub'
 import { getRole } from '@/router'
 import { getLotteryPhase } from '@/lib/lottery-phase'
-import { normalizeStatus } from '@/lib/project-status-flow'
 import { LiveZone } from './LiveZone'
 import { WinnersZone } from './WinnersZone'
 import { ApartmentFundZone } from './ApartmentFundZone'
@@ -51,11 +48,6 @@ function loadStoredProjectId(): string {
   return sessionStorage.getItem(PROJECT_KEY) ?? ''
 }
 
-function persistProjectId(id: string) {
-  if (id) sessionStorage.setItem(PROJECT_KEY, id)
-  else sessionStorage.removeItem(PROJECT_KEY)
-}
-
 function loadApplicantOtp(projectId: string): string {
   return sessionStorage.getItem(`lotteryLobbyOtp:${projectId}`) ?? ''
 }
@@ -68,20 +60,13 @@ function hubErrorMessage(err: unknown): string {
   return formatError(err)
 }
 
-export interface LiveEligibleProject extends HousingProjectSummaryDto {
-  sessionStatus?: string
-  isLotteryApproved?: boolean
-}
-
 export const LotteryLivePage: React.FC = () => {
   const role = getRole()
   const isDev = role === 'Housing Developer'
   const isSxd = role === 'Department Of Construction'
   const isApplicant = role === 'Applicant'
 
-  const [projectId, setProjectId] = useState<string>('')
-  const [projectList, setProjectList] = useState<LiveEligibleProject[]>([])
-  const [currentProject, setCurrentProject] = useState<LiveEligibleProject | null>(null)
+  const [projectId] = useState(loadStoredProjectId)
   const [eligibleList, setEligibleList] = useState<import('@/api/lottery').LotteryEligibleEntry[]>([])
 
   const [schedule, setSchedule] = useState<LotteryScheduleDto | null>(null)
@@ -106,117 +91,7 @@ export const LotteryLivePage: React.FC = () => {
   const [liveOtpError, setLiveOtpError] = useState('')
   const [liveOtpBusy, setLiveOtpBusy] = useState(false)
 
-  // 1. Tải danh sách dự án hợp lệ cho trường quay trực tiếp (đã được Sở duyệt lịch bốc thăm)
-  useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      try {
-        setLoading(true)
-        const data = await housingProjectsApi.list({ pageIndex: 1, pageSize: 50 })
-        const raw = data && typeof data === 'object' ? (data as Record<string, unknown>) : {}
-        const list = (raw.items ?? raw.Items ?? []) as HousingProjectSummaryDto[]
-
-        // Lọc các dự án hợp lệ (không bị từ chối)
-        const approvedProjects = list.filter((p) => {
-          const s = normalizeStatus(p.status)
-          return !/REJECTED|TỪ CHỐI/.test(s)
-        })
-
-        // Tải lịch bốc thăm
-        const checked = await Promise.all(
-          approvedProjects.map(async (p) => {
-            try {
-              const schedData = await lotteryApi.getSchedule(p.id)
-              const sched = parseLotterySchedule(schedData)
-              const isApproved =
-                sched?.isLotteryApproved === true ||
-                ['Live', 'WaitingLobby', 'Scheduled', 'Paused', 'Finished', 'Published'].includes(
-                  String(sched?.sessionStatus),
-                )
-              return {
-                project: p,
-                schedule: sched,
-                isApproved,
-              }
-            } catch {
-              return { project: p, schedule: null, isApproved: false }
-            }
-          }),
-        )
-
-        const eligible: LiveEligibleProject[] = checked
-          .filter((c) => c.isApproved)
-          .map((c) => ({
-            ...c.project,
-            sessionStatus: c.schedule?.sessionStatus ?? undefined,
-            isLotteryApproved: c.schedule?.isLotteryApproved ?? undefined,
-          }))
-
-        if (cancelled) return
-        setProjectList(eligible)
-
-        const storedId = loadStoredProjectId()
-        const storedMatch = eligible.find((p) => p.id === storedId)
-        const activeLive = eligible.find(
-          (p) => p.sessionStatus === 'Live' || p.sessionStatus === 'WaitingLobby',
-        )
-
-        if (activeLive) {
-          setProjectId(activeLive.id)
-          persistProjectId(activeLive.id)
-          setCurrentProject(activeLive)
-        } else if (storedMatch) {
-          setProjectId(storedMatch.id)
-          persistProjectId(storedMatch.id)
-          setCurrentProject(storedMatch)
-        } else {
-          // Không có phiên Live nào đang chạy và dự án trong storage chưa duyệt lịch -> Giữ sảnh ở chế độ chờ (trống)
-          setProjectId('')
-          persistProjectId('')
-          setCurrentProject(null)
-          setSchedule(null)
-          setLiveState(null)
-          setWaitlist([])
-          setEligibleList([])
-        }
-      } catch (err) {
-        console.warn('[LotteryLivePage] Failed to fetch eligible live project list:', err)
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  // Cập nhật currentProject khi projectId thay đổi
-  useEffect(() => {
-    if (!projectId) {
-      setCurrentProject(null)
-      return
-    }
-    const found = projectList.find((p) => p.id === projectId)
-    if (found) {
-      setCurrentProject(found)
-    }
-  }, [projectId, projectList])
-
-  // Đổi dự án từ dropdown
-  const handleSelectProject = (newId: string) => {
-    if (newId === projectId) return
-    setProjectId(newId)
-    persistProjectId(newId)
-    setSchedule(null)
-    setLiveState(null)
-    setWaitlist([])
-    setEligibleList([])
-    setHubError('')
-    setMsg(null)
-  }
-
-  // 2. Load dữ liệu lịch & trạng thái Live
+  // 2. Load dữ liệu lịch & trạng thái Live của đúng dự án đang mở
   const load = async (quiet = false) => {
     if (!projectId) {
       setSchedule(null)
@@ -238,13 +113,7 @@ export const LotteryLivePage: React.FC = () => {
         loadedSchedule = parseLotterySchedule(schedRes.data)
       }
 
-      const isApproved =
-        loadedSchedule?.isLotteryApproved === true ||
-        ['Live', 'WaitingLobby', 'Scheduled', 'Paused', 'Finished', 'Published'].includes(
-          String(loadedSchedule?.sessionStatus),
-        )
-
-      if (loadedSchedule && isApproved) {
+      if (loadedSchedule) {
         setSchedule(loadedSchedule)
         const [liveRes, elRes, resultRes, waitlistRes, appsRes] = await Promise.all([
           lotteryApi
@@ -427,14 +296,18 @@ export const LotteryLivePage: React.FC = () => {
           setWaitlist([])
         }
       } else {
-        // Dự án chưa được duyệt lịch bốc thăm
         setSchedule(null)
         setLiveState(null)
         setWaitlist([])
         setEligibleList([])
-        setProjectId('')
-        persistProjectId('')
-        setCurrentProject(null)
+        if (!quiet) {
+          setMsg({
+            type: 'error',
+            text: schedRes.ok
+              ? 'Dự án này chưa có lịch bốc thăm.'
+              : schedRes.err,
+          })
+        }
       }
     } finally {
       if (!quiet) setLoading(false)
@@ -677,7 +550,7 @@ export const LotteryLivePage: React.FC = () => {
     setSoundEnabled(next)
   }
 
-  const phase = getLotteryPhase(schedule, currentProject?.status)
+  const phase = getLotteryPhase(schedule)
   const sessionStatus = liveState?.sessionStatus ?? schedule?.sessionStatus ?? ''
   const sxdOnline = liveState?.sxdOnlineCount ?? schedule?.sxdOnlineCount ?? 0
   const lobbyCount = liveState?.lobbyCount ?? 0
@@ -717,8 +590,8 @@ export const LotteryLivePage: React.FC = () => {
                 </span>
               </div>
               <h1 className="mt-0.5 text-lg font-black text-slate-900 sm:text-xl">
-                {projectId && (schedule?.projectName ?? liveState?.projectName ?? currentProject?.projectName)
-                  ? (schedule?.projectName ?? liveState?.projectName ?? currentProject?.projectName)
+                {projectId && (schedule?.projectName ?? liveState?.projectName)
+                  ? (schedule?.projectName ?? liveState?.projectName)
                   : 'Sảnh Bốc Thăm Trực Tuyến'}
               </h1>
             </div>
@@ -771,34 +644,7 @@ export const LotteryLivePage: React.FC = () => {
           </div>
         </div>
 
-        {/* Project Selector & Actions Bar */}
-        <div className="flex flex-col gap-3 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Chọn phiên bốc thăm:
-            </span>
-            <div className="relative">
-              <select
-                value={projectId}
-                onChange={(e) => handleSelectProject(e.target.value)}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-900 shadow-xs focus:border-indigo-500 focus:outline-none"
-              >
-                <option value="">-- Chưa chọn dự án bốc thăm --</option>
-                {projectList.map((p) => {
-                  const isLive = p.sessionStatus === 'Live'
-                  const isLobby = p.sessionStatus === 'WaitingLobby'
-                  const isPublished = p.sessionStatus === 'Published' || p.sessionStatus === 'Finished'
-                  return (
-                    <option key={p.id} value={p.id}>
-                      {p.projectName} {isLive ? '🔴 (Đang trực tiếp)' : isLobby ? '⏳ (Sảnh chờ)' : isPublished ? '✓ (Đã công bố)' : '📅 (Đã duyệt lịch)'}
-                    </option>
-                  )
-                })}
-              </select>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 pt-3">
             <Button
               variant="outline"
               size="sm"
@@ -818,15 +664,13 @@ export const LotteryLivePage: React.FC = () => {
               <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
               Làm mới
             </Button>
-          </div>
         </div>
       </div>
 
       {/* Thông báo khi sảnh ở chế độ chờ */}
       {!projectId && !loading && (
         <Alert variant="info" className="text-xs">
-          <strong>Chế độ chờ:</strong> Hiện chưa chọn phiên bốc thăm hoặc chưa có dự án nào đang mở sảnh quay số trực tiếp.
-          Theo quy định tại Điều 38 Nghị định số 100/2024/NĐ-CP, chỉ các dự án <strong>đã được Sở Xây dựng phê duyệt lịch bốc thăm</strong> mới hiển thị tại Trường quay trực tiếp. Bạn có thể chuyển sang mục <strong>«{isApplicant ? 'Bốc thăm của tôi' : 'Quản lý phiên'}»</strong> để kiểm tra.
+          Màn này chỉ hiện phiên của dự án bạn vừa mở. Hãy vào từ danh sách bốc thăm hoặc từ dự án đó, không chọn phiên khác trên màn trực tiếp.
         </Alert>
       )}
 
@@ -929,7 +773,7 @@ export const LotteryLivePage: React.FC = () => {
                   <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
                     Xác thực mã vào sảnh
                   </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">{currentProject?.projectName || schedule?.projectName || 'Trường quay bốc thăm'}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{schedule?.projectName || liveState?.projectName || 'Trường quay bốc thăm'}</p>
                 </div>
               </div>
               <button

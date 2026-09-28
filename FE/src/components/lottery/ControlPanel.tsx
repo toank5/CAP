@@ -60,8 +60,8 @@ export const ControlPanel: React.FC<Props> = ({
         </h3>
         <p className="mx-auto mt-1 max-w-md text-xs text-slate-500">
           {isApplicant
-            ? 'Chưa chọn phiên bốc thăm nào. Vui lòng chọn dự án từ menu phía trên hoặc quay lại danh sách bốc thăm của bạn.'
-            : 'Chưa chọn phiên bốc thăm nào. Vui lòng chọn một dự án từ menu phía trên hoặc vào Trung tâm Quản lý Bốc thăm để mở sảnh điều hành.'}
+            ? 'Chưa mở đúng dự án. Quay lại danh sách bốc thăm và vào phiên của dự án bạn đang theo dõi.'
+            : 'Chưa mở đúng dự án. Vào Trung tâm Quản lý Bốc thăm và mở sảnh của dự án đó.'}
         </p>
         <button
           onClick={() => navigate(isApplicant ? 'my-lottery' : 'lottery-sessions')}

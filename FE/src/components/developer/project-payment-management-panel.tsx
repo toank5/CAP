@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import {
   AlertTriangle,
   Banknote,
+  CheckCircle2,
   FileX2,
   Loader2,
   RefreshCw,
@@ -19,6 +20,7 @@ import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
 import { formatError } from '@/lib/format-error'
+import { formatHousingVnd } from '@/lib/money'
 
 interface ProjectPaymentManagementPanelProps {
   projectId: string
@@ -35,6 +37,10 @@ export function ProjectPaymentManagementPanel({
   const [error, setError] = useState('')
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [actionBusy, setActionBusy] = useState<string | null>(null)
+
+  // Approve Modal State
+  const [approveModalOpen, setApproveModalOpen] = useState(false)
+  const [approveTarget, setApproveTarget] = useState<CancellationRequestItemDto | null>(null)
 
   // Reject Modal State
   const [rejectModalOpen, setRejectModalOpen] = useState(false)
@@ -75,26 +81,23 @@ export function ProjectPaymentManagementPanel({
     }
   }, [projectId])
 
-  const handleApprove = async (req: CancellationRequestItemDto) => {
-    if (
-      !window.confirm(
-        'Xác nhận DUYỆT đơn xin rút hồ sơ của "' + (req.applicantName || req.applicationId) + '"?\n' +
-        '• Phạt mất cọc: ' + (req.forfeitedAmount ?? 0).toLocaleString('vi-VN') + ' VNĐ\n' +
-        '• Hoàn trả: ' + (req.refundAmount ?? 0).toLocaleString('vi-VN') + ' VNĐ vào STK ' + (req.bankAccountNumber || '—') + ' (' + (req.bankName || '—') + ')\n\n' +
-        'Suất căn hộ sẽ được hoàn lại quỹ căn để đôn ứng viên Danh sách chờ (Waitlist).',
-      )
-    ) {
-      return
-    }
+  const handleOpenApprove = (req: CancellationRequestItemDto) => {
+    setApproveTarget(req)
+    setApproveModalOpen(true)
+  }
 
-    setActionBusy(req.applicationId)
+  const handleConfirmApprove = async () => {
+    if (!approveTarget) return
+    setActionBusy(approveTarget.applicationId)
     setMsg(null)
     try {
-      await paymentApi.approveCancellation(req.applicationId)
+      await paymentApi.approveCancellation(approveTarget.applicationId)
       setMsg({
         type: 'success',
-        text: 'Đã duyệt đơn rút hồ sơ của ' + (req.applicantName || req.applicationId) + '. Căn hộ đã được thu hồi và sẵn sàng đôn ứng viên Waitlist.',
+        text: 'Đã duyệt đơn rút hồ sơ của ' + (approveTarget.applicantName || approveTarget.applicationId) + '. Căn hộ đã được thu hồi và sẵn sàng đôn ứng viên Waitlist.',
       })
+      setApproveModalOpen(false)
+      setApproveTarget(null)
       await loadRequests()
     } catch (err) {
       setMsg({ type: 'error', text: formatError(err) })
@@ -164,10 +167,7 @@ export function ProjectPaymentManagementPanel({
     }
   }
 
-  const formatMoney = (v?: number) => {
-    if (v == null || Number.isNaN(v)) return '0 VNĐ'
-    return v.toLocaleString('vi-VN') + ' VNĐ'
-  }
+  const formatMoney = (v?: number) => formatHousingVnd(v)
 
   return (
     <div className="space-y-6">
@@ -387,7 +387,7 @@ export function ProjectPaymentManagementPanel({
                             <Button
                               size="sm"
                               disabled={isBusy}
-                              onClick={() => handleApprove(r)}
+                              onClick={() => handleOpenApprove(r)}
                               className="h-7 bg-emerald-600 px-2.5 text-[11px] font-bold text-white hover:bg-emerald-700"
                             >
                               {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Duyệt'}
@@ -422,6 +422,65 @@ export function ProjectPaymentManagementPanel({
           </div>
         )}
       </div>
+
+      <Modal
+        open={approveModalOpen}
+        onClose={() => {
+          if (actionBusy) return
+          setApproveModalOpen(false)
+        }}
+        size="md"
+      >
+        <div className="space-y-4 p-5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
+              <CheckCircle2 className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                Duyệt đơn rút hồ sơ
+              </h3>
+              <p className="text-xs text-slate-500">
+                Tiền cọc Đợt 1 bị giữ, các khoản sau được hoàn, căn hộ trả về quỹ.
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-3 text-xs dark:border-emerald-900/50 dark:bg-emerald-950/30">
+            <p className="text-sm font-semibold text-slate-900 dark:text-white">
+              {approveTarget?.applicantName || 'Người mua'}
+            </p>
+            <div className="mt-2 grid gap-2 sm:grid-cols-3">
+              <p>Đã thanh toán: <b>{formatMoney(approveTarget?.totalPaid)}</b></p>
+              <p className="text-rose-700 dark:text-rose-300">Phạt mất cọc: <b>{formatMoney(approveTarget?.forfeitedAmount)}</b></p>
+              <p className="text-emerald-700 dark:text-emerald-300">Hoàn lại: <b>{formatMoney(approveTarget?.refundAmount)}</b></p>
+            </div>
+            <p className="mt-2 text-slate-600 dark:text-slate-300">
+              Tài khoản hoàn: {approveTarget?.bankName || 'Ngân hàng'} · {approveTarget?.bankAccountNumber || '—'} · {approveTarget?.accountHolderName || ''}
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={Boolean(actionBusy)}
+              onClick={() => setApproveModalOpen(false)}
+            >
+              Hủy
+            </Button>
+            <Button
+              size="sm"
+              disabled={Boolean(actionBusy)}
+              onClick={() => void handleConfirmApprove()}
+              className="bg-emerald-600 font-bold text-white hover:bg-emerald-700"
+            >
+              {actionBusy ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+              Xác nhận duyệt
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Modal từ chối yêu cầu rút hồ sơ */}
       <Modal

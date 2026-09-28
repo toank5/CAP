@@ -34,6 +34,7 @@ import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
 import { Alert } from '@/components/ui/alert'
 import { formatError } from '@/lib/format-error'
+import { formatHousingVnd } from '@/lib/money'
 import type { HousingProjectDto } from '@/types'
 
 /** Chuẩn hóa trạng thái giao dịch sang 4 nhóm chính */
@@ -400,7 +401,7 @@ export function AdminTransactionsPage() {
       `"${t.userPhoneNumber || ''}"`,
       `"${t.projectName || ''}"`,
       `"${t.slotCode || ''}"`,
-      t.amount || 0,
+      `"${formatHousingVnd(t.amount)}"`,
       `"${getTransactionStatusMeta(t.status).label}"`,
       `"${t.vnpBankCode || ''}"`,
       `"${t.createdAt ? new Date(t.createdAt).toLocaleString('vi-VN') : ''}"`,
@@ -485,7 +486,7 @@ export function AdminTransactionsPage() {
             </div>
           </div>
           <p className="mt-2 text-2xl font-black text-emerald-600 dark:text-emerald-400">
-            {loading ? '—' : `${stats.totalRevenue.toLocaleString('vi-VN')} ₫`}
+            {loading ? '—' : formatHousingVnd(stats.totalRevenue)}
           </p>
           <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
             <span className="inline-flex items-center text-emerald-600 font-semibold dark:text-emerald-400">
@@ -842,7 +843,7 @@ export function AdminTransactionsPage() {
                               : 'text-slate-700 dark:text-slate-300'
                           }`}
                         >
-                          {Number(tx.amount || 0).toLocaleString('vi-VN')} ₫
+                          {formatHousingVnd(tx.amount)}
                         </span>
                       </td>
 
@@ -996,7 +997,7 @@ export function AdminTransactionsPage() {
                   Số tiền thanh toán
                 </p>
                 <p className="mt-0.5 font-mono text-2xl font-black text-emerald-600 dark:text-emerald-400">
-                  {Number(selectedTx.amount || 0).toLocaleString('vi-VN')} ₫
+                  {formatHousingVnd(selectedTx.amount)}
                 </p>
               </div>
 

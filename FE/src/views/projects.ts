@@ -1,4 +1,5 @@
 import { housingProjectsApi } from '../api/housing-projects'
+import { formatHousingVnd } from '../lib/money'
 import { getRouteConfig, navigate } from '../router'
 import { el, fdStr, field, onFormSubmit, showResult } from '../ui/helpers'
 import { pageWithContent } from '../ui/page'
@@ -50,7 +51,7 @@ export function projectsView(): HTMLElement {
         { class: 'project-card', style: 'cursor: pointer; padding: 16px; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 12px;' },
         el('h3', {}, project.name || 'N/A'),
         el('p', {}, `Địa điểm: ${project.location || 'N/A'}`),
-        el('p', {}, `Giá: ${project.pricePerUnit?.toLocaleString('vi-VN') || 'N/A'} VNĐ`),
+        el('p', {}, `Giá: ${formatHousingVnd(project.pricePerUnit)}`),
         el('p', {}, `Có sẵn: ${project.availableUnits || 0}/${project.totalUnits || 0} đơn vị`),
         el('button', { type: 'button', class: 'btn-secondary', style: 'margin-top: 8px;' }, 'Chi tiết'),
       ),
@@ -83,7 +84,7 @@ export function projectsView(): HTMLElement {
             { class: 'project-card', style: 'cursor: pointer; padding: 16px; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 12px;' },
             el('h3', {}, project.name || 'N/A'),
             el('p', {}, `Địa điểm: ${project.location || 'N/A'}`),
-            el('p', {}, `Giá: ${project.pricePerUnit?.toLocaleString('vi-VN') || 'N/A'} VNĐ`),
+            el('p', {}, `Giá: ${formatHousingVnd(project.pricePerUnit)}`),
             el('p', {}, `Có sẵn: ${project.availableUnits || 0}/${project.totalUnits || 0} đơn vị`),
             el('button', { type: 'button', class: 'btn-secondary', style: 'margin-top: 8px;' }, 'Chi tiết'),
           ),

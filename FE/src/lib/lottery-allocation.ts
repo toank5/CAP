@@ -1,4 +1,5 @@
 import type { ApartmentDto } from '@/types'
+import { formatHousingVnd } from '@/lib/money'
 
 /**
  * Hạn xác nhận mặc định khi được đôn từ Danh sách dự bị, chỉ dùng cho câu mô tả nghiệp vụ.
@@ -63,6 +64,5 @@ export function splitAvailableUnits(apts: Pick<ApartmentDto, 'unitGroup'>[]): {
 export function apartmentOptionLabel(apt: ApartmentDto, taken: boolean): string {
   const group = isPriorityUnit(apt.unitGroup) ? 'Ưu tiên' : 'Thường'
   const type = apt.apartmentTypeLabel || apt.apartmentType || 'chưa gắn loại'
-  const price = Number(apt.price).toLocaleString('vi-VN')
-  return `${apt.unitName} · ${group} · ${type} · ${apt.area}m² · ${price}đ${taken ? ' (đã chọn)' : ''}`
+  return `${apt.unitName} · ${group} · ${type} · ${apt.area}m² · ${formatHousingVnd(apt.price)}${taken ? ' (đã chọn)' : ''}`
 }

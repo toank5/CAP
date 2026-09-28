@@ -22,12 +22,10 @@ import { VegetationLayer } from './vegetation-layer'
 import { TrafficLayer } from './traffic-layer'
 import { BuildingLayer } from './building-layer'
 import { CameraController } from './camera-controller'
+import { formatHousingVnd } from '@/lib/money'
 
 function formatPrice(v?: number) {
-  if (!v) return '—'
-  if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(2)} tỷ`
-  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)} triệu`
-  return `${Number(v).toLocaleString('vi-VN')} VNĐ`
+  return formatHousingVnd(v)
 }
 
 interface Building3DViewerProps {
@@ -772,7 +770,7 @@ export function Building3DViewer({
               </div>
               {selectedApt.area && selectedApt.price && (
                 <p className="text-[10px] text-slate-400 mt-0.5">
-                  ~{(Math.round((selectedApt.price / selectedApt.area) / 100_000) / 10).toFixed(1)} triệu/m²
+                  ~{(selectedApt.price / selectedApt.area / 1_000).toLocaleString('vi-VN', { maximumFractionDigits: 1 })} triệu/m²
                 </p>
               )}
             </div>

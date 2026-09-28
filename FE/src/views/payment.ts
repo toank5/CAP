@@ -1,4 +1,5 @@
 import { paymentApi } from '../api/payment'
+import { formatHousingVnd } from '../lib/money'
 import { getRouteConfig, navigate } from '../router'
 import type { PaymentInfoDto } from '../types'
 import { el, fdStr, field, onFormSubmit, showResult } from '../ui/helpers'
@@ -68,7 +69,7 @@ export function paymentsView(): HTMLElement {
               el('span', { class: `payment-status ${st.className}` }, st.text),
             ),
             el('div', { class: 'payment-card-meta' },
-              el('span', {}, `${Number(payment.amount).toLocaleString('vi-VN')} VNĐ`),
+              el('span', {}, formatHousingVnd(payment.amount)),
               el('span', {}, new Date(payment.createdAt ?? '').toLocaleString('vi-VN')),
             ),
           )

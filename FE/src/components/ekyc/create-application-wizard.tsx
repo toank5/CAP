@@ -180,6 +180,45 @@ function parseRequiredDocItems(data: unknown): { code: string; label: string }[]
     .filter((i) => i.code)
 }
 
+const IDENTITY_DOC_TYPES = new Set(['CITIZEN_ID_FRONT', 'CITIZEN_ID_BACK'])
+
+const MARITAL_DOC_BY_STATUS: Record<string, string> = {
+  MARRIED: 'MARRIAGE_CERTIFICATE',
+  SINGLE: 'SINGLE_STATUS_CERTIFICATE',
+  DIVORCED: 'DIVORCE_CERTIFICATE',
+}
+
+type Step2DocItem = { code: string; label: string; required: boolean }
+
+/** Bộ giấy bước 2: giấy bắt buộc theo nhóm + giấy nhân thân/cư trú/phụ thuộc + giấy đã có trong kho. */
+function buildStep2DocItems(
+  required: { code: string; label: string }[],
+  prefill: PrefillData | null,
+): Step2DocItem[] {
+  const items: Step2DocItem[] = required
+    .filter((item) => item.code && !IDENTITY_DOC_TYPES.has(item.code.toUpperCase()))
+    .map((item) => ({ code: item.code, label: item.label || DOC_TYPE_LABELS[item.code] || item.code, required: true }))
+
+  const seen = new Set(items.map((item) => item.code))
+  const add = (code: string, label?: string | null) => {
+    if (!code || seen.has(code) || IDENTITY_DOC_TYPES.has(code.toUpperCase())) return
+    seen.add(code)
+    items.push({ code, label: label || DOC_TYPE_LABELS[code] || code, required: false })
+  }
+
+  const maritalCode = MARITAL_DOC_BY_STATUS[(prefill?.maritalStatus ?? '').toUpperCase()]
+  if (maritalCode) add(maritalCode)
+  add('RESIDENCE_CONFIRMATION')
+  add('INCOME_CERTIFICATE')
+  if (prefill?.householdMembers?.some((member) => member.isDependent)) add('DEPENDENT_PROOF')
+
+  for (const doc of prefill?.availableVaultDocuments ?? []) {
+    add(doc.documentType, doc.documentTypeLabel)
+  }
+
+  return items
+}
+
 function SummaryRow({ label, value }: { label: string; value?: string | null }) {
   return (
     <div className="flex flex-wrap gap-x-2 gap-y-0.5">
@@ -389,14 +428,19 @@ export function CreateApplicationWizard() {
   }, [selectedPriorityGroup])
 
   const requiredDocs = useMemo(() => requiredDocItems.map((i) => i.code), [requiredDocItems])
+  const step2Docs = useMemo(
+    () => buildStep2DocItems(requiredDocItems, prefill),
+    [requiredDocItems, prefill],
+  )
   const docLabel = (code: string) =>
-    requiredDocItems.find((i) => i.code === code)?.label ?? DOC_TYPE_LABELS[code] ?? code
+    step2Docs.find((i) => i.code === code)?.label ?? DOC_TYPE_LABELS[code] ?? code
 
   // Cập nhật docs khi đổi nhóm đối tượng hoặc khi prefill load xong
   useEffect(() => {
+    const codes = step2Docs.map((item) => item.code)
     setDocs((prev) => {
       const next: Record<string, DocUpload | null> = {}
-      for (const t of requiredDocs) {
+      for (const t of codes) {
         const vaultDoc = prefill?.availableVaultDocuments?.find(d => d.documentType === t)
         if (vaultDoc) {
           next[t] = {
@@ -412,7 +456,7 @@ export function CreateApplicationWizard() {
       }
       return next
     })
-  }, [requiredDocs, prefill])
+  }, [step2Docs, prefill])
 
   // Kiểm tra thiếu thông tin
   const missingFields = useMemo(() => {
@@ -543,7 +587,7 @@ export function CreateApplicationWizard() {
     }
     setBusy('upload-all')
     let ok = true
-    for (const key of requiredDocs) {
+    for (const key of step2Docs.map((item) => item.code)) {
       const entry = docs[key]
       if (!entry || entry.state === 'uploaded' || entry.state === 'vault') continue
       if (entry.state === 'pending' && entry.file) {
@@ -601,7 +645,7 @@ export function CreateApplicationWizard() {
     const id = await createDraft()
     if (!id) return
     // Upload file mới (vault docs không cần upload lại)
-    const pendingKeys = requiredDocs.filter(k => docs[k]?.state === 'pending')
+    const pendingKeys = step2Docs.map((item) => item.code).filter(k => docs[k]?.state === 'pending')
     if (pendingKeys.length > 0) {
       setBusy('upload-all')
       for (const key of pendingKeys) {
@@ -846,7 +890,9 @@ export function CreateApplicationWizard() {
                   <h2 className="text-base font-semibold">Bước 2 — Tài liệu đính kèm</h2>
                 </div>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Cần {requiredDocs.length} loại giấy tờ. Tài liệu đã tải lên trong hồ sơ cá nhân sẽ được{' '}
+                  Bộ giấy tờ gồm giấy bắt buộc theo nhóm đối tượng, giấy nhân thân, cư trú và các giấy đã có trong kho hồ sơ.
+                  Cần đủ <span className="font-medium text-slate-700 dark:text-slate-200">{requiredDocs.length} loại bắt buộc</span>.
+                  Tài liệu trong hồ sơ cá nhân được{' '}
                   <span className="font-medium text-emerald-600 dark:text-emerald-400">tự động sử dụng</span>.
                 </p>
 
@@ -858,7 +904,8 @@ export function CreateApplicationWizard() {
                 )}
 
                 <div className="space-y-3">
-                  {requiredDocs.map((key) => {
+                  {step2Docs.map((item) => {
+                    const key = item.code
                     const doc = docs[key]
                     const isVault = doc?.state === 'vault'
                     const isUploaded = doc?.state === 'uploaded'
@@ -872,7 +919,10 @@ export function CreateApplicationWizard() {
                           }`}
                       >
                         <div className="flex items-center justify-between gap-2 mb-2">
-                          <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{docLabel(key)}</p>
+                          <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                            {docLabel(key)}
+                            {item.required && <span className="ml-1 text-red-600">*</span>}
+                          </p>
                           {(isVault || isUploaded) && (
                             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
                               <CheckCircle2 className="h-3 w-3" />
@@ -916,7 +966,7 @@ export function CreateApplicationWizard() {
                   })}
                 </div>
 
-                {requiredDocs.some(k => docs[k]?.state === 'pending') && (
+                {step2Docs.some((item) => docs[item.code]?.state === 'pending') && (
                   <Button type="button" variant="outline" disabled={isBusy} onClick={() => void handleUploadAll()}>
                     {busy === 'upload-all' ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang tải lên…</> : <><Upload className="mr-2 h-4 w-4" />Tải lên file mới</>}
                   </Button>
@@ -990,15 +1040,15 @@ export function CreateApplicationWizard() {
                 <section>
                   <p className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Tài liệu đính kèm</p>
                   <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                    {requiredDocs.map((key) => {
-                      const d = docs[key]
+                    {step2Docs.map((item) => {
+                      const d = docs[item.code]
                       const ok = d?.state === 'uploaded' || d?.state === 'vault'
                       return (
-                        <li key={key} className="flex items-center gap-2 rounded-lg bg-slate-50 p-2 dark:bg-slate-800/40">
+                        <li key={item.code} className="flex items-center gap-2 rounded-lg bg-slate-50 p-2 dark:bg-slate-800/40">
                           {ok
                             ? <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-                            : <X className="h-4 w-4 text-amber-500 shrink-0" />}
-                          <span className="text-sm">{docLabel(key)}</span>
+                            : <X className={`h-4 w-4 shrink-0 ${item.required ? 'text-amber-500' : 'text-slate-300'}`} />}
+                          <span className="text-sm">{docLabel(item.code)}{item.required ? ' *' : ''}</span>
                           {d?.state === 'vault' && <span className="text-xs text-slate-400">(từ hồ sơ)</span>}
                         </li>
                       )

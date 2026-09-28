@@ -37,6 +37,7 @@ import {
   scheduleMismatchHint,
 } from '@/lib/payment-schedule-copy'
 import { extractOrderId, extractPaymentUrl, paymentApi, downloadContractPdf, parseCancellationRequests, type CancellationRequestItemDto } from '@/api/payment'
+import { formatHousingVnd } from '@/lib/money'
 import { housingApplicationsApi } from '@/api/housing-applications'
 import { openVnPayPopupAndWait, vnPayResultMessage } from '@/lib/vnpay-popup'
 import type { ApplicationSummaryDto } from '@/types'
@@ -511,12 +512,11 @@ function InstallmentRow({
         {/* Right: amount + action */}
         <div className="flex flex-col items-end gap-1">
           <p className="text-lg font-bold text-slate-900 dark:text-slate-100 tabular-nums">
-            {Number(inst.amount).toLocaleString('vi-VN')}
-            <span className="ml-1 text-xs font-medium text-slate-500 dark:text-slate-400">VNĐ</span>
+            {formatHousingVnd(inst.amount)}
           </p>
           {inst.paidAmount != null && inst.paidAmount > 0 && (
             <p className="text-xs text-emerald-600 dark:text-emerald-400 tabular-nums">
-              Đã đóng: {Number(inst.paidAmount).toLocaleString('vi-VN')} VNĐ
+              Đã đóng: {formatHousingVnd(inst.paidAmount)}
             </p>
           )}
           {canPay && (
@@ -595,7 +595,7 @@ function PaymentProgressCard({
           ? housePrice
           : sumPhases
   const paidCount = installments.filter((i) => i.status === 'PAID').length
-  const fmt = (n: number) => `${n.toLocaleString('vi-VN')} VNĐ`
+  const fmt = (n: number) => formatHousingVnd(n)
 
   const pct = Math.max(0, Math.min(100, Number(progress) || 0))
 
@@ -822,11 +822,11 @@ function ApplicationSummaryCard({
         />
         <InfoRow
           label="Giá niêm yết căn"
-          value={basePrice != null ? `${basePrice.toLocaleString('vi-VN')} VNĐ` : null}
+          value={basePrice != null ? formatHousingVnd(basePrice) : null}
         />
         <InfoRow
           label={`Tổng ${installments.length > 0 ? `${installments.length} đợt` : 'các đợt'} phải trả`}
-          value={sumPhases > 0 ? `${sumPhases.toLocaleString('vi-VN')} VNĐ` : null}
+          value={sumPhases > 0 ? formatHousingVnd(sumPhases) : null}
         />
         <InfoRow
           label="Ngày nộp hồ sơ"
@@ -868,6 +868,8 @@ export function ContractDetailPage() {
   const [rejectOpen, setRejectOpen] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
   const [rejectError, setRejectError] = useState('')
+  const [approveOpen, setApproveOpen] = useState(false)
+  const [approveError, setApproveError] = useState('')
   const [decisionBusy, setDecisionBusy] = useState(false)
 
   const reload = async () => {
@@ -948,16 +950,16 @@ export function ContractDetailPage() {
 
   const approveCancellation = async () => {
     if (!id || decisionBusy) return
-    const name = cancelRequest?.applicantName || appDetail?.fullName || 'người mua'
-    if (!window.confirm(`Duyệt đơn xin rút hồ sơ của ${name}? Tiền cọc Đợt 1 bị giữ, các khoản sau được hoàn theo bảng kê, căn trả về quỹ.`)) return
     setDecisionBusy(true)
+    setApproveError('')
     setMsg(null)
     try {
       await paymentApi.approveCancellation(id)
+      setApproveOpen(false)
       setMsg({ type: 'success', text: 'Đã duyệt đơn rút hồ sơ. Căn hộ được thu hồi.' })
       await reload()
     } catch (err) {
-      setMsg({ type: 'error', text: formatError(err) })
+      setApproveError(formatError(err))
     } finally {
       setDecisionBusy(false)
     }
@@ -1149,9 +1151,9 @@ export function ContractDetailPage() {
                         Số tiền lịch thanh toán không khớp giá nhà chính thức.
                       </p>
                       <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
-                        Tổng {installments.length > 0 ? `${installments.length} đợt` : 'các đợt'}: <b>{sumPhases.toLocaleString('vi-VN')}</b> VNĐ —
-                        Giá nhà: <b>{ref.toLocaleString('vi-VN')}</b> VNĐ
-                        {(sumPhases - ref > 0 ? '+' : '') + (sumPhases - ref).toLocaleString('vi-VN')} VNĐ).
+                        Tổng {installments.length > 0 ? `${installments.length} đợt` : 'các đợt'}: <b>{formatHousingVnd(sumPhases)}</b> —
+                        Giá nhà: <b>{formatHousingVnd(ref)}</b>
+                        ({formatHousingVnd(Math.abs(sumPhases - ref))} {sumPhases - ref > 0 ? 'cao hơn' : 'thấp hơn'}).
                         {scheduleMismatchHint(role)}
                       </p>
                     </div>
@@ -1231,9 +1233,9 @@ export function ContractDetailPage() {
               </p>
             </div>
             <div className="grid gap-2 text-xs sm:grid-cols-3">
-              <p>Đã thanh toán: <b>{Number(cancelRequest?.totalPaid ?? 0).toLocaleString('vi-VN')} VNĐ</b></p>
-              <p className="text-rose-700 dark:text-rose-300">Phạt mất cọc: <b>{Number(cancelRequest?.forfeitedAmount ?? 0).toLocaleString('vi-VN')} VNĐ</b></p>
-              <p className="text-emerald-700 dark:text-emerald-300">Hoàn lại: <b>{Number(cancelRequest?.refundAmount ?? 0).toLocaleString('vi-VN')} VNĐ</b></p>
+              <p>Đã thanh toán: <b>{formatHousingVnd(cancelRequest?.totalPaid)}</b></p>
+              <p className="text-rose-700 dark:text-rose-300">Phạt mất cọc: <b>{formatHousingVnd(cancelRequest?.forfeitedAmount)}</b></p>
+              <p className="text-emerald-700 dark:text-emerald-300">Hoàn lại: <b>{formatHousingVnd(cancelRequest?.refundAmount)}</b></p>
             </div>
             {cancelRequest?.reason && (
               <p className="text-xs text-slate-600 dark:text-slate-300">Lý do: {cancelRequest.reason}</p>
@@ -1259,9 +1261,12 @@ export function ContractDetailPage() {
               <Button
                 disabled={decisionBusy}
                 className="bg-emerald-600 text-white hover:bg-emerald-700"
-                onClick={() => void approveCancellation()}
+                onClick={() => {
+                  setApproveError('')
+                  setApproveOpen(true)
+                }}
               >
-                {decisionBusy ? 'Đang xử lý...' : 'Duyệt đơn rút hồ sơ'}
+                Duyệt đơn rút hồ sơ
               </Button>
             </div>
           </div>
@@ -1289,6 +1294,42 @@ export function ContractDetailPage() {
             void reload()
           }}
         />
+
+        <Modal
+          open={approveOpen}
+          onClose={decisionBusy ? () => undefined : () => setApproveOpen(false)}
+          title="Duyệt đơn rút hồ sơ"
+          description="Xác nhận để giữ tiền cọc Đợt 1, hoàn các khoản đã đóng sau đó và thu hồi căn về quỹ."
+        >
+          <div className="space-y-3">
+            {approveError && <Alert variant="error">{approveError}</Alert>}
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-3 dark:border-emerald-900/50 dark:bg-emerald-950/30">
+              <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                {cancelRequest?.applicantName || appDetail?.fullName || 'Người mua'}
+              </p>
+              <div className="mt-2 grid gap-2 text-xs sm:grid-cols-3">
+                <p>Đã thanh toán: <b>{formatHousingVnd(cancelRequest?.totalPaid)}</b></p>
+                <p className="text-rose-700 dark:text-rose-300">Phạt mất cọc: <b>{formatHousingVnd(cancelRequest?.forfeitedAmount)}</b></p>
+                <p className="text-emerald-700 dark:text-emerald-300">Hoàn lại: <b>{formatHousingVnd(cancelRequest?.refundAmount)}</b></p>
+              </div>
+              {(cancelRequest?.bankAccountNumber || cancelRequest?.bankName) && (
+                <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">
+                  Tài khoản hoàn: {cancelRequest.bankName || 'Ngân hàng'} · {cancelRequest.bankAccountNumber || '—'} · {cancelRequest.accountHolderName || ''}
+                </p>
+              )}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" disabled={decisionBusy} onClick={() => setApproveOpen(false)}>Hủy</Button>
+              <Button
+                disabled={decisionBusy}
+                className="bg-emerald-600 text-white hover:bg-emerald-700"
+                onClick={() => void approveCancellation()}
+              >
+                {decisionBusy ? 'Đang xử lý...' : 'Xác nhận duyệt'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
 
         <Modal
           open={rejectOpen}

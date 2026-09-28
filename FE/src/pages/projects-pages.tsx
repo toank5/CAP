@@ -56,6 +56,7 @@ import { useWishlist } from '@/hooks/useWishlist'
 import { useExistingApplicationBlocker } from '@/hooks/useExistingApplicationBlocker'
 import { extractProjects, extractSingleProject } from '@/lib/parsers'
 import { formatError, formatSuccess } from '@/lib/format-error'
+import { formatHousingVnd } from '@/lib/money'
 import { resolveProvinceName } from '@/lib/vietnam-locations'
 import { mapProjectToCard } from '@/lib/projects'
 import { labelProjectStatus } from '@/lib/labels'
@@ -1326,12 +1327,7 @@ function ProjectDetailView({
     setCurrentGalleryIdx((currentGalleryIdx + 1) % totalSlides)
   }
 
-  const formatPrice = (v?: number) => {
-    if (!v) return '—'
-    if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(2)} tỷ`
-    if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)} triệu`
-    return v.toLocaleString('vi-VN')
-  }
+  const formatPrice = (v?: number) => formatHousingVnd(v)
 
   // Available apartments & filter options
   const allApartments: ApartmentDto[] = project.apartments || []
@@ -2060,7 +2056,7 @@ function ProjectDetailView({
                         <div>
                           <span className="text-[10px] text-slate-400 font-medium block">Giá niêm yết:</span>
                           <p className="text-sm font-black text-teal-600 dark:text-teal-400">
-                            {Number(apt.price).toLocaleString('vi-VN')} VNĐ
+                            {formatHousingVnd(apt.price)}
                           </p>
                         </div>
 

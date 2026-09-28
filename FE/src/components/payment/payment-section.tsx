@@ -21,12 +21,18 @@ import {
 } from '@/api/payment'
 import { openVnPayPopupAndWait, vnPayResultMessage } from '@/lib/vnpay-popup'
 import { formatError } from '@/lib/format-error'
+import { formatHousingVnd } from '@/lib/money'
 import { Alert } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { FormField } from '@/components/ui/label'
-import { Input, Textarea } from '@/components/ui/input'
+import { Input } from '@/components/ui/input'
 import { Modal } from '@/components/ui/modal'
+import {
+  CONTRACT_WITHDRAW_REASONS,
+  resolveWithdrawReason,
+  WithdrawReasonPicker,
+} from '@/components/payment/withdraw-reason-picker'
 import {
   emptyScheduleHasApartmentCopy,
   emptyScheduleNoApartmentCopy,
@@ -308,12 +314,11 @@ export function InstallmentRow({
 
         <div className="flex flex-col items-end gap-1">
           <p className="text-lg font-bold text-slate-900 dark:text-slate-100 tabular-nums">
-            {Number(inst.amount).toLocaleString('vi-VN')}
-            <span className="ml-1 text-xs font-medium text-slate-500 dark:text-slate-400">VNĐ</span>
+            {formatHousingVnd(inst.amount)}
           </p>
           {inst.paidAmount != null && inst.paidAmount > 0 && (
             <p className="text-xs text-emerald-600 dark:text-emerald-400 tabular-nums">
-              Đã đóng: {Number(inst.paidAmount).toLocaleString('vi-VN')} VNĐ
+              Đã đóng: {formatHousingVnd(inst.paidAmount)}
             </p>
           )}
           {canPay && (
@@ -402,7 +407,7 @@ export function PaymentProgressCard({
           ? housePrice
           : sumPhases
   const paidCount = installments.filter((i) => i.status === 'PAID').length
-  const fmt = (n: number) => `${n.toLocaleString('vi-VN')} VNĐ`
+  const fmt = (n: number) => formatHousingVnd(n)
   const pct = Math.max(0, Math.min(100, Number(progress) || 0))
 
   return (
@@ -588,7 +593,7 @@ export function PaymentHistoryPanel({ applicationId }: PaymentHistoryPanelProps)
               </div>
               <div className="text-right">
                 <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  {Number(tx?.amount ?? 0).toLocaleString('vi-VN')} VNĐ
+                  {formatHousingVnd(tx?.amount)}
                 </p>
                 <Badge variant={variant} className="mt-1">{label}</Badge>
               </div>
@@ -709,8 +714,8 @@ export function PaymentSection({
           <Alert variant="warning" className="mb-4">
             <p className="font-medium">Số tiền lịch thanh toán không khớp giá nhà chính thức.</p>
             <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
-              Tổng {installments.length > 0 ? `${installments.length} đợt` : 'các đợt'}: <b>{sumPhases.toLocaleString('vi-VN')}</b> VNĐ —
-              Giá nhà: <b>{ref!.toLocaleString('vi-VN')}</b> VNĐ.
+              Tổng {installments.length > 0 ? `${installments.length} đợt` : 'các đợt'}: <b>{formatHousingVnd(sumPhases)}</b> —
+              Giá nhà: <b>{formatHousingVnd(ref)}</b>.
               Vui lòng {scheduleMismatchHint(viewerRole)}
             </p>
           </Alert>
@@ -801,13 +806,16 @@ export function WithdrawalRequestModal({
   const [submitting, setSubmitting] = useState(false)
   const [preview, setPreview] = useState<CancellationPreviewDto | null>(null)
   const [error, setError] = useState('')
-  const [reason, setReason] = useState('')
+  const [selectedReason, setSelectedReason] = useState('')
+  const [otherReason, setOtherReason] = useState('')
   const [bankAccountNumber, setBankAccountNumber] = useState('')
   const [bankName, setBankName] = useState('')
   const [accountHolderName, setAccountHolderName] = useState('')
 
   useEffect(() => {
     if (!open || !applicationId) return
+    setSelectedReason('')
+    setOtherReason('')
     setLoading(true)
     setError('')
     paymentApi.getCancellationPreview(applicationId)
@@ -823,15 +831,16 @@ export function WithdrawalRequestModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!reason.trim()) {
-      setError('Vui lòng nêu rõ lý do xin rút hồ sơ / hủy hợp đồng.')
+    const reason = resolveWithdrawReason(CONTRACT_WITHDRAW_REASONS, selectedReason, otherReason)
+    if (!reason) {
+      setError('Vui lòng chọn lý do xin rút hồ sơ / hủy hợp đồng.')
       return
     }
     setSubmitting(true)
     setError('')
     try {
       await paymentApi.requestCancellation(applicationId, {
-        reason: reason.trim(),
+        reason,
         isForcedRevocation: false,
         bankAccountNumber: bankAccountNumber.trim() || undefined,
         bankName: bankName.trim() || undefined,
@@ -876,34 +885,35 @@ export function WithdrawalRequestModal({
               <div className="rounded-lg bg-white/80 p-2.5 dark:bg-slate-900/60">
                 <p className="text-[11px] text-slate-500 dark:text-slate-400">Tổng đã thanh toán</p>
                 <p className="font-bold text-slate-900 dark:text-slate-100">
-                  {Number(preview?.totalPaid ?? 0).toLocaleString('vi-VN')} VNĐ
+                  {formatHousingVnd(preview?.totalPaid)}
                 </p>
               </div>
               <div className="rounded-lg bg-white/80 p-2.5 dark:bg-slate-900/60">
                 <p className="text-[11px] text-rose-600 dark:text-rose-400 font-medium">Tiền cọc bị phạt/giữ</p>
                 <p className="font-bold text-rose-600 dark:text-rose-400">
-                  {Number(preview?.forfeitedAmount ?? preview?.depositAmount ?? 0).toLocaleString('vi-VN')} VNĐ
+                  {formatHousingVnd(preview?.forfeitedAmount ?? preview?.depositAmount)}
                 </p>
               </div>
               <div className="rounded-lg bg-white/80 p-2.5 dark:bg-slate-900/60">
                 <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">Tiền hoàn lại dự kiến</p>
                 <p className="font-bold text-emerald-600 dark:text-emerald-400">
-                  {Number(preview?.refundAmount ?? 0).toLocaleString('vi-VN')} VNĐ
+                  {formatHousingVnd(preview?.refundAmount)}
                 </p>
               </div>
             </div>
           </div>
 
-          <FormField label="Lý do xin rút hồ sơ / hủy hợp đồng *" htmlFor="cancel-reason">
-            <Textarea
-              id="cancel-reason"
-              required
-              rows={3}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="VD: Không thu xếp được tài chính / Chuyển nơi công tác / Thay đổi nhu cầu..."
+          <div>
+            <p className="mb-2 text-sm font-medium text-slate-800 dark:text-slate-100">Lý do xin dừng *</p>
+            <WithdrawReasonPicker
+              reasons={CONTRACT_WITHDRAW_REASONS}
+              selected={selectedReason}
+              onSelect={setSelectedReason}
+              otherText={otherReason}
+              onOtherText={setOtherReason}
+              disabled={submitting}
             />
-          </FormField>
+          </div>
 
           <div className="border-t border-slate-200 pt-3 dark:border-slate-700">
             <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
@@ -944,7 +954,7 @@ export function WithdrawalRequestModal({
             <Button
               type="submit"
               variant="outline"
-              disabled={submitting || !reason.trim()}
+              disabled={submitting || !resolveWithdrawReason(CONTRACT_WITHDRAW_REASONS, selectedReason, otherReason)}
               className="border-rose-300 bg-rose-600 font-bold text-white hover:bg-rose-700 hover:text-white"
             >
               {submitting ? 'Đang gửi yêu cầu...' : 'Xác nhận xin rút hồ sơ'}
@@ -1286,9 +1296,8 @@ export function ApartmentCard({
             <div className="text-right shrink-0">
               <p className="text-[11px] font-semibold uppercase text-slate-400 tracking-wider">Giá bán chính thức</p>
               <p className="text-lg font-black text-emerald-600 dark:text-emerald-400">
-                {Number(apartmentPrice).toLocaleString('vi-VN')}
+                {formatHousingVnd(apartmentPrice)}
               </p>
-              <p className="text-[11px] font-medium text-slate-400">VNĐ</p>
             </div>
           )}
         </div>

@@ -2,6 +2,7 @@ import { consumePaymentNotice, paymentNoticeMessage } from '@/router'
 import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { paymentApi } from '@/api/payment'
+import { formatHousingVnd } from '@/lib/money'
 import type { PaymentInfoDto } from '@/types'
 
 function unwrapPayment(data: unknown): PaymentInfoDto | null {
@@ -27,8 +28,7 @@ export function PaymentNotice() {
       .then((data) => {
         const info = unwrapPayment(data)
         if (!info) return
-        const amount = Number(info.amount).toLocaleString('vi-VN')
-        setDetail(` · ${info.orderId} · ${amount} VNĐ · ${info.status ?? ''}`)
+        setDetail(` · ${info.orderId} · ${formatHousingVnd(info.amount)} · ${info.status ?? ''}`)
         sessionStorage.removeItem('pendingPaymentOrderId')
       })
       .catch(() => {

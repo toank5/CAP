@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatError } from '@/lib/format-error'
+import { formatHousingVnd } from '@/lib/money'
 
 interface SxdPaymentItem {
   installmentId: string
@@ -98,10 +99,7 @@ export function SxdPaymentsPage() {
     }
   }
 
-  const formatMoney = (v?: number) => {
-    if (!v) return '—'
-    return `${v.toLocaleString('vi-VN')} VNĐ`
-  }
+  const formatMoney = (v?: number) => formatHousingVnd(v)
 
   const formatDate = (v?: string) => {
     if (!v) return '—'

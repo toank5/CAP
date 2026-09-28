@@ -35,6 +35,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatError } from '@/lib/format-error'
+import { formatHousingVnd } from '@/lib/money'
 import { labelProjectStatus } from '@/lib/labels'
 import { isPending, isRejected, normalizeStatus } from '@/lib/project-status-flow'
 import type { ApartmentDto, HousingProjectDto } from '@/types'
@@ -460,11 +461,7 @@ function ProjectTableRow({
     }
   }
 
-  const formatPrice = (v?: number) => {
-    if (!v) return '—'
-    if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(2)} tỷ`
-    return `${(v / 1_000_000).toLocaleString('vi-VN')} triệu`
-  }
+  const formatPrice = (v?: number) => formatHousingVnd(v)
 
   return (
     <>
@@ -803,11 +800,7 @@ function ProjectInspectorModal({
     }
   }
 
-  const formatPrice = (v?: number) => {
-    if (!v) return '—'
-    if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(2)} tỷ VNĐ`
-    return `${(v / 1_000_000).toLocaleString('vi-VN')} triệu VNĐ`
-  }
+  const formatPrice = (v?: number) => formatHousingVnd(v)
 
   const formatDate = (v?: string | null) => {
     if (!v) return '—'
@@ -1545,11 +1538,7 @@ export function SxdProjectDetailPage() {
     }
   }
 
-  const formatPrice = (v?: number) => {
-    if (!v) return '—'
-    if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(2)} tỷ VNĐ`
-    return `${(v / 1_000_000).toLocaleString('vi-VN')} triệu VNĐ`
-  }
+  const formatPrice = (v?: number) => formatHousingVnd(v)
 
   const formatDate = (v?: string | null) => {
     if (!v) return '—'

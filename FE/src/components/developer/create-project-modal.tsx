@@ -24,6 +24,7 @@ import { Modal } from '@/components/ui/modal'
 import { Alert } from '@/components/ui/alert'
 import { ensureHcmLocationsLoaded, HCM_PROVINCE } from '@/lib/vietnam-locations'
 import { formatError } from '@/lib/format-error'
+import { formatHousingVnd } from '@/lib/money'
 import { FLASH_CREATE_PROJECT_KEY } from '@/lib/constants'
 import { navigate } from '@/hooks/useHashRoute'
 import type { CreateApartmentDto, CreateHousingProjectRequestDto, MilestoneSetupItemDto } from '@/types'
@@ -1696,10 +1697,7 @@ export function CreateProjectModal({
 }
 
 function fmtVnd(n: number): string {
-  if (!Number.isFinite(n) || n <= 0) return '—'
-  if (n >= 1e9) return `${(n / 1e9).toFixed(2)} tỷ`
-  if (n >= 1e6) return `${(n / 1e6).toFixed(0)} tr`
-  return n.toLocaleString('vi-VN')
+  return formatHousingVnd(n)
 }
 
 function Field({

@@ -1,4 +1,5 @@
 import { labelProjectStatus } from '@/lib/labels'
+import { formatHousingVnd, formatHousingVndRange } from '@/lib/money'
 import { GOV_IMAGES } from '@/lib/media'
 import type { HousingProjectDto } from '@/types'
 
@@ -30,16 +31,11 @@ export function resolveProjectImageUrl(url?: string | null): string {
 
 export function formatPriceVnd(amount: number): string {
   if (!amount || amount <= 0) return 'Liên hệ'
-  if (amount >= 1_000_000_000) return `${(amount / 1_000_000_000).toFixed(1).replace(/\.0$/, '')} tỷ`
-  if (amount >= 1_000_000) return `${Math.round(amount / 1_000_000).toLocaleString('vi-VN')} triệu`
-  return `${amount.toLocaleString('vi-VN')} VNĐ`
+  return formatHousingVnd(amount)
 }
 
 export function formatPriceRange(min: number, max: number): string {
-  if (min > 0 && max > 0 && min !== max) {
-    return `${formatPriceVnd(min)} – ${formatPriceVnd(max)}`
-  }
-  return formatPriceVnd(max || min)
+  return formatHousingVndRange(min, max)
 }
 
 export function formatAreaRange(min: number, max: number): string {

@@ -65,6 +65,11 @@ import { StatusBadge } from '@/components/shared/status-badge'
 import { Alert } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  APPLICATION_WITHDRAW_REASONS,
+  resolveWithdrawReason,
+  WithdrawReasonPicker,
+} from '@/components/payment/withdraw-reason-picker'
 import { FormField } from '@/components/ui/label'
 import { Input, Select, Textarea } from '@/components/ui/input'
 import { Modal } from '@/components/ui/modal'
@@ -82,9 +87,11 @@ import {
   RELATIONSHIP_LABELS,
   GENDER_LABELS,
   getRequiredDocsForPriorityGroup,
+  documentsForPriorityGroup,
   MAX_AVG_AREA_PER_PERSON_M2,
 } from '@/lib/constants'
 import { formatError } from '@/lib/format-error'
+import { formatHousingVnd } from '@/lib/money'
 import { ApiError } from '@/api/http'
 import { ensureVerifiedForApplication } from '@/lib/ekyc-gate'
 import { formatDepositCountdown } from '@/lib/deposit-deadline'
@@ -969,7 +976,8 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [acting, setActing] = useState('')
   const [withdrawOpen, setWithdrawOpen] = useState(false)
-  const [withdrawReason, setWithdrawReason] = useState('')
+  const [withdrawSelected, setWithdrawSelected] = useState('')
+  const [withdrawOther, setWithdrawOther] = useState('')
   const [receiptOpen, setReceiptOpen] = useState(false)
   const [docType, setDocType] = useState(Object.keys(DOC_TYPE_LABELS)[0] ?? '')
   const [pendingFile, setPendingFile] = useState<File | null>(null)
@@ -1059,9 +1067,12 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
 
     setApp(parsed)
 
-    // Select first document by default if none selected
-    if (parsed?.documents && parsed.documents.length > 0) {
-      setSelectedDocId((prev) => (prev && parsed?.documents?.some((d) => d.documentId === prev) ? prev : parsed?.documents?.[0]?.documentId ?? null))
+    // Chọn giấy đầu tiên đúng nhóm đối tượng. Giấy nhóm khác kế thừa từ kho không được chọn.
+    const visibleDocs = documentsForPriorityGroup(parsed?.documents ?? [], parsed?.priorityGroup)
+    if (visibleDocs.length > 0) {
+      setSelectedDocId((prev) => (prev && visibleDocs.some((d) => d.documentId === prev) ? prev : visibleDocs[0]?.documentId ?? null))
+    } else {
+      setSelectedDocId(null)
     }
 
     // Load installments for payment status badges
@@ -1139,7 +1150,7 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
     try {
       const data = await housingApplicationsApi.auditDocuments(appId, app ? {
         applicationInfo: app,
-        documentIds: (app.documents ?? []).map((d) => d.documentId),
+        documentIds: documentsForPriorityGroup(app.documents ?? [], app.priorityGroup).map((d) => d.documentId),
       } : undefined)
       const parsed = parseAuditChecklist(data)
       setAiAuditResult(
@@ -1337,16 +1348,18 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
 
 
   const confirmWithdraw = async () => {
-    if (!withdrawReason.trim()) {
-      setMsg({ type: 'error', text: 'Vui lòng nhập lý do rút hồ sơ.' })
+    const reason = resolveWithdrawReason(APPLICATION_WITHDRAW_REASONS, withdrawSelected, withdrawOther)
+    if (!reason) {
+      setMsg({ type: 'error', text: 'Vui lòng chọn lý do rút hồ sơ.' })
       return
     }
     setActing('cancel')
     setMsg(null)
     try {
-      await housingApplicationsApi.cancel(appId, withdrawReason.trim())
+      await housingApplicationsApi.cancel(appId, reason)
       setWithdrawOpen(false)
-      setWithdrawReason('')
+      setWithdrawSelected('')
+      setWithdrawOther('')
       await refresh()
       setMsg({ type: 'success', text: 'Đã rút hồ sơ.' })
     } catch (err) {
@@ -1376,8 +1389,12 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
   const deposit2Paid = installments.some(i => i.ordinal === 2 && i.status === 'PAID')
   const depositCountdown = !deposit1Paid && !deposit2Paid ? formatDepositCountdown(app.applicationStatus, app.updatedAt) : null
 
-  // Active document for preview
-  const currentDoc = (app.documents ?? []).find((d) => d.documentId === selectedDocId) || (app.documents ?? [])[0]
+  // Chỉ giấy đúng nhóm đối tượng của hồ sơ. Kho cá nhân copy cả giấy nhóm khác vào đơn.
+  const visibleDocuments = useMemo(
+    () => documentsForPriorityGroup(app.documents ?? [], app.priorityGroup),
+    [app.documents, app.priorityGroup],
+  )
+  const currentDoc = visibleDocuments.find((d) => d.documentId === selectedDocId) || visibleDocuments[0]
   const isPdf = currentDoc ? currentDoc.fileUrl?.toLowerCase().includes('.pdf') || currentDoc.fileName?.toLowerCase().endsWith('.pdf') : false
 
   // Total monthly income calculation
@@ -2010,7 +2027,7 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
                 <div className="grid gap-x-6 gap-y-1 sm:grid-cols-2">
                   <DetailRow label="Mã căn hộ" value={app.apartmentUnitName || '—'} />
                   <DetailRow label="Diện tích căn" value={app.apartmentArea != null ? `${app.apartmentArea} m²` : '—'} />
-                  <DetailRow label="Giá bán chính thức" value={app.apartmentPrice != null ? `${Number(app.apartmentPrice).toLocaleString('vi-VN')} VNĐ` : '—'} />
+                  <DetailRow label="Giá bán chính thức" value={app.apartmentPrice != null ? formatHousingVnd(app.apartmentPrice) : '—'} />
                   <DetailRow label="Trạng thái căn" value={String(app.apartmentStatus || '').toUpperCase() === 'ASSIGNED' ? 'Đã gán cho hồ sơ này' : app.apartmentStatus || '—'} />
                 </div>
               ) : isStaff && (['CONTRACT_PENDING', 'CONTRACT_SIGNED', 'DEPOSIT_PAID', 'FULLY_PAID'].includes(app.applicationStatus) || app.lotteryResult === 'WON' || app.lotteryResult === 'PRIORITY_WON') ? (
@@ -2041,7 +2058,7 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
                       <option value="">{apartments.length > 0 ? '--- Chọn căn hộ phù hợp ---' : 'Không có căn trống nào khớp nguyện vọng & quỹ căn của hồ sơ này'}</option>
                       {apartments.map((a) => (
                         <option key={a.id} value={a.id}>
-                          {a.unitName} · Tầng {a.floorNumber ?? '—'} · {a.area}m² · {a.apartmentTypeLabel || a.apartmentType || 'chưa gắn loại'} · {Number(a.price).toLocaleString('vi-VN')} VNĐ
+                          {a.unitName} · Tầng {a.floorNumber ?? '—'} · {a.area}m² · {a.apartmentTypeLabel || a.apartmentType || 'chưa gắn loại'} · {formatHousingVnd(a.price)}
                         </option>
                       ))}
                     </Select>
@@ -2152,7 +2169,7 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
                 <div className="flex items-center gap-2">
                   <FileCheck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                   <span className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                    Khung xem tài liệu đính kèm ({app.documents?.length ?? 0})
+                    Khung xem tài liệu đính kèm ({visibleDocuments.length})
                   </span>
                 </div>
                 {currentDoc && (
@@ -2193,9 +2210,9 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
               </div>
 
               {/* Tabs chọn nhanh tài liệu */}
-              {(app.documents ?? []).length > 0 && (
+              {visibleDocuments.length > 0 && (
                 <div className="mt-2.5 flex flex-wrap gap-1.5">
-                  {app.documents!.map((d) => {
+                  {visibleDocuments.map((d) => {
                     const isSelected = d.documentId === currentDoc?.documentId
                     return (
                       <button
@@ -2337,8 +2354,7 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
             })()}
           </div>
 
-          {/* PHẦN KIỂM TRA AI — Chủ đầu tư (thẩm định) & Người dân (tự soát trước khi nộp) */}
-          {(isDeveloper || (isApplicant && canEditDocs)) && (
+          {isDeveloper && (
             <div className="rounded-2xl border border-violet-200/90 bg-gradient-to-br from-violet-50/70 via-white to-sky-50/50 p-5 shadow-sm dark:border-violet-900/60 dark:from-violet-950/30 dark:via-slate-900 dark:to-sky-950/20">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-violet-100 pb-3 dark:border-violet-900/40">
                 <div className="flex items-center gap-2">
@@ -2347,12 +2363,10 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
                   </div>
                   <div>
                     <h3 className="font-bold text-slate-900 dark:text-slate-100">
-                      {isApplicant ? 'Tự kiểm tra hồ sơ bằng AI' : 'Kiểm tra hồ sơ bằng AI'}
+                      Kiểm tra hồ sơ bằng AI
                     </h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                      {isApplicant
-                        ? 'Tự soát lỗi giấy tờ trước khi nộp để tăng khả năng được duyệt'
-                        : 'Đối chiếu tự động OCR tài liệu & dữ liệu đăng ký'}
+                      Đối chiếu tự động OCR tài liệu và dữ liệu đăng ký
                     </p>
                   </div>
                 </div>
@@ -2362,7 +2376,7 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
                   variant="accent"
                   size="sm"
                   className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md hover:opacity-95"
-                  disabled={aiAuditing || (app.documents ?? []).length === 0}
+                  disabled={aiAuditing || visibleDocuments.length === 0}
                   onClick={() => void runAiAudit()}
                 >
                   {aiAuditing ? (
@@ -2390,24 +2404,15 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
               {aiAuditing ? (
                 <div className="flex flex-col items-center gap-2 py-8 text-center text-slate-500">
                   <Loader2 className="h-7 w-7 animate-spin text-violet-600" />
-                  <p className="text-xs font-medium">AI đang đọc {app.documents?.length ?? 0} tài liệu và đối chiếu các trường thông tin...</p>
+                  <p className="text-xs font-medium">AI đang đọc {visibleDocuments.length} tài liệu và đối chiếu các trường thông tin...</p>
                 </div>
               ) : aiAuditResult ? (
                 <div className="mt-4 space-y-3">
                   <AiAuditResultPanel result={aiAuditResult} />
-                  {isApplicant && (
-                    <p className="rounded-xl bg-slate-100/70 p-3 text-[11px] leading-relaxed text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">
-                      Đây chỉ là kết quả <strong>tự kiểm tra tham khảo</strong> bằng AI, giúp bạn soát lại giấy tờ trước khi nộp. Kết quả này <strong>không thay thế</strong> quá trình thẩm định chính thức của Chủ đầu tư/Sở Xây dựng và <strong>không ảnh hưởng</strong> đến việc bạn nộp hồ sơ.
-                    </p>
-                  )}
                 </div>
               ) : (
                 <div className="mt-3 rounded-xl bg-violet-100/50 p-3 text-xs leading-relaxed text-slate-600 dark:bg-violet-950/20 dark:text-slate-300">
-                  {isApplicant ? (
-                    <>Nhấn <strong>"Chạy kiểm tra AI"</strong> để hệ thống tự động đọc các tệp CCCD, bảng lương, xác nhận nhà ở... và so khớp với thông tin bạn đã kê khai, giúp bạn phát hiện sai lệch và bổ sung kịp thời <strong>trước khi nộp</strong>. Đây là bước tham khảo, không bắt buộc và không ảnh hưởng đến việc nộp hồ sơ.</>
-                  ) : (
-                    <>Nhấn <strong>"Chạy kiểm tra AI"</strong> để hệ thống tự động bóc tách thông tin từ các tệp CCCD, bảng lương, xác nhận nhà ở... và so khớp với biểu mẫu người dân kê khai nhằm phát hiện sai lệch và cảnh báo rủi ro cho Chủ đầu tư.</>
-                  )}
+                  Nhấn <strong>&quot;Chạy kiểm tra AI&quot;</strong> để hệ thống đọc giấy tờ đính kèm và so khớp với thông tin người dân đã kê khai.
                 </div>
               )}
             </div>
@@ -2631,18 +2636,17 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
         open={withdrawOpen}
         onClose={() => { if (acting !== 'cancel') setWithdrawOpen(false) }}
         title="Rút hồ sơ đã nộp"
-        description="Hành động này không thể hoàn tác. Vui lòng nêu rõ lý do."
+        description="Hành động này không thể hoàn tác. Chọn một lý do bên dưới."
       >
-        <FormField label="Lý do rút hồ sơ *" htmlFor="withdraw-reason">
-          <Textarea
-            id="withdraw-reason"
-            rows={3}
-            value={withdrawReason}
-            onChange={(e) => setWithdrawReason(e.target.value)}
-            placeholder="Ví dụ: Đã có kế hoạch chuyển nơi cư trú, không còn nhu cầu mua..."
-            disabled={acting === 'cancel'}
-          />
-        </FormField>
+        <p className="mb-2 text-sm font-medium text-slate-800 dark:text-slate-100">Lý do hủy hồ sơ *</p>
+        <WithdrawReasonPicker
+          reasons={APPLICATION_WITHDRAW_REASONS}
+          selected={withdrawSelected}
+          onSelect={setWithdrawSelected}
+          otherText={withdrawOther}
+          onOtherText={setWithdrawOther}
+          disabled={acting === 'cancel'}
+        />
         <div className="mt-4 flex justify-end gap-2">
           <Button variant="outline" disabled={acting === 'cancel'} onClick={() => setWithdrawOpen(false)}>Huỷ</Button>
           <Button variant="accent" className="bg-rose-600 hover:bg-rose-700 text-white" disabled={acting === 'cancel'} onClick={() => void confirmWithdraw()}>
@@ -2882,6 +2886,24 @@ function HardRulesComplianceCard({
   )
 }
 
+function auditRank(status: string): number {
+  const s = status.toUpperCase()
+  if (s === 'FAIL' || s === 'MISSING') return 0
+  if (s === 'WARN') return 1
+  if (s === 'OK') return 2
+  return 3
+}
+
+function AuditPoint({ ok, label, detail }: { ok: boolean | null; label: string; detail?: string | null }) {
+  if (ok == null) return null
+  return (
+    <p className={ok ? 'text-emerald-800 dark:text-emerald-200' : 'font-medium text-red-700 dark:text-red-300'}>
+      {ok ? 'Đạt' : 'Không đạt'} — {label}
+      {!ok && detail ? <span className="font-normal">: {detail}</span> : null}
+    </p>
+  )
+}
+
 /**
  * Panel hiển thị kết quả AI audit: tổng quan + danh sách checklist.
  */
@@ -2892,7 +2914,7 @@ function AiAuditResultPanel({ result }: { result: AuditChecklistResponse }) {
     (acc, c) => {
       const s = String(c.status).toUpperCase()
       if (s === 'OK') acc.ok += 1
-      else if (s === 'FAIL') acc.fail += 1
+      else if (s === 'FAIL' || s === 'MISSING') acc.fail += 1
       else if (s === 'WARN') acc.warn += 1
       else acc.other += 1
       return acc
@@ -2927,6 +2949,13 @@ function AiAuditResultPanel({ result }: { result: AuditChecklistResponse }) {
       icon: XCircle,
       badge: 'danger',
       label: 'Không đạt',
+      card: 'border-red-200 bg-red-50/60 dark:border-red-900/50 dark:bg-red-950/30',
+      iconTone: 'text-red-600 dark:text-red-300',
+    },
+    MISSING: {
+      icon: XCircle,
+      badge: 'danger',
+      label: 'Thiếu giấy',
       card: 'border-red-200 bg-red-50/60 dark:border-red-900/50 dark:bg-red-950/30',
       iconTone: 'text-red-600 dark:text-red-300',
     },
@@ -2978,41 +3007,52 @@ function AiAuditResultPanel({ result }: { result: AuditChecklistResponse }) {
           <CounterChip tone="ok" value={counts.ok} />
           {counts.warn > 0 && <CounterChip tone="warn" value={counts.warn} />}
           {counts.fail > 0 && <CounterChip tone="fail" value={counts.fail} />}
+          {counts.other > 0 && <CounterChip tone="other" value={counts.other} />}
         </div>
       </div>
 
-      {/* Danh sách checklist chi tiết */}
-      {checks.length > 0 && (
-        <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
-          {checks.map((c, i) => {
-            const key = String(c.status).toUpperCase()
-            const meta = STATUS_META[key] ?? otherMeta
-            const Icon = meta.icon
-            return (
-              <div
-                key={`${c.field}-${i}`}
-                className={`flex items-start gap-2.5 rounded-xl border p-2.5 text-xs transition ${meta.card}`}
-              >
-                <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${meta.iconTone}`} />
-                <div className="min-w-0 flex-1 space-y-0.5">
-                  <div className="flex flex-wrap items-center justify-between gap-1">
-                    <span className="font-bold text-slate-800 dark:text-slate-100">
-                      {c.field}
-                    </span>
-                    <Badge variant={meta.badge}>{meta.label}</Badge>
+      {checks.length === 0 ? (
+        <p className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300">
+          AI chưa trả về từng giấy tờ. Kết quả tổng ở trên là phần đã nhận được.
+        </p>
+      ) : (
+        <div className="max-h-[520px] space-y-2 overflow-y-auto pr-1">
+          {[...checks]
+            .sort((a, b) => auditRank(a.status) - auditRank(b.status))
+            .map((c, i) => {
+              const key = String(c.status).toUpperCase()
+              const meta = STATUS_META[key] ?? otherMeta
+              const Icon = meta.icon
+              const showFieldChecks = key !== 'MISSING'
+              return (
+                <div
+                  key={`${c.field}-${i}`}
+                  className={`rounded-xl border p-3 text-xs ${meta.card}`}
+                >
+                  <div className="flex items-start gap-2.5">
+                    <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${meta.iconTone}`} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center justify-between gap-1">
+                        <span className="font-bold text-slate-800 dark:text-slate-100">{c.field}</span>
+                        <Badge variant={meta.badge}>{meta.label}</Badge>
+                      </div>
+                      {c.documentName && (
+                        <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Tệp: {c.documentName}</p>
+                      )}
+                    </div>
                   </div>
-                  {c.documentName && (
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                      Tệp: <span className="font-mono">{c.documentName}</span>
-                    </p>
+                  {showFieldChecks && (
+                    <div className="mt-2 space-y-1.5 border-t border-black/5 pt-2 dark:border-white/10">
+                      <AuditPoint ok={c.nameMatch ?? (key === 'OK' ? true : null)} label="Tên người nộp" detail={c.nameDetail} />
+                      <AuditPoint ok={c.typeMatch ?? (key === 'OK' ? true : null)} label="Loại giấy tờ" detail={c.typeDetail} />
+                    </div>
                   )}
                   {c.note && (
-                    <p className="text-slate-700 dark:text-slate-200 leading-normal">{c.note}</p>
+                    <p className="mt-2 leading-relaxed text-slate-700 dark:text-slate-200">{c.note}</p>
                   )}
                 </div>
-              </div>
-            )
-          })}
+              )
+            })}
         </div>
       )}
     </div>
