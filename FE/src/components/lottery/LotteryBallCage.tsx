@@ -691,10 +691,46 @@ export const LotteryBallCage: React.FC<Props> = ({
           </div>
         )}
 
+        {/* Thẻ vinh danh kết quả trúng bốc thăm mới nhất */}
+        {!isSpinning && latestWinner && (
+          <div className="mt-4 mb-2 w-full max-w-lg z-30 animate-in fade-in zoom-in-95 duration-300">
+            <div className="relative overflow-hidden rounded-2xl border-2 border-amber-300 bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 p-4 shadow-2xl text-slate-950">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-amber-600 font-black text-2xl shadow-md border border-amber-200">
+                    🏆
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black uppercase tracking-wider bg-amber-950 text-amber-200 px-2 py-0.5 rounded-full">
+                        KẾT QUẢ VỪA TRÚNG
+                      </span>
+                      <span className="text-xs font-mono font-black text-amber-950">
+                        {latestWinner.slotCode || 'Suất căn hộ'}
+                      </span>
+                    </div>
+                    <h4 className="text-base font-black uppercase text-slate-950 tracking-wide mt-0.5">
+                      {latestWinner.applicantName}
+                    </h4>
+                    <div className="flex items-center gap-2 text-[11px] font-bold text-amber-950 mt-0.5">
+                      {latestWinner.applicationCode && <span>Mã HS: {latestWinner.applicationCode}</span>}
+                      {latestWinner.maskedCitizenId && <span>· CCCD: {latestWinner.maskedCitizenId}</span>}
+                    </div>
+                  </div>
+                </div>
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-800 px-3 py-1.5 text-xs font-black text-white shadow-md whitespace-nowrap">
+                  ✓ TRÚNG BỐC THĂM
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* 2. KHU VỰC THAO TÁC / GIÁM SÁT */}
         <div className="mt-2 flex items-center justify-center w-full z-10">
           {isDev ? (
             <button
+              type="button"
               onClick={canDraw ? onDrawNext : undefined}
               disabled={!canDraw || !!busy || isSpinning}
               className={`px-9 py-3 sm:py-3.5 min-w-[200px] max-w-[250px] flex items-center justify-center gap-2 rounded-2xl font-black text-sm sm:text-base tracking-widest uppercase transition-all select-none ${canDraw

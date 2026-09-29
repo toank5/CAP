@@ -225,54 +225,63 @@ export const LotteryLivePage: React.FC = () => {
           ...w,
           priorityGroup: resolvePg(w.priorityGroup, w.applicationId, undefined, w.applicantName, w.result),
         }))
-        const winnerMap = new Map<string, LiveWinnerEntry>()
-        const getWinnerKey = (w: LiveWinnerEntry, idx: number) =>
-          w.applicationId || w.applicationCode || (w.maskedCitizenId ? `cccd-${w.maskedCitizenId}` : '') || (w.applicantName ? `name-${w.applicantName.trim().toLowerCase()}` : '') || `w-${idx}`
 
-        resultWinners.forEach((w, idx) => winnerMap.set(getWinnerKey(w, idx), w))
-        eligibleWinners.forEach((w, idx) => winnerMap.set(getWinnerKey(w, idx), w))
-        currentWinners.forEach((w, idx) => winnerMap.set(getWinnerKey(w, idx), w))
+        setLiveState((prevLiveState) => {
+          const prevWinners = (prevLiveState?.recentWinners ?? []).map((w) => ({
+            ...w,
+            priorityGroup: resolvePg(w.priorityGroup, w.applicationId, undefined, w.applicantName, w.result),
+          }))
 
-        const allWinners = Array.from(winnerMap.values())
-        const effectiveTotalUnits = Math.max(declaredUnits, allWinners.length, 2)
+          const winnerMap = new Map<string, LiveWinnerEntry>()
+          const getWinnerKey = (w: LiveWinnerEntry, idx: number) =>
+            w.applicationId || w.applicationCode || (w.maskedCitizenId ? `cccd-${w.maskedCitizenId}` : '') || (w.applicantName ? `name-${w.applicantName.trim().toLowerCase()}` : '') || `w-${idx}`
 
-        if (allWinners.length > 0) {
-          if (!ls) {
-            ls = {
-              projectId,
-              projectName: loadedSchedule.projectName,
-              sessionStatus: loadedSchedule.sessionStatus,
-              totalUnits: effectiveTotalUnits,
-              drawnUnitsCount: allWinners.length,
-              remainingUnits: Math.max(0, effectiveTotalUnits - allWinners.length),
-              recentWinners: allWinners,
-              latestDrawResult: allWinners[0] || null,
-              priorityWinnersCount: allWinners.filter(isPriorityWinner).length,
-              randomWinnersCount: allWinners.filter((w) => !isPriorityWinner(w)).length,
-            }
-          } else {
-            ls.recentWinners = allWinners
-            ls.totalUnits = effectiveTotalUnits
-            ls.drawnUnitsCount = allWinners.length
-            ls.remainingUnits = Math.max(0, effectiveTotalUnits - allWinners.length)
-            if (!ls.latestDrawResult && allWinners.length > 0) {
-              ls.latestDrawResult = allWinners[0]
-            }
-            ls.priorityWinnersCount = allWinners.filter(isPriorityWinner).length
-            ls.randomWinnersCount = allWinners.filter((w) => !isPriorityWinner(w)).length
+          resultWinners.forEach((w, idx) => winnerMap.set(getWinnerKey(w, idx), w))
+          eligibleWinners.forEach((w, idx) => winnerMap.set(getWinnerKey(w, idx), w))
+          currentWinners.forEach((w, idx) => winnerMap.set(getWinnerKey(w, idx), w))
+          prevWinners.forEach((w, idx) => {
+            const key = getWinnerKey(w, idx)
+            if (!winnerMap.has(key)) winnerMap.set(key, w)
+          })
+
+          const allWinners = Array.from(winnerMap.values())
+          const effectiveTotalUnits = Math.max(declaredUnits, allWinners.length, 2)
+
+          const latestDrawResult =
+            ls?.latestDrawResult ||
+            prevLiveState?.latestDrawResult ||
+            (allWinners.length > 0 ? allWinners[0] : null)
+
+          const baseFundStat = ls?.projectApartmentFundStat || prevLiveState?.projectApartmentFundStat
+          const totalFundUnits = Math.max(effectiveTotalUnits, baseFundStat?.totalUnits ?? 0)
+          const assignedFundUnits = Math.max(allWinners.length, baseFundStat?.assignedUnits ?? 0)
+          const remainingFundUnits = Math.max(0, totalFundUnits - assignedFundUnits)
+
+          const nextState: LiveStateDto = {
+            projectId,
+            projectName: loadedSchedule?.projectName || ls?.projectName || prevLiveState?.projectName,
+            sessionStatus: loadedSchedule?.sessionStatus || ls?.sessionStatus || prevLiveState?.sessionStatus,
+            totalUnits: totalFundUnits,
+            drawnUnitsCount: assignedFundUnits,
+            remainingUnits: remainingFundUnits,
+            recentWinners: allWinners,
+            latestDrawResult: latestDrawResult,
+            priorityWinnersCount: allWinners.filter(isPriorityWinner).length,
+            randomWinnersCount: allWinners.filter((w) => !isPriorityWinner(w)).length,
+            sxdOnlineCount: ls?.sxdOnlineCount ?? prevLiveState?.sxdOnlineCount,
+            lobbyCount: ls?.lobbyCount ?? prevLiveState?.lobbyCount,
+            winRatePercentage: ls?.winRatePercentage ?? prevLiveState?.winRatePercentage,
+            projectApartmentFundStat: {
+              totalUnits: totalFundUnits,
+              assignedUnits: assignedFundUnits,
+              remainingUnits: remainingFundUnits,
+            },
+            apartmentFundStats: (ls?.apartmentFundStats && ls.apartmentFundStats.length > 0)
+              ? ls.apartmentFundStats
+              : (prevLiveState?.apartmentFundStats || []),
           }
-        }
-
-        if (ls) {
-          ls.totalUnits = Math.max(declaredUnits, ls.recentWinners?.length ?? 0, 2)
-          ls.drawnUnitsCount = ls.recentWinners?.length ?? 0
-          ls.remainingUnits = Math.max(0, ls.totalUnits - ls.drawnUnitsCount)
-          ls.priorityWinnersCount = ls.recentWinners?.filter(isPriorityWinner).length ?? 0
-          ls.randomWinnersCount = ls.recentWinners?.filter((w) => !isPriorityWinner(w)).length ?? 0
-          setLiveState(ls)
-        } else {
-          setLiveState(null)
-        }
+          return nextState
+        })
 
         // Cập nhật danh sách dự bị (Waitlist)
         const parsedWl = parseWaitlist(waitlistRes.ok ? waitlistRes.data : [])
@@ -457,8 +466,34 @@ export const LotteryLivePage: React.FC = () => {
             }
             void load(true)
           },
-          onLiveState: (state) => {
-            if (!cancelled) setLiveState(state)
+          onLiveState: (incomingState) => {
+            if (cancelled || !incomingState) return
+            setLiveState((prev) => {
+              const winnerMap = new Map<string, LiveWinnerEntry>()
+              const getWinnerKey = (w: LiveWinnerEntry, idx: number) =>
+                w.applicationId || w.applicationCode || (w.maskedCitizenId ? `cccd-${w.maskedCitizenId}` : '') || (w.applicantName ? `name-${w.applicantName.trim().toLowerCase()}` : '') || `w-${idx}`
+
+              ;(incomingState.recentWinners ?? []).forEach((w, idx) => winnerMap.set(getWinnerKey(w, idx), w))
+              ;(prev?.recentWinners ?? []).forEach((w, idx) => {
+                const key = getWinnerKey(w, idx)
+                if (!winnerMap.has(key)) winnerMap.set(key, w)
+              })
+
+              const mergedWinners = Array.from(winnerMap.values())
+              const declaredUnits = Number(schedule?.totalUnits || schedule?.availableUnits || 0)
+              const totalUnits = Math.max(declaredUnits, incomingState.totalUnits ?? 0, mergedWinners.length, 2)
+
+              return {
+                ...incomingState,
+                totalUnits,
+                drawnUnitsCount: mergedWinners.length,
+                remainingUnits: Math.max(0, totalUnits - mergedWinners.length),
+                recentWinners: mergedWinners,
+                latestDrawResult: incomingState.latestDrawResult || prev?.latestDrawResult || (mergedWinners.length > 0 ? mergedWinners[0] : null),
+                priorityWinnersCount: mergedWinners.filter(isPriorityWinner).length,
+                randomWinnersCount: mergedWinners.filter((w) => !isPriorityWinner(w)).length,
+              }
+            })
           },
         })
         if (cancelled) {
