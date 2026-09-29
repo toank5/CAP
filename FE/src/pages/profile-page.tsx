@@ -36,6 +36,10 @@ function maritalAllowsSpouse(status: string) {
   return status === 'MARRIED'
 }
 
+function isSpouseRelationship(relationship: string) {
+  return relationship.trim().toUpperCase() === 'SPOUSE'
+}
+
 function maritalHouseholdHint(status: string) {
   if (status === 'MARRIED') return 'Đã kết hôn: bắt buộc khai vợ/chồng đang sống cùng. Chỉ một người vợ/chồng.'
   if (status === 'SINGLE') return 'Độc thân: không khai vợ/chồng. Có thể khai cha mẹ, anh chị em; khai con nếu đang nuôi con.'
@@ -432,21 +436,21 @@ export function ProfilePage() {
     : profileDocumentTypes.find((document) => document.code === code)?.label ?? code
   const uploadedDocumentTypes = new Set(userDocuments.map((document) => document.documentType))
   const allHouseholdRelations = householdRelationships.length > 0 ? householdRelationships : DEFAULT_HOUSEHOLD_RELATIONS
-  const spouseAlreadyListed = householdMembers.some((member) => member.relationship === 'SPOUSE')
+  const spouseAlreadyListed = householdMembers.some((member) => isSpouseRelationship(member.relationship))
   const relationsForMember = (member: HouseholdMemberDraft) =>
     allHouseholdRelations.filter((relation) => {
-      if (relation.code !== 'SPOUSE') return true
+      if (!isSpouseRelationship(relation.code)) return true
       if (!maritalAllowsSpouse(citizenInfo.maritalStatus)) return false
-      return member.relationship === 'SPOUSE' || !spouseAlreadyListed
+      return isSpouseRelationship(member.relationship) || !spouseAlreadyListed
     })
 
   const applyMaritalStatus = (value: string) => {
     setCitizenInfo((prev) => ({ ...prev, maritalStatus: value }))
     setHouseholdMembers((current) => {
       if (!maritalAllowsSpouse(value)) {
-        return current.filter((member) => member.relationship !== 'SPOUSE')
+        return current.filter((member) => !isSpouseRelationship(member.relationship))
       }
-      if (current.some((member) => member.relationship === 'SPOUSE')) return current
+      if (current.some((member) => isSpouseRelationship(member.relationship))) return current
       return [emptyHouseholdMember('SPOUSE'), ...current]
     })
   }
@@ -482,10 +486,10 @@ export function ProfilePage() {
     if (missingDocuments.length > 0) nextErrors.documents = `Vui lòng tải đủ giấy tờ: ${missingDocuments.map(getDocumentLabel).join(', ')}.`
 
     if (citizenInfo.maritalStatus === 'MARRIED') {
-      const spouses = householdMembers.filter((member) => member.relationship === 'SPOUSE')
+      const spouses = householdMembers.filter((member) => isSpouseRelationship(member.relationship))
       if (spouses.length === 0) nextErrors.householdMembers = 'Đã kết hôn thì phải khai vợ/chồng trong hộ gia đình.'
       else if (spouses.length > 1) nextErrors.householdMembers = 'Chỉ được khai một người vợ/chồng.'
-    } else if (citizenInfo.maritalStatus && householdMembers.some((member) => member.relationship === 'SPOUSE')) {
+    } else if (citizenInfo.maritalStatus && householdMembers.some((member) => isSpouseRelationship(member.relationship))) {
       const statusLabel = MARITAL_STATUS_OPTIONS.find((option) => option.value === citizenInfo.maritalStatus)?.label ?? 'tình trạng này'
       nextErrors.householdMembers = `${statusLabel} không được khai vợ/chồng. Hãy xóa thành viên đó.`
     }
@@ -515,7 +519,7 @@ export function ProfilePage() {
     try {
       setSavingCitizenInfo(true)
       const isMarried = citizenInfo.maritalStatus === 'MARRIED'
-      const spouseMember = isMarried ? householdMembers.find(m => m.relationship === 'SPOUSE') : null
+      const spouseMember = isMarried ? householdMembers.find((member) => isSpouseRelationship(member.relationship)) : null
       const resolvedPermanent = address.trim()
       const resolvedCurrent = sameAsPermanent ? resolvedPermanent : citizenInfo.currentResidence.trim()
       const payload = {
@@ -544,6 +548,12 @@ export function ProfilePage() {
           prev.housingStatus === 'SMALL_HOUSE' ? prev.averageHousingAreaPerPerson : '',
       }))
 
+      // Lưu hồ sơ đã kết hôn sẽ tự tạo 1 thành viên SPOUSE. Dòng mới trên form phải cập nhật dòng đó, không tạo thêm.
+      const serverMembers = parseHouseholdMembers(await usersApi.getHouseholdMembers())
+      const usedServerIds = new Set(
+        householdMembers.flatMap((member) => (member.memberId ? [member.memberId] : [])),
+      )
+
       for (const member of householdMembers) {
         const body: UserHouseholdMemberRequestDto = {
           fullName: member.fullName.trim(),
@@ -557,8 +567,18 @@ export function ProfilePage() {
           hasMeritService: Boolean(member.hasMeritService),
           note: member.note.trim() || null,
         }
-        if (member.memberId) await usersApi.updateHouseholdMember(member.memberId, body)
-        else await usersApi.createHouseholdMember(body)
+        let memberId = member.memberId
+        if (!memberId && isSpouseRelationship(member.relationship)) {
+          memberId = serverMembers.find(
+            (item) => isSpouseRelationship(item.relationship) && !usedServerIds.has(item.memberId),
+          )?.memberId
+        }
+        if (memberId) {
+          usedServerIds.add(memberId)
+          await usersApi.updateHouseholdMember(memberId, body)
+        } else {
+          await usersApi.createHouseholdMember(body)
+        }
       }
 
       const vault = parseUserDocuments(await usersApi.getDocuments())
