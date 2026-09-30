@@ -15,7 +15,7 @@ import { housingProjectsApi } from '@/api/housing-projects'
 import { Button } from '@/components/ui/button'
 import { KpiCard } from '@/components/ui/kpi-card'
 import { navigate } from '@/hooks/useHashRoute'
-import { isStaffActive, parseStaffList } from '@/lib/admin'
+import { parseStaffListResponse } from '@/lib/admin'
 import { countFromPaged } from '@/lib/parsers'
 
 interface DashData {
@@ -30,6 +30,21 @@ interface DashData {
   totalProjects: number
   sxdStaff: number
   developerStaff: number
+}
+
+const STAFF_ROLES = {
+  developer: 'Housing Developer',
+  sxd: 'Department Of Construction',
+} as const
+
+async function countStaff(role: string, status?: string): Promise<number> {
+  const data = await adminApi.getStaffList({
+    pageNumber: 1,
+    pageSize: 1,
+    role,
+    status,
+  })
+  return parseStaffListResponse(data).totalCount
 }
 
 export function AdminHomePage() {
@@ -53,14 +68,28 @@ export function AdminHomePage() {
     const load = async () => {
       try {
         const [
-          staffRes,
+          devRes,
+          sxdRes,
+          devActiveRes,
+          sxdActiveRes,
+          devInactiveRes,
+          sxdInactiveRes,
+          devSuspendedRes,
+          sxdSuspendedRes,
           allAppsRes,
           pendingRes,
           approvedRes,
           rejectedRes,
           projectsRes,
         ] = await Promise.allSettled([
-          adminApi.getStaffList({ pageSize: 1000 }),
+          countStaff(STAFF_ROLES.developer),
+          countStaff(STAFF_ROLES.sxd),
+          countStaff(STAFF_ROLES.developer, 'Active'),
+          countStaff(STAFF_ROLES.sxd, 'Active'),
+          countStaff(STAFF_ROLES.developer, 'Inactive'),
+          countStaff(STAFF_ROLES.sxd, 'Inactive'),
+          countStaff(STAFF_ROLES.developer, 'Suspended'),
+          countStaff(STAFF_ROLES.sxd, 'Suspended'),
           housingApplicationsApi.getAll({ pageSize: 1 }),
           housingApplicationsApi.getAll({ pageSize: 1, status: 'PENDING_SXD_REVIEW' }),
           housingApplicationsApi.getAll({ pageSize: 1, status: 'APPROVED' }),
@@ -68,13 +97,12 @@ export function AdminHomePage() {
           housingProjectsApi.list({ pageIndex: 1, pageSize: 1 }),
         ])
 
-        // Staff
-        const staffList = staffRes.status === 'fulfilled' ? parseStaffList(staffRes.value) : []
-        const active = staffList.filter((s) => isStaffActive(s.status)).length
-        const inactive = staffList.filter((s) => s.status?.toLowerCase() === 'inactive').length
-        const suspended = staffList.filter((s) => s.status?.toLowerCase() === 'suspended').length
-        const sxd = staffList.filter((s) => s.roleName === 'Department Of Construction').length
-        const dev = staffList.filter((s) => s.roleName === 'Housing Developer').length
+        const num = (res: PromiseSettledResult<number>) => (res.status === 'fulfilled' ? res.value : 0)
+        const dev = num(devRes)
+        const sxd = num(sxdRes)
+        const active = num(devActiveRes) + num(sxdActiveRes)
+        const inactive = num(devInactiveRes) + num(sxdInactiveRes)
+        const suspended = num(devSuspendedRes) + num(sxdSuspendedRes)
 
         // Apps
         const allApps = allAppsRes.status === 'fulfilled' ? countFromPaged(allAppsRes.value) : 0
@@ -85,7 +113,7 @@ export function AdminHomePage() {
 
         if (!cancelled) {
           setData({
-            totalStaff: staffList.length,
+            totalStaff: dev + sxd,
             activeStaff: active,
             inactiveStaff: inactive,
             suspendedStaff: suspended,
