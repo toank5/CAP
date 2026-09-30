@@ -57,7 +57,8 @@ const SXD_STATUS_FILTERS = APPLICATION_STATUS_FILTERS.filter((item) =>
 
 export function applicationStatusFiltersForRole(role: string | null | undefined) {
   if (role === 'Department Of Construction') return SXD_STATUS_FILTERS
-  return APPLICATION_STATUS_FILTERS
+  if (role === 'Applicant') return APPLICATION_STATUS_FILTERS
+  return APPLICATION_STATUS_FILTERS.filter((item) => item.value !== 'DRAFT')
 }
 
 export function canonicalApplicationStatus(status: string) {
