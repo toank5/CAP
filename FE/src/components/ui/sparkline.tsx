@@ -16,10 +16,8 @@ interface SparklineProps {
   drawMs?: number
 }
 
-const DEFAULTS = [4, 6, 5, 8, 7, 10, 9, 12, 10, 14, 13, 16]
-
 export function Sparkline({
-  data = DEFAULTS,
+  data,
   stroke = 'rgb(0 91 172)',
   fill = 'rgb(0 91 172)',
   className,
@@ -27,6 +25,7 @@ export function Sparkline({
   showBaseline = true,
   drawMs = 1400,
 }: SparklineProps) {
+  const series = data && data.length > 0 ? data : [0]
   const uid = useId()
   const [hoverIdx, setHoverIdx] = useState<number | null>(null)
   const ref = useRef<SVGSVGElement | null>(null)
@@ -40,14 +39,14 @@ export function Sparkline({
   const layout = useMemo(() => {
     const w = 220
     const h = 64
-    const max = Math.max(...data, 1)
-    const min = Math.min(...data, 0)
+    const max = Math.max(...series, 1)
+    const min = Math.min(...series, 0)
     const range = Math.max(max - min, 1)
-    const stepX = w / Math.max(data.length - 1, 1)
+    const stepX = w / Math.max(series.length - 1, 1)
     const padTop = h * 0.15
     const padBottom = h * 0.2
     const innerH = h - padTop - padBottom
-    const pts = data.map((v, i) => {
+    const pts = series.map((v, i) => {
       const x = i * stepX
       const y = h - padBottom - ((v - min) / range) * innerH
       return [x, y] as const
@@ -65,7 +64,7 @@ export function Sparkline({
     }
     const areaD = `${d} L${w} ${h} L0 ${h} Z`
     return { w, h, pts, d, areaD, innerTopY: padTop, innerBottomY: h - padBottom }
-  }, [data])
+  }, [series])
 
   const { w, h, pts, d, areaD, innerTopY, innerBottomY } = layout
   const strokeGradientId = `spark-stroke-${uid}`
@@ -89,7 +88,9 @@ export function Sparkline({
   }
 
   const hoverPoint = hoverIdx !== null ? pts[hoverIdx] : null
-  const hoverValue = hoverIdx !== null ? data[hoverIdx] : null
+  const hoverValue = hoverIdx !== null ? series[hoverIdx] : null
+
+  if (!data || data.length === 0) return null
 
   return (
     <div className={cn('group/spark relative h-full w-full', className)}>
