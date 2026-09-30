@@ -251,6 +251,16 @@ function getEntityMeta(entityName: string) {
   }
 }
 
+function readAuditPage(data: unknown): { items: unknown[]; totalCount: number } {
+  const root = data && typeof data === 'object' ? (data as Record<string, unknown>) : {}
+  const nested = (root.data ?? root.Data ?? root) as Record<string, unknown>
+  const items = Array.isArray(nested)
+    ? nested
+    : ((nested.items ?? nested.Items ?? []) as unknown[])
+  const rawTotal = Array.isArray(nested) ? items.length : Number(nested.totalCount ?? nested.TotalCount ?? items.length)
+  return { items, totalCount: Number.isFinite(rawTotal) ? rawTotal : items.length }
+}
+
 export function SystemLogsPage() {
   const [logs, setLogs] = useState<AuditLogItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -261,19 +271,29 @@ export function SystemLogsPage() {
   const [selectedLog, setSelectedLog] = useState<AuditLogItem | null>(null)
   const [copiedIp, setCopiedIp] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
+  const [totalEvents, setTotalEvents] = useState(0)
+  const [todayEvents, setTodayEvents] = useState(0)
   const PAGE_SIZE = 15
 
   const fetchLogs = async () => {
     setLoading(true)
     setError('')
+    const startOfToday = new Date()
+    startOfToday.setHours(0, 0, 0, 0)
+    const endOfToday = new Date()
+    endOfToday.setHours(23, 59, 59, 999)
     try {
-      const data = await adminApi.getAuditLogs({ page: 1, pageSize: 200 })
-      const root = data && typeof data === 'object' ? (data as Record<string, unknown>) : {}
-      const nested = (root.data ?? root.Data ?? root) as Record<string, unknown>
-      const items = Array.isArray(nested)
-        ? nested
-        : ((nested.items ?? nested.Items ?? []) as unknown[])
-      const parsed: AuditLogItem[] = items.map((it) => {
+      const [data, todayData] = await Promise.all([
+        adminApi.getAuditLogs({ page: 1, pageSize: 200 }),
+        adminApi.getAuditLogs({
+          page: 1,
+          pageSize: 1,
+          fromDate: startOfToday.toISOString(),
+          toDate: endOfToday.toISOString(),
+        }),
+      ])
+      const page = readAuditPage(data)
+      const parsed: AuditLogItem[] = page.items.map((it) => {
         const row = it as Record<string, unknown>
         return {
           id: String(row.auditId ?? row.AuditId ?? row.id ?? row.Id ?? Math.random().toString(36).slice(2)),
@@ -289,6 +309,8 @@ export function SystemLogsPage() {
       }).filter((row) => row.id && (row.action || row.entityName))
 
       setLogs(parsed)
+      setTotalEvents(page.totalCount)
+      setTodayEvents(readAuditPage(todayData).totalCount)
     } catch (err) {
       setError(formatError(err))
     } finally {
@@ -345,9 +367,6 @@ export function SystemLogsPage() {
   const totalPages = Math.max(1, Math.ceil(filteredLogs.length / PAGE_SIZE))
   const paginatedLogs = filteredLogs.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
 
-  // Stats
-  const todayStr = new Date().toISOString().slice(0, 10)
-  const todayCount = logs.filter((l) => l.actionTime && l.actionTime.startsWith(todayStr)).length
   const uniqueActors = new Set(logs.map((l) => l.userFullName || l.userEmail || 'System')).size
   const uniqueEntities = new Set(logs.map((l) => l.entityName || 'System')).size
 
@@ -394,7 +413,7 @@ export function SystemLogsPage() {
               <Database className="h-4 w-4" />
             </div>
           </div>
-          <p className="mt-2 text-2xl font-black text-slate-900 dark:text-white">{loading ? '—' : logs.length}</p>
+          <p className="mt-2 text-2xl font-black text-slate-900 dark:text-white">{loading ? '—' : totalEvents}</p>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Bản ghi kiểm toán trong hệ thống</p>
         </div>
 
@@ -405,7 +424,7 @@ export function SystemLogsPage() {
               <Clock className="h-4 w-4" />
             </div>
           </div>
-          <p className="mt-2 text-2xl font-black text-emerald-600 dark:text-emerald-400">{loading ? '—' : todayCount}</p>
+          <p className="mt-2 text-2xl font-black text-emerald-600 dark:text-emerald-400">{loading ? '—' : todayEvents}</p>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Thao tác được ghi nhận trong ngày</p>
         </div>
 
