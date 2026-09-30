@@ -1565,9 +1565,9 @@ export function LotteryDetailPage() {
   const phase = getLotteryPhase(schedule)
   const stepIdx = phaseStepIndex(phase)
   const sxdOnline = schedule?.sxdOnlineCount ?? 0
-  const effectiveTotalUnits = Number(schedFund.available || schedule?.totalUnits || result?.totalUnits || 2)
+  const effectiveTotalUnits = Number(schedFund.available || schedule?.totalUnits || result?.totalUnits || 0)
   const rawWinners = result?.winners ?? []
-  const winners = rawWinners.slice(0, effectiveTotalUnits > 0 ? effectiveTotalUnits : 2)
+  const winners = effectiveTotalUnits > 0 ? rawWinners.slice(0, effectiveTotalUnits) : rawWinners
   const totalUnits = effectiveTotalUnits
 
   const computeDisplayWaitlist = (): WaitlistEntryDto[] => {

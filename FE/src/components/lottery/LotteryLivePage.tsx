@@ -245,7 +245,11 @@ export const LotteryLivePage: React.FC = () => {
           })
 
           const allWinners = Array.from(winnerMap.values())
-          const effectiveTotalUnits = Math.max(declaredUnits, allWinners.length, 2)
+          const categoryUnits = (ls?.apartmentFundStats ?? prevLiveState?.apartmentFundStats ?? [])
+            .reduce((sum, fund) => sum + (fund.totalUnits ?? 0), 0)
+          const apiUnits = ls?.projectApartmentFundStat?.totalUnits ?? prevLiveState?.projectApartmentFundStat?.totalUnits ?? 0
+          const knownUnits = categoryUnits > 0 ? categoryUnits : apiUnits > 0 ? apiUnits : declaredUnits
+          const effectiveTotalUnits = Math.max(knownUnits, allWinners.length)
 
           const latestDrawResult =
             ls?.latestDrawResult ||
@@ -481,13 +485,24 @@ export const LotteryLivePage: React.FC = () => {
 
               const mergedWinners = Array.from(winnerMap.values())
               const declaredUnits = Number(schedule?.totalUnits || schedule?.availableUnits || 0)
-              const totalUnits = Math.max(declaredUnits, incomingState.totalUnits ?? 0, mergedWinners.length, 2)
+              const categoryUnits = (incomingState.apartmentFundStats ?? prev?.apartmentFundStats ?? [])
+                .reduce((sum, fund) => sum + (fund.totalUnits ?? 0), 0)
+              const apiUnits = incomingState.projectApartmentFundStat?.totalUnits ?? incomingState.totalUnits ?? 0
+              const knownUnits = categoryUnits > 0 ? categoryUnits : apiUnits > 0 ? apiUnits : declaredUnits
+              const totalUnits = Math.max(knownUnits, mergedWinners.length)
+              const drawnCount = mergedWinners.length
 
               return {
                 ...incomingState,
                 totalUnits,
-                drawnUnitsCount: mergedWinners.length,
-                remainingUnits: Math.max(0, totalUnits - mergedWinners.length),
+                drawnUnitsCount: drawnCount,
+                remainingUnits: Math.max(0, totalUnits - drawnCount),
+                projectApartmentFundStat: {
+                  ...(incomingState.projectApartmentFundStat ?? prev?.projectApartmentFundStat),
+                  totalUnits,
+                  assignedUnits: drawnCount,
+                  remainingUnits: Math.max(0, totalUnits - drawnCount),
+                },
                 recentWinners: mergedWinners,
                 latestDrawResult: incomingState.latestDrawResult || prev?.latestDrawResult || (mergedWinners.length > 0 ? mergedWinners[0] : null),
                 priorityWinnersCount: mergedWinners.filter(isPriorityWinner).length,
