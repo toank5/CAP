@@ -7,7 +7,6 @@ import {
   type PriorityPointsTableDto,
 } from '@/api/housing-project-statuses'
 import { adminApi } from '@/api/admin'
-import { issueReportsApi } from '@/api/issue-reports'
 import { formatError } from '@/lib/format-error'
 import { formatPolicyValue, labelProjectStatus, POLICY_META_VI, policyTitle } from '@/lib/labels'
 
@@ -30,24 +29,38 @@ interface PolicyConfig {
 
 /**
  * Phải trùng khóa với PolicyKeys ở backend, nếu không thì admin sửa mà rule engine không đổi.
- * Các khóa cũ MAX_MONTHLY_INCOME / MAX_AVG_HOUSE_AREA / SMALL_HOUSE_AREA_THRESHOLD / PRIORITY_GROUPS
- * không tồn tại ở backend nên đã bỏ.
+ * Chỉ hiện giá trị API trả về. Khóa không có trên server thì bỏ qua.
  */
-const POLICY_DEFAULT_VALUES: Record<string, string> = {
-  MAX_AREA_PER_PERSON_M2: '15',
-  INCOME_SINGLE_MAX_VND: '15000000',
-  INCOME_MARRIED_MAX_VND: '30000000',
-  INCOME_MILITARY_SINGLE_MAX_VND: '15000000',
-  INCOME_MILITARY_MARRIED_MAX_VND: '30000000',
-  INTAKE_MIN_DAYS: '30',
-  PUBLIC_ANNOUNCE_MIN_DAYS: '30',
-  WAITLIST_CONFIRM_HOURS: '48',
-  TACIT_APPROVAL_DAYS: '20',
-  SXD_CROSSCHECK_SILENCE_DAYS: '20',
-  CONTRACT_SIGNING_DEADLINE_DAYS: '15',
-  DEPOSIT_PAYMENT_HOURS: '168',
-  ONE_APPLICATION_PER_APPLICANT: 'true',
-  LATE_PAYMENT_PENALTY_DAILY_RATE: '0.0005',
+const POLICY_KEYS = [
+  'MAX_AREA_PER_PERSON_M2',
+  'INCOME_SINGLE_MAX_VND',
+  'INCOME_MARRIED_MAX_VND',
+  'INCOME_MILITARY_SINGLE_MAX_VND',
+  'INCOME_MILITARY_MARRIED_MAX_VND',
+  'INTAKE_MIN_DAYS',
+  'PUBLIC_ANNOUNCE_MIN_DAYS',
+  'WAITLIST_CONFIRM_HOURS',
+  'TACIT_APPROVAL_DAYS',
+  'SXD_CROSSCHECK_SILENCE_DAYS',
+  'CONTRACT_SIGNING_DEADLINE_DAYS',
+  'DEPOSIT_PAYMENT_HOURS',
+  'ONE_APPLICATION_PER_APPLICANT',
+  'LATE_PAYMENT_PENALTY_DAILY_RATE',
+] as const
+
+function readPolicyConfig(name: string, raw: unknown): PolicyConfig | null {
+  if (!raw || typeof raw !== 'object') return null
+  const root = raw as Record<string, unknown>
+  const nested = (root.data ?? root.Data ?? root) as Record<string, unknown>
+  const value = nested.policyValue ?? nested.PolicyValue
+  if (value == null || String(value).trim() === '') return null
+  return {
+    policyName: String(nested.policyName ?? nested.PolicyName ?? name),
+    policyValue: String(value),
+    description: (nested.description ?? nested.Description) as string | undefined,
+    unit: (nested.unit ?? nested.Unit) as string | undefined,
+    updatedAt: (nested.updatedAt ?? nested.UpdatedAt) as string | undefined,
+  }
 }
 
 import {
@@ -275,27 +288,7 @@ export function SystemLogsPage() {
         }
       }).filter((row) => row.id && (row.action || row.entityName))
 
-      if (parsed.length > 0) {
-        setLogs(parsed)
-        return
-      }
-
-      const reports = await issueReportsApi.getAllReports({ pageIndex: 1, pageSize: 100 })
-      const reportItems = (reports && typeof reports === 'object' && 'items' in (reports as object)
-        ? ((reports as { items?: unknown[] }).items ?? [])
-        : []
-      ).map((it) => it as Record<string, unknown>)
-
-      setLogs(reportItems.map((it) => ({
-        id: String(it.id ?? it.Id ?? Math.random().toString(36).slice(2)),
-        action: String(it.title ?? it.Title ?? it.description ?? 'Báo cáo sự cố'),
-        entityName: String(it.category ?? it.Category ?? 'IssueReport'),
-        userFullName: String(it.userFullName ?? it.status ?? it.Status ?? 'Người dùng'),
-        userEmail: (it.userEmail ?? it.email) as string | undefined,
-        ipAddress: 'Unknown',
-        actionTime: (it.createdAt ?? it.CreatedAt) as string | undefined,
-        details: it,
-      })))
+      setLogs(parsed)
     } catch (err) {
       setError(formatError(err))
     } finally {
@@ -555,9 +548,13 @@ export function SystemLogsPage() {
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400 dark:bg-slate-800">
               <Search className="h-7 w-7" />
             </div>
-            <h3 className="mt-4 font-bold text-slate-800 dark:text-slate-100">Không tìm thấy bản ghi nào</h3>
+            <h3 className="mt-4 font-bold text-slate-800 dark:text-slate-100">
+              {logs.length === 0 ? 'Chưa có bản ghi kiểm toán' : 'Không tìm thấy bản ghi nào'}
+            </h3>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              Thử thay đổi từ khóa tìm kiếm hoặc bỏ chọn các bộ lọc phía trên.
+              {logs.length === 0
+                ? 'Nhật ký hệ thống đang trống.'
+                : 'Thử thay đổi từ khóa tìm kiếm hoặc bỏ chọn các bộ lọc phía trên.'}
             </p>
           </div>
         ) : (
@@ -737,7 +734,7 @@ export function SystemLogsPage() {
               </div>
               <div>
                 <p className="font-bold text-slate-400 uppercase text-[10px]">Địa chỉ IP</p>
-                <p className="mt-0.5 font-mono font-semibold text-slate-850 dark:text-slate-100">{selectedLog.ipAddress || 'Unknown'}</p>
+                <p className="mt-0.5 font-mono font-semibold text-slate-850 dark:text-slate-100">{selectedLog.ipAddress || '—'}</p>
               </div>
               <div className="col-span-2">
                 <p className="font-bold text-slate-400 uppercase text-[10px]">Thời gian ghi nhận</p>
@@ -769,18 +766,6 @@ export function SystemLogsPage() {
     </div>
   )
 }
-
-const DEFAULT_PRIORITY_POINTS: PriorityGroupPointItemDto[] = [
-  { groupCode: 'MERIT_PERSON', groupName: 'Người có công với cách mạng', points: 10, description: 'Điểm tối đa theo quy định tại Điều 76 Luật Nhà ở 2023' },
-  { groupCode: 'URBAN_POOR', groupName: 'Hộ nghèo, cận nghèo đô thị', points: 8, description: 'Hộ nghèo, cận nghèo có giấy chứng nhận hợp lệ tại khu vực đô thị' },
-  { groupCode: 'RURAL_POOR', groupName: 'Hộ nghèo, cận nghèo nông thôn', points: 7, description: 'Hộ nghèo, cận nghèo khu vực nông thôn có xác nhận địa phương' },
-  { groupCode: 'DISABLED', groupName: 'Người khuyết tật / Thân nhân liệt sĩ', points: 8, description: 'Khuyết tật mức độ nặng hoặc đặc biệt nặng theo giám định y khoa' },
-  { groupCode: 'WORKER', groupName: 'Công nhân, người lao động KCN/KCX', points: 6, description: 'Người lao động đang trực tiếp làm việc tại các doanh nghiệp trong KCN' },
-  { groupCode: 'LOW_INCOME_URBAN', groupName: 'Người thu nhập thấp đô thị', points: 6, description: 'Thu nhập hàng tháng thuộc khung xét duyệt hưởng chính sách NOXH' },
-  { groupCode: 'MILITARY_PERSONNEL', groupName: 'Lực lượng vũ trang / Công an / Quân đội', points: 6, description: 'Cán bộ, chiến sĩ, sĩ quan, quân nhân chuyên nghiệp trong LLVT' },
-  { groupCode: 'CIVIL_SERVANT', groupName: 'Cán bộ, công chức, viên chức', points: 5, description: 'Cán bộ, công chức, viên chức hưởng lương ngân sách nhà nước' },
-  { groupCode: 'LAND_RECOVERY_AFFECTED', groupName: 'Hộ bị thu hồi đất / giải tỏa', points: 5, description: 'Hộ gia đình bị thu hồi đất chưa được bồi thường bằng nhà ở hoặc đất ở' },
-]
 
 const POLICY_CATEGORIES: Record<string, { label: string; icon: typeof Banknote; keys: string[] }> = {
   INCOME_AREA: {
@@ -951,8 +936,10 @@ export function CategoriesPage() {
   const [activeTab, setActiveTab] = useState<'priority' | 'policy' | 'status'>('priority')
   const [statuses, setStatuses] = useState<ProjectStatus[]>([])
   const [policies, setPolicies] = useState<PolicyConfig[]>([])
-  const [priorityPoints, setPriorityPoints] = useState<PriorityGroupPointItemDto[]>(DEFAULT_PRIORITY_POINTS)
-  const [savedPriorityPoints, setSavedPriorityPoints] = useState<PriorityGroupPointItemDto[]>(DEFAULT_PRIORITY_POINTS)
+  const [priorityPoints, setPriorityPoints] = useState<PriorityGroupPointItemDto[]>([])
+  const [savedPriorityPoints, setSavedPriorityPoints] = useState<PriorityGroupPointItemDto[]>([])
+  const [priorityNote, setPriorityNote] = useState('')
+  const [policyNote, setPolicyNote] = useState('')
   const [loading, setLoading] = useState(true)
   const [savingPoints, setSavingPoints] = useState(false)
   const [savingPolicy, setSavingPolicy] = useState(false)
@@ -978,42 +965,34 @@ export function CategoriesPage() {
       const sl = Array.isArray(s) ? s : ((s as { items?: ProjectStatus[] }).items ?? [])
       setStatuses(sl as ProjectStatus[])
 
-      // 2. Fetch Policies
-      const policyNames = Object.keys(POLICY_DEFAULT_VALUES)
       const loaded: PolicyConfig[] = []
-      for (const name of policyNames) {
+      for (const name of POLICY_KEYS) {
         try {
-          const p = await housingProjectStatusesApi.getPolicy(name)
-          loaded.push({
-            policyName: name,
-            policyValue: String((p as { policyValue?: string }).policyValue ?? POLICY_DEFAULT_VALUES[name]),
-            description: (p as { description?: string }).description,
-            unit: (p as { unit?: string }).unit,
-            updatedAt: (p as { updatedAt?: string }).updatedAt,
-          })
+          const parsed = readPolicyConfig(name, await housingProjectStatusesApi.getPolicy(name))
+          if (parsed) loaded.push(parsed)
         } catch {
-          loaded.push({
-            policyName: name,
-            policyValue: POLICY_DEFAULT_VALUES[name],
-          })
+          // Khóa chưa có trên server thì không điền giá trị mẫu.
         }
       }
       setPolicies(loaded)
+      setPolicyNote(loaded.length === 0 ? 'Chưa có quy chuẩn nào được lưu trên hệ thống.' : '')
 
-      // 3. Fetch Priority Points
       try {
         const ptRes = await housingProjectStatusesApi.getPriorityPoints()
-        const ptData = (ptRes && typeof ptRes === 'object' && 'data' in ptRes ? (ptRes as any).data : ptRes) as PriorityPointsTableDto
+        const ptData = (ptRes && typeof ptRes === 'object' && 'data' in ptRes ? (ptRes as { data?: PriorityPointsTableDto }).data : ptRes) as PriorityPointsTableDto
         if (ptData?.pointsTable && Array.isArray(ptData.pointsTable) && ptData.pointsTable.length > 0) {
           setPriorityPoints(ptData.pointsTable)
           setSavedPriorityPoints(ptData.pointsTable)
+          setPriorityNote('')
         } else {
-          setPriorityPoints(DEFAULT_PRIORITY_POINTS)
-          setSavedPriorityPoints(DEFAULT_PRIORITY_POINTS)
+          setPriorityPoints([])
+          setSavedPriorityPoints([])
+          setPriorityNote('Chưa có bảng điểm ưu tiên trên hệ thống.')
         }
       } catch {
-        setPriorityPoints(DEFAULT_PRIORITY_POINTS)
-        setSavedPriorityPoints(DEFAULT_PRIORITY_POINTS)
+        setPriorityPoints([])
+        setSavedPriorityPoints([])
+        setPriorityNote('Không tải được bảng điểm ưu tiên.')
       }
     } catch (err) {
       setError(formatError(err))
@@ -1046,9 +1025,9 @@ export function CategoriesPage() {
     )
   }
 
-  const resetPriorityPointsToDefault = () => {
-    setPriorityPoints(DEFAULT_PRIORITY_POINTS)
-    setMsg({ type: 'success', text: 'Đã khôi phục ma trận điểm chuẩn theo Điều 76 Luật Nhà ở 2023. Hãy nhấn "Lưu bảng điểm" để cập nhật lên máy chủ.' })
+  const revertPriorityPoints = () => {
+    setPriorityPoints(savedPriorityPoints)
+    setMsg(null)
   }
 
   const savePriorityPoints = async () => {
@@ -1319,15 +1298,17 @@ export function CategoriesPage() {
             </div>
 
             <div className="flex items-center gap-2 self-end sm:self-center">
+              {isPriorityPointsDirty && (
               <Button
                 variant="outline"
                 size="sm"
-                onClick={resetPriorityPointsToDefault}
+                onClick={revertPriorityPoints}
                 className="h-8 rounded-xl border-amber-300 bg-white/80 text-xs font-semibold text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-slate-900 dark:text-amber-300"
               >
                 <RotateCcw className="mr-1 h-3.5 w-3.5" />
-                Chuẩn mặc định
+                Hoàn tác
               </Button>
+              )}
 
               <Button
                 variant="accent"
@@ -1387,6 +1368,15 @@ export function CategoriesPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {filteredPriorityPoints.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-5 py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+                        {priorityPoints.length === 0
+                          ? priorityNote || 'Chưa có bảng điểm ưu tiên trên hệ thống.'
+                          : 'Không có nhóm khớp từ khóa tìm kiếm.'}
+                      </td>
+                    </tr>
+                  ) : null}
                   {filteredPriorityPoints.map((item) => {
                     const idx = priorityPoints.findIndex((p) => p.groupCode === item.groupCode)
                     const meta = getPriorityGroupMeta(item.groupCode)
@@ -1487,15 +1477,17 @@ export function CategoriesPage() {
               </p>
 
               <div className="flex items-center gap-2">
+                {isPriorityPointsDirty && (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={resetPriorityPointsToDefault}
+                  onClick={revertPriorityPoints}
                   className="h-8 rounded-xl text-xs"
                 >
                   <RotateCcw className="mr-1 h-3.5 w-3.5" />
-                  Khôi phục chuẩn
+                  Hoàn tác
                 </Button>
+                )}
 
                 <Button
                   variant="accent"
@@ -1581,6 +1573,13 @@ export function CategoriesPage() {
 
           {/* Policies Grid */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {filteredPolicies.length === 0 ? (
+              <p className="col-span-full rounded-2xl border border-dashed border-slate-200 px-5 py-10 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                {policies.length === 0
+                  ? policyNote || 'Chưa có quy chuẩn nào được lưu trên hệ thống.'
+                  : 'Không có quy chuẩn khớp bộ lọc.'}
+              </p>
+            ) : null}
             {filteredPolicies.map((p) => {
               const meta = POLICY_META_VI[p.policyName]
               const PolicyIcon = getPolicyIcon(p.policyName)
