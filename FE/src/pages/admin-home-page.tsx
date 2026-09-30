@@ -10,13 +10,10 @@ import {
   Users,
 } from 'lucide-react'
 import { adminApi } from '@/api/admin'
-import { housingApplicationsApi } from '@/api/housing-applications'
-import { housingProjectsApi } from '@/api/housing-projects'
 import { Button } from '@/components/ui/button'
 import { KpiCard } from '@/components/ui/kpi-card'
 import { navigate } from '@/hooks/useHashRoute'
-import { parseStaffListResponse } from '@/lib/admin'
-import { countFromPaged } from '@/lib/parsers'
+import { parseStaffListResponse, type StaffRow } from '@/lib/admin'
 
 interface DashData {
   totalStaff: number
@@ -26,10 +23,12 @@ interface DashData {
   totalApplications: number
   pendingApps: number
   approvedApps: number
-  rejectedApps: number
   totalProjects: number
+  totalApartments: number
   sxdStaff: number
   developerStaff: number
+  activeSxd: number
+  activeDeveloper: number
 }
 
 const STAFF_ROLES = {
@@ -37,14 +36,39 @@ const STAFF_ROLES = {
   sxd: 'Department Of Construction',
 } as const
 
-async function countStaff(role: string, status?: string): Promise<number> {
-  const data = await adminApi.getStaffList({
-    pageNumber: 1,
-    pageSize: 1,
-    role,
-    status,
-  })
-  return parseStaffListResponse(data).totalCount
+function readRecord(data: unknown): Record<string, unknown> {
+  if (!data || typeof data !== 'object') return {}
+  const root = data as Record<string, unknown>
+  const nested = root.data ?? root.Data
+  if (nested && typeof nested === 'object' && !Array.isArray(nested)) return nested as Record<string, unknown>
+  return root
+}
+
+function readNum(data: unknown, ...keys: string[]): number {
+  const row = readRecord(data)
+  for (const key of keys) {
+    const value = row[key]
+    if (typeof value === 'number' && !Number.isNaN(value)) return value
+  }
+  return 0
+}
+
+function tallyStatus(items: StaffRow[]) {
+  let active = 0
+  let inactive = 0
+  let suspended = 0
+  for (const item of items) {
+    const status = (item.status || '').toLowerCase()
+    if (status === 'active') active += 1
+    else if (status === 'inactive') inactive += 1
+    else if (status === 'suspended') suspended += 1
+  }
+  return { active, inactive, suspended }
+}
+
+async function loadRole(role: string) {
+  const data = await adminApi.getStaffList({ pageNumber: 1, pageSize: 100, role })
+  return parseStaffListResponse(data)
 }
 
 export function AdminHomePage() {
@@ -57,73 +81,50 @@ export function AdminHomePage() {
     totalApplications: 0,
     pendingApps: 0,
     approvedApps: 0,
-    rejectedApps: 0,
     totalProjects: 0,
+    totalApartments: 0,
     sxdStaff: 0,
     developerStaff: 0,
+    activeSxd: 0,
+    activeDeveloper: 0,
   })
 
   useEffect(() => {
     let cancelled = false
     const load = async () => {
       try {
-        const [
-          devRes,
-          sxdRes,
-          devActiveRes,
-          sxdActiveRes,
-          devInactiveRes,
-          sxdInactiveRes,
-          devSuspendedRes,
-          sxdSuspendedRes,
-          allAppsRes,
-          pendingRes,
-          approvedRes,
-          rejectedRes,
-          projectsRes,
-        ] = await Promise.allSettled([
-          countStaff(STAFF_ROLES.developer),
-          countStaff(STAFF_ROLES.sxd),
-          countStaff(STAFF_ROLES.developer, 'Active'),
-          countStaff(STAFF_ROLES.sxd, 'Active'),
-          countStaff(STAFF_ROLES.developer, 'Inactive'),
-          countStaff(STAFF_ROLES.sxd, 'Inactive'),
-          countStaff(STAFF_ROLES.developer, 'Suspended'),
-          countStaff(STAFF_ROLES.sxd, 'Suspended'),
-          housingApplicationsApi.getAll({ pageSize: 1 }),
-          housingApplicationsApi.getAll({ pageSize: 1, status: 'PENDING_SXD_REVIEW' }),
-          housingApplicationsApi.getAll({ pageSize: 1, status: 'APPROVED' }),
-          housingApplicationsApi.getAll({ pageSize: 1, status: 'REJECTED' }),
-          housingProjectsApi.list({ pageIndex: 1, pageSize: 1 }),
+        const [devRes, sxdRes, overviewRes, ratioRes] = await Promise.allSettled([
+          loadRole(STAFF_ROLES.developer),
+          loadRole(STAFF_ROLES.sxd),
+          adminApi.getDashboardOverview(),
+          adminApi.getApplicationRatio(),
         ])
 
-        const num = (res: PromiseSettledResult<number>) => (res.status === 'fulfilled' ? res.value : 0)
-        const dev = num(devRes)
-        const sxd = num(sxdRes)
-        const active = num(devActiveRes) + num(sxdActiveRes)
-        const inactive = num(devInactiveRes) + num(sxdInactiveRes)
-        const suspended = num(devSuspendedRes) + num(sxdSuspendedRes)
-
-        // Apps
-        const allApps = allAppsRes.status === 'fulfilled' ? countFromPaged(allAppsRes.value) : 0
-        const pend = pendingRes.status === 'fulfilled' ? countFromPaged(pendingRes.value) : 0
-        const appr = approvedRes.status === 'fulfilled' ? countFromPaged(approvedRes.value) : 0
-        const rej = rejectedRes.status === 'fulfilled' ? countFromPaged(rejectedRes.value) : 0
-        const proj = projectsRes.status === 'fulfilled' ? countFromPaged(projectsRes.value) : 0
+        const devList = devRes.status === 'fulfilled' ? devRes.value : null
+        const sxdList = sxdRes.status === 'fulfilled' ? sxdRes.value : null
+        const devTally = tallyStatus(devList?.items ?? [])
+        const sxdTally = tallyStatus(sxdList?.items ?? [])
+        const dev = devList?.totalCount ?? devTally.active + devTally.inactive + devTally.suspended
+        const sxd = sxdList?.totalCount ?? sxdTally.active + sxdTally.inactive + sxdTally.suspended
+        const overview = overviewRes.status === 'fulfilled' ? overviewRes.value : null
+        const ratio = ratioRes.status === 'fulfilled' ? ratioRes.value : null
+        const approved = readNum(ratio, 'approvedCount', 'ApprovedCount') + readNum(ratio, 'approvedByTimeoutCount', 'ApprovedByTimeoutCount')
 
         if (!cancelled) {
           setData({
             totalStaff: dev + sxd,
-            activeStaff: active,
-            inactiveStaff: inactive,
-            suspendedStaff: suspended,
-            totalApplications: allApps,
-            pendingApps: pend,
-            approvedApps: appr,
-            rejectedApps: rej,
-            totalProjects: proj,
+            activeStaff: devTally.active + sxdTally.active,
+            inactiveStaff: devTally.inactive + sxdTally.inactive,
+            suspendedStaff: devTally.suspended + sxdTally.suspended,
+            totalApplications: readNum(ratio, 'totalApplications', 'TotalApplications') || readNum(overview, 'totalApplications', 'TotalApplications'),
+            pendingApps: readNum(ratio, 'pendingCount', 'PendingCount'),
+            approvedApps: approved,
+            totalProjects: readNum(overview, 'totalProjects', 'TotalProjects'),
+            totalApartments: readNum(overview, 'totalApartments', 'TotalApartments'),
             sxdStaff: sxd,
             developerStaff: dev,
+            activeSxd: sxdTally.active,
+            activeDeveloper: devTally.active,
           })
           setLoading(false)
         }
@@ -136,10 +137,6 @@ export function AdminHomePage() {
       cancelled = true
     }
   }, [])
-
-  const conversionRate = data.totalApplications > 0
-    ? Math.round((data.approvedApps / Math.max(data.totalApplications, 1)) * 100)
-    : 0
 
   const stats = [
     {
@@ -154,7 +151,7 @@ export function AdminHomePage() {
     {
       label: 'Đang hoạt động',
       value: loading ? '—' : data.activeStaff,
-      hint: `${data.inactiveStaff} ngừng · ${data.suspendedStaff} tạm khóa`,
+      hint: `${data.activeDeveloper} CĐT · ${data.activeSxd} SXD · ${data.inactiveStaff} ngừng · ${data.suspendedStaff} tạm khóa`,
       icon: <UserCheck className="h-6 w-6" />,
       accent: 'from-emerald-500 via-teal-500 to-emerald-500',
       accentSoft: 'from-emerald-500/30 via-teal-500/20 to-transparent',
@@ -165,16 +162,18 @@ export function AdminHomePage() {
     {
       label: 'Tổng hồ sơ',
       value: loading ? '—' : data.totalApplications,
-      hint: `${data.pendingApps} chờ SXD duyệt`,
+      hint: `${data.pendingApps} đang xử lý · ${data.approvedApps} đã duyệt`,
       icon: <Database className="h-6 w-6" />,
       accent: 'from-blue-500 via-blue-600 to-cyan-500',
       accentSoft: 'from-blue-500/30 via-blue-600/20 to-transparent',
-      trend: data.totalApplications > 0 ? { value: `Tỉ lệ duyệt: ${conversionRate}%`, positive: true } : undefined,
+      trend: data.totalApplications > 0
+        ? { value: `${Math.round((data.approvedApps / data.totalApplications) * 100)}% đã duyệt`, positive: true }
+        : undefined,
     },
     {
       label: 'Dự án nhà ở',
       value: loading ? '—' : data.totalProjects,
-      hint: `${data.approvedApps} hồ sơ đã duyệt`,
+      hint: `${data.totalApartments} căn hộ`,
       icon: <ShieldCheck className="h-6 w-6" />,
       accent: 'from-amber-500 via-orange-500 to-amber-500',
       accentSoft: 'from-amber-500/30 via-orange-500/20 to-transparent',

@@ -39,6 +39,12 @@ export const adminApi = {
       auth: true,
     }),
 
+  getDashboardOverview: () =>
+    request<unknown>('/api/Admin/dashboard/overview', { auth: true }),
+
+  getApplicationRatio: () =>
+    request<unknown>('/api/Admin/dashboard/applications-ratio', { auth: true }),
+
   getStaffList: (query: GetStaffListQuery = {}) => {
     const params = new URLSearchParams()
     params.set('pageNumber', String(query.pageNumber ?? 1))
