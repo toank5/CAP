@@ -251,6 +251,43 @@ function getEntityMeta(entityName: string) {
   }
 }
 
+function actorKey(row: Record<string, unknown>): string {
+  const id = row.userId ?? row.UserId
+  if (id) return `id:${String(id)}`
+  const email = row.userEmail ?? row.UserEmail ?? row.email ?? row.Email
+  if (email) return `email:${String(email).trim().toLowerCase()}`
+  return 'system'
+}
+
+function entityKey(row: Record<string, unknown>): string {
+  const name = String(row.entityName ?? row.EntityName ?? '').trim()
+  return name || 'Hệ thống'
+}
+
+function absorbAuditCoverage(items: unknown[], actors: Set<string>, entities: Set<string>) {
+  for (const item of items) {
+    const row = (item && typeof item === 'object' ? item : {}) as Record<string, unknown>
+    actors.add(actorKey(row))
+    entities.add(entityKey(row))
+  }
+}
+
+async function countAuditCoverage(totalCount: number): Promise<{ actors: number; entities: number }> {
+  const actors = new Set<string>()
+  const entities = new Set<string>()
+  const pageSize = 500
+  const pageCount = Math.max(1, Math.ceil(totalCount / pageSize))
+  for (let page = 1; page <= pageCount; page += 4) {
+    const batch = await Promise.all(
+      Array.from({ length: Math.min(4, pageCount - page + 1) }, (_, index) =>
+        adminApi.getAuditLogs({ page: page + index, pageSize }),
+      ),
+    )
+    for (const result of batch) absorbAuditCoverage(readAuditPage(result).items, actors, entities)
+  }
+  return { actors: actors.size, entities: entities.size }
+}
+
 function readAuditPage(data: unknown): { items: unknown[]; totalCount: number } {
   const root = data && typeof data === 'object' ? (data as Record<string, unknown>) : {}
   const nested = (root.data ?? root.Data ?? root) as Record<string, unknown>
@@ -273,6 +310,8 @@ export function SystemLogsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalEvents, setTotalEvents] = useState(0)
   const [todayEvents, setTodayEvents] = useState(0)
+  const [actorCount, setActorCount] = useState(0)
+  const [entityCount, setEntityCount] = useState(0)
   const PAGE_SIZE = 15
 
   const fetchLogs = async () => {
@@ -311,6 +350,17 @@ export function SystemLogsPage() {
       setLogs(parsed)
       setTotalEvents(page.totalCount)
       setTodayEvents(readAuditPage(todayData).totalCount)
+      try {
+        const coverage = await countAuditCoverage(page.totalCount)
+        setActorCount(coverage.actors)
+        setEntityCount(coverage.entities)
+      } catch {
+        const actors = new Set<string>()
+        const entities = new Set<string>()
+        absorbAuditCoverage(page.items, actors, entities)
+        setActorCount(actors.size)
+        setEntityCount(entities.size)
+      }
     } catch (err) {
       setError(formatError(err))
     } finally {
@@ -366,9 +416,6 @@ export function SystemLogsPage() {
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filteredLogs.length / PAGE_SIZE))
   const paginatedLogs = filteredLogs.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
-
-  const uniqueActors = new Set(logs.map((l) => l.userFullName || l.userEmail || 'System')).size
-  const uniqueEntities = new Set(logs.map((l) => l.entityName || 'System')).size
 
   return (
     <div className="space-y-6">
@@ -435,8 +482,8 @@ export function SystemLogsPage() {
               <Users className="h-4 w-4" />
             </div>
           </div>
-          <p className="mt-2 text-2xl font-black text-slate-900 dark:text-white">{loading ? '—' : uniqueActors}</p>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Tài khoản quản trị &amp; cán bộ</p>
+          <p className="mt-2 text-2xl font-black text-slate-900 dark:text-white">{loading ? '—' : actorCount}</p>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Tài khoản có trong toàn bộ nhật ký</p>
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -446,7 +493,7 @@ export function SystemLogsPage() {
               <Server className="h-4 w-4" />
             </div>
           </div>
-          <p className="mt-2 text-2xl font-black text-slate-900 dark:text-white">{loading ? '—' : uniqueEntities}</p>
+          <p className="mt-2 text-2xl font-black text-slate-900 dark:text-white">{loading ? '—' : entityCount}</p>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Loại đối tượng nghiệp vụ</p>
         </div>
       </div>
