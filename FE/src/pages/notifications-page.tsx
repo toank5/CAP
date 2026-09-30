@@ -49,7 +49,7 @@ function describeType(t: string): { label: string; tone: 'default' | 'success' |
     case 'PaymentRejectedBySxd':
       return { label: 'Thanh toán bị SXD từ chối', tone: 'danger' }
     default:
-      return { label: t || 'Thông báo', tone: 'secondary' }
+      return { label: '', tone: 'secondary' }
   }
 }
 
@@ -191,7 +191,7 @@ export function NotificationsPage() {
                       >
                         {n.title}
                       </p>
-                      <Badge variant={meta.tone}>{meta.label}</Badge>
+                      {meta.label ? <Badge variant={meta.tone}>{meta.label}</Badge> : null}
                       {!n.isRead && <Badge variant="danger">Mới</Badge>}
                     </div>
                     <p className="mt-1 whitespace-pre-line text-sm text-slate-600 dark:text-slate-300">

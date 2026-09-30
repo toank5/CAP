@@ -56,7 +56,7 @@ function typeLabel(t: string): string {
     case 'SxdRejected':
       return 'SXD từ chối'
     default:
-      return t || 'Thông báo'
+      return ''
   }
 }
 
@@ -181,7 +181,9 @@ export function NotificationBell() {
                   Hiện chưa có thông báo nào.
                 </div>
               ) : (
-                recent.map((n) => (
+                recent.map((n) => {
+                  const label = typeLabel(n.notificationType)
+                  return (
                   <button
                     key={n.notificationId}
                     type="button"
@@ -207,13 +209,18 @@ export function NotificationBell() {
                       </div>
                       <p className="mt-0.5 line-clamp-2 text-xs text-slate-500 dark:text-slate-400">{n.content}</p>
                       <div className="mt-1 flex items-center gap-2 text-[10px] uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                        <span>{typeLabel(n.notificationType)}</span>
-                        <span>·</span>
+                        {label ? (
+                          <>
+                            <span>{label}</span>
+                            <span>·</span>
+                          </>
+                        ) : null}
                         <span>{timeAgo(n.createdAt)}</span>
                       </div>
                     </div>
-                  </button>
-                ))
+                    </button>
+                  )
+                })
               )}
             </div>
 
