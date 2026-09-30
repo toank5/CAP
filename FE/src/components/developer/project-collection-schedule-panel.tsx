@@ -11,7 +11,7 @@ import { extractSingleProject } from '@/lib/parsers'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
-import { formatError, formatSuccess } from '@/lib/format-error'
+import { formatError } from '@/lib/format-error'
 import type { MilestoneSetupItemDto } from '@/types'
 
 interface Props {
@@ -55,10 +55,10 @@ export function ProjectCollectionSchedulePanel({ projectId }: Props) {
     setBusy(true)
     setMsg(null)
     try {
-      const res = await paymentApi.unlockPhase(projectId, nextPhase.triggerEvent, nextPhase.phaseOrder)
+      await paymentApi.unlockPhase(projectId, nextPhase.triggerEvent, nextPhase.phaseOrder)
       setMsg({
         type: 'success',
-        text: formatSuccess(res) || `Đã mở ${phaseTitle(nextPhase)} cho cả dự án.`,
+        text: `Đã mở ${phaseTitle(nextPhase)} cho cả dự án.`,
       })
       setConfirmOpen(false)
       await load()
@@ -121,8 +121,7 @@ export function ProjectCollectionSchedulePanel({ projectId }: Props) {
               >
                 <div className="min-w-0">
                   <p className="text-xs font-bold text-slate-900 dark:text-white">
-                    Đợt {phase.phaseOrder}
-                    {phase.phaseName ? ` — ${phase.phaseName}` : ''}
+                    {phaseTitle(phase)}
                     {phase.percentage ? ` (${phase.percentage}%)` : ''}
                   </p>
                   <p className="mt-0.5 text-[11px] text-slate-500">
@@ -168,11 +167,11 @@ export function ProjectCollectionSchedulePanel({ projectId }: Props) {
           {nextPhase && (
             <p className="text-sm text-slate-600 dark:text-slate-300">
               Mở <strong>{phaseTitle(nextPhase)}</strong>
-              {nextPhase.percentage ? ` (${nextPhase.percentage}% giá căn)` : ''}
-              {nextPhase.triggerEventLabel ? ` — ${nextPhase.triggerEventLabel}` : ''}
+              {nextPhase.percentage ? ` (${nextPhase.percentage}% giá căn)` : ''}.
+              {nextPhase.triggerEventLabel ? ` Mốc tiến độ: ${nextPhase.triggerEventLabel}.` : ''}{' '}
               {nextPhase.eligibleToUnlockCount > 0
-                ? ` cho ${nextPhase.eligibleToUnlockCount} hộ đã nộp đợt liền trước.`
-                : '.'}{' '}
+                ? `${nextPhase.eligibleToUnlockCount} hộ đã nộp đợt liền trước sẽ được thu đợt này.`
+                : 'Chưa có hộ đủ điều kiện nên chưa phát sinh khoản phải thu.'}{' '}
               Hộ chưa nộp đợt trước vẫn nộp đợt đó, chưa nộp được đợt này. Một lần bấm áp dụng cả dự án.
             </p>
           )}
@@ -197,7 +196,15 @@ export function ProjectCollectionSchedulePanel({ projectId }: Props) {
 }
 
 function phaseTitle(phase: PhaseProgressItem) {
-  return phase.phaseName?.trim() || `Đợt ${phase.phaseOrder}`
+  const numberLabel = `Đợt ${phase.phaseOrder}`
+  const name = phase.phaseName?.trim() ?? ''
+  const numbered = name.match(/^đợt\s*(\d+)\b/i)
+  if (!name || (numbered && Number(numbered[1]) !== phase.phaseOrder)) return numberLabel
+  if (numbered) {
+    const rest = name.slice(numbered[0].length).replace(/^[\s—–-]+/, '').trim()
+    return rest ? `${numberLabel} — ${rest}` : numberLabel
+  }
+  return `${numberLabel} — ${name}`
 }
 
 function phaseState(phase: PhaseProgressItem): { label: string; detail: string; badgeClass: string } {
