@@ -28,6 +28,44 @@ export const APPLICATION_STATUS: Record<string, { label: string; variant: 'defau
   CANCELLATION_REQUESTED: { label: 'Xin ngừng thanh toán', variant: 'warning' },
 }
 
+/** Một nhãn một dòng. CONTRACT_PENDING cũng khớp hồ sơ cũ DEPOSIT_PENDING trên máy chủ. */
+const APPLICATION_STATUS_FILTERS: { value: string; label: string }[] = [
+  { value: 'DRAFT', label: 'Nháp' },
+  { value: 'SUBMITTED', label: 'Đã nộp' },
+  { value: 'REVIEWING', label: 'Đang thẩm định' },
+  { value: 'NEED_MORE_DOCUMENTS', label: 'Cần bổ sung' },
+  { value: 'PENDING_SXD_REVIEW', label: 'Chờ Sở Xây dựng' },
+  { value: 'APPROVED', label: 'Đã phê duyệt' },
+  { value: 'APPROVED_BY_TIMEOUT', label: 'Duyệt quá hạn' },
+  { value: 'REJECTED', label: 'Từ chối' },
+  { value: 'CANCELED', label: 'Đã hủy' },
+  { value: 'EXPIRED', label: 'Hết hạn' },
+  { value: 'CANCELLATION_REQUESTED', label: 'Xin ngừng thanh toán' },
+  { value: 'CONTRACT_PENDING', label: 'Chờ ký hợp đồng' },
+  { value: 'CONTRACT_SIGNED', label: 'Đã ký hợp đồng' },
+  { value: 'DEPOSIT_PAID', label: 'Đã đóng Đợt 1' },
+  { value: 'INSTALLMENT_IN_PROGRESS', label: 'Đang thanh toán' },
+  { value: 'FULLY_PAID', label: 'Đã thanh toán đủ' },
+  { value: 'LOTTERY_WON', label: 'Trúng bốc thăm' },
+  { value: 'LOTTERY_LOST', label: 'Không trúng bốc thăm' },
+  { value: 'WAITLIST', label: 'Danh sách chờ' },
+]
+
+const SXD_STATUS_FILTERS = APPLICATION_STATUS_FILTERS.filter((item) =>
+  ['PENDING_SXD_REVIEW', 'APPROVED', 'APPROVED_BY_TIMEOUT', 'REJECTED'].includes(item.value),
+)
+
+export function applicationStatusFiltersForRole(role: string | null | undefined) {
+  if (role === 'Department Of Construction') return SXD_STATUS_FILTERS
+  return APPLICATION_STATUS_FILTERS
+}
+
+export function canonicalApplicationStatus(status: string) {
+  if (status === 'DEPOSIT_PENDING') return 'CONTRACT_PENDING'
+  if (status === 'PAID') return 'FULLY_PAID'
+  return status
+}
+
 export const CLOSED_APPLICATION_STATUSES = ['APPROVED', 'DEPOSIT_PAID', 'REJECTED', 'CANCELED', 'EXPIRED', 'LOTTERY_LOST']
 
 /**

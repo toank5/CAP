@@ -78,7 +78,8 @@ import { navigate } from '@/hooks/useHashRoute'
 import { useExistingApplicationBlocker } from '@/hooks/useExistingApplicationBlocker'
 import { labelApplicationStatus } from '@/lib/labels'
 import {
-  APPLICATION_STATUS,
+  applicationStatusFiltersForRole,
+  canonicalApplicationStatus,
   DOC_TYPE_LABELS,
   HOUSING_STATUS_LABELS,
   PRIORITY_GROUP_LABELS,
@@ -183,13 +184,21 @@ export function ApplicationsPage() {
     const qIdx = hash.indexOf('?')
     if (qIdx < 0) return ''
     const params = new URLSearchParams(hash.slice(qIdx + 1))
-    return params.get('status') ?? ''
+    return canonicalApplicationStatus(params.get('status') ?? '')
   })
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bulkSending, setBulkSending] = useState(false)
   const [bulkMsg, setBulkMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [exporting, setExporting] = useState(false)
   const applicantBlocker = useExistingApplicationBlocker()
+  const statusFilters = useMemo(() => applicationStatusFiltersForRole(role), [role])
+  const quickTabs = QUICK_STATUS_TABS.filter(
+    (tab) => tab.id === '' || statusFilters.some((item) => item.value === tab.id),
+  )
+
+  useEffect(() => {
+    if (status && !statusFilters.some((item) => item.value === status)) setStatus('')
+  }, [role, status, statusFilters])
 
   useEffect(() => {
     setPageIndex(1)
@@ -369,7 +378,7 @@ export function ApplicationsPage() {
         {/* Quick Status Tabs */}
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 pb-4 dark:border-slate-800">
           <span className="text-xs font-bold text-slate-400 mr-1 uppercase tracking-wider">Lọc nhanh:</span>
-          {QUICK_STATUS_TABS.map((tab) => {
+          {quickTabs.map((tab) => {
             const active = status === tab.id
             return (
               <button
@@ -431,10 +440,10 @@ export function ApplicationsPage() {
                 onChange={(e) => setStatus(e.target.value)}
                 className="rounded-xl focus:border-emerald-500 focus:ring-emerald-500"
               >
-                <option value="">Tất cả trạng thái ({Object.keys(APPLICATION_STATUS).length})</option>
-                {Object.entries(APPLICATION_STATUS).map(([v, s]) => (
-                  <option key={v} value={v}>
-                    {s.label}
+                <option value="">Tất cả trạng thái ({statusFilters.length})</option>
+                {statusFilters.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
                   </option>
                 ))}
               </Select>
