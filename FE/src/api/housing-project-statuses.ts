@@ -33,7 +33,7 @@ export const housingProjectStatusesApi = {
     request<ApiResult>('/api/housing-project-statuses'),
 
   getPolicy: (name: string) =>
-    request<ApiResult>(`/api/PolicyConfig/${encodeURIComponent(name)}`),
+    request<ApiResult>(`/api/PolicyConfig/${encodeURIComponent(name)}`, { auth: true }),
 
   updatePolicy: (name: string, body: { policyValue: string; description?: string }) =>
     request<ApiResult>(`/api/PolicyConfig/${encodeURIComponent(name)}`, {
