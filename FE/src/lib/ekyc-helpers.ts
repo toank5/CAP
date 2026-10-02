@@ -40,21 +40,43 @@ export function formatCooldown(ms: number): string {
   return sec > 0 ? `${min} phút ${sec} giây` : `${min} phút`
 }
 
+export function isTokenExpiredError(err: unknown): boolean {
+  if (!(err instanceof ApiError)) return false
+  const b = err.body as { detail?: string; message?: string; errorCode?: string } | null
+  if (b?.errorCode === 'EKYC_TOKEN_EXPIRED') return true
+  const text = JSON.stringify(err.body ?? err.message).toLowerCase()
+  return (
+    text.includes('ekyc_token_expired') ||
+    text.includes('accesstoken vnpt') ||
+    (text.includes('token') && (text.includes('hết hạn') || text.includes('expired'))) ||
+    (text.includes('key') && (text.includes('hết hạn') || text.includes('expired')))
+  )
+}
+
 export function formatEkycError(err: unknown): string {
+  if (isTokenExpiredError(err)) {
+    return 'Dịch vụ xác thực CCCD (VNPT eKYC) tạm thời gián đoạn do khóa truy cập (Token/Key) đã hết hạn. Vui lòng liên hệ quản trị viên cập nhật Token mới, hoặc chọn "Nhập tay thông tin" bên dưới để tiếp tục.'
+  }
   if (isRateLimitError(err)) {
     setOcrCooldown(30)
-    return 'Dịch vụ OCR FPT AI tạm thời giới hạn số lần gọi (HTTP 429). Vui lòng đợi khoảng 30 phút rồi thử lại, hoặc chọn "Nhập tay thông tin" bên dưới để tiếp tục (vẫn cần ảnh CCCD cho bước xác thực khuôn mặt).'
+    return 'Dịch vụ quét CCCD (VNPT eKYC) tạm thời giới hạn số lần gọi (HTTP 429). Vui lòng đợi khoảng 30 phút rồi thử lại, hoặc chọn "Nhập tay thông tin" bên dưới để tiếp tục.'
   }
   if (err instanceof ApiError) {
     if (err.status === 409) {
       return 'Số CCCD này đã được xác thực bởi tài khoản khác. Vui lòng dùng CCCD khác hoặc liên hệ quản trị.'
     }
     if (err.status === 502 || err.status === 503) {
-      const b = err.body as { detail?: string; message?: string } | null
+      const b = err.body as { detail?: string; message?: string; errorCode?: string } | null
       const detail = b?.detail ?? b?.message
+      if (
+        b?.errorCode === 'EKYC_TOKEN_EXPIRED' ||
+        (detail && (detail.toLowerCase().includes('token') || detail.toLowerCase().includes('accesstoken') || detail.toLowerCase().includes('hết hạn')))
+      ) {
+        return 'Dịch vụ xác thực CCCD (VNPT eKYC) tạm thời gián đoạn do khóa truy cập (Token/Key) đã hết hạn. Vui lòng liên hệ quản trị viên cập nhật Token mới, hoặc chọn "Nhập tay thông tin" bên dưới để tiếp tục.'
+      }
       return detail
-        ? `Không kết nối được dịch vụ FPT AI: ${detail}`
-        : 'Không kết nối được dịch vụ FPT AI. Kiểm tra backend đang chạy và kết nối mạng.'
+        ? `Không kết nối được dịch vụ VNPT eKYC: ${detail}`
+        : 'Không kết nối được dịch vụ VNPT eKYC. Kiểm tra backend đang chạy và kết nối mạng, hoặc chọn "Nhập tay thông tin" bên dưới.'
     }
     if (err.status === 400) {
       const b = err.body as { message?: string } | null

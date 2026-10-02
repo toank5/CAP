@@ -21,6 +21,8 @@ import {
 import type { ApplicationSummaryDto } from '@/types'
 import { canSignSaleContract, isPhase1Paid } from '@/lib/deposit-pipeline'
 
+import { formatError } from '@/lib/format-error'
+
 // ─── Status mapping ────────────────────────────────────────────────────────────
 
 function mapStatus(s: ContractStatusDto | null): ContractStatus {
@@ -149,7 +151,7 @@ export function MyApartmentPage() {
         setSelectedId(eligible[0].applicationId)
       }
     } catch (err) {
-      setError(String(err))
+      setError(formatError(err))
     } finally {
       setLoading(false)
     }
