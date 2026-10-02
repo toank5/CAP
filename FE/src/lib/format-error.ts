@@ -20,6 +20,14 @@ function cleanMessage(text: string): string {
   let s = text.trim()
   if (s.startsWith('Error: ')) s = s.slice(7).trim()
   if (s.startsWith('ApiError: ')) s = s.slice(10).trim()
+
+  const lower = s.toLowerCase()
+  if (lower.includes('resource_exhausted') || lower.includes('check quota')) {
+    return 'Dịch vụ AI Gemini tạm thời hết hạn ngạch/lượt gọi (Quota / Token Limit). Vui lòng thử lại sau hoặc liên hệ quản trị viên.'
+  }
+  if (lower.includes('api_key_invalid') || lower.includes('api key not valid')) {
+    return 'Dịch vụ AI Gemini tạm thời gián đoạn do API Key không hợp lệ hoặc đã hết hạn. Vui lòng liên hệ quản trị viên.'
+  }
   if (isTechnicalStack(s)) {
     return 'Hệ thống máy chủ gặp sự cố xử lý. Vui lòng thử lại sau hoặc liên hệ quản trị viên.'
   }
