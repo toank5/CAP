@@ -61,7 +61,7 @@ import { resolveProvinceName } from '@/lib/vietnam-locations'
 import { mapProjectToCard } from '@/lib/projects'
 import { labelProjectStatus } from '@/lib/labels'
 import { matchesOpenStatus } from '@/lib/housing-search'
-import { FLASH_CREATE_PROJECT_KEY, FLASH_DELETE_PROJECT_KEY } from '@/lib/constants'
+import { FLASH_CREATE_PROJECT_KEY, FLASH_DELETE_PROJECT_KEY, FLASH_UPDATE_PROJECT_KEY } from '@/lib/constants'
 import { ensureVerifiedForApplication } from '@/lib/ekyc-gate'
 import { getRole, isLoggedIn } from '@/router'
 import {
@@ -90,7 +90,8 @@ export function ProjectsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [flashSuccess, setFlashSuccess] = useState<string | null>(null)
-  const [flashDelete, setFlashDelete] = useState(false)
+  const [flashDelete, setFlashDelete] = useState<string | null>(null)
+  const [flashUpdate, setFlashUpdate] = useState<string | null>(null)
   const [showCreateProject, setShowCreateProject] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
   const [pageIndex, setPageIndex] = useState(1)
@@ -142,11 +143,20 @@ export function ProjectsPage() {
   }, [])
 
   useEffect(() => {
-    const flag = sessionStorage.getItem(FLASH_DELETE_PROJECT_KEY)
-    if (!flag) return
+    const name = sessionStorage.getItem(FLASH_DELETE_PROJECT_KEY)
+    if (!name) return
     sessionStorage.removeItem(FLASH_DELETE_PROJECT_KEY)
-    setFlashDelete(true)
-    const timer = window.setTimeout(() => setFlashDelete(false), 6000)
+    setFlashDelete(name === FLASH_DELETE_PROJECT_KEY ? 'Dự án' : name)
+    const timer = window.setTimeout(() => setFlashDelete(null), 6000)
+    return () => window.clearTimeout(timer)
+  }, [])
+
+  useEffect(() => {
+    const name = sessionStorage.getItem(FLASH_UPDATE_PROJECT_KEY)
+    if (!name) return
+    sessionStorage.removeItem(FLASH_UPDATE_PROJECT_KEY)
+    setFlashUpdate(name === FLASH_UPDATE_PROJECT_KEY ? 'Dự án' : name)
+    const timer = window.setTimeout(() => setFlashUpdate(null), 6000)
     return () => window.clearTimeout(timer)
   }, [])
 
@@ -270,10 +280,10 @@ export function ProjectsPage() {
         </div>
       </div>
 
-      {/* 2. Flash Success & Delete Alerts */}
+      {/* 2. Flash Success, Update & Delete Alerts */}
       {flashSuccess && (
-        <Alert variant="success" className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-2">
+        <Alert variant="success" className="flex items-start justify-between gap-3 shadow-sm">
+          <div className="flex items-start gap-2.5">
             <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
             <div>
               <p className="font-semibold text-emerald-800 dark:text-emerald-300">Tạo dự án thành công!</p>
@@ -293,14 +303,14 @@ export function ProjectsPage() {
         </Alert>
       )}
 
-      {flashDelete && (
-        <Alert variant="success" className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-2">
+      {flashUpdate && (
+        <Alert variant="success" className="flex items-start justify-between gap-3 shadow-sm">
+          <div className="flex items-start gap-2.5">
             <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
             <div>
-              <p className="font-semibold text-emerald-800 dark:text-emerald-300">Xoá dự án thành công!</p>
+              <p className="font-semibold text-emerald-800 dark:text-emerald-300">Cập nhật dự án thành công!</p>
               <p className="mt-0.5 text-xs text-emerald-700 dark:text-emerald-400">
-                Dự án đã được xoá khỏi danh sách.
+                Thông tin dự án và quỹ căn của <strong>{flashUpdate}</strong> đã được lưu thành công.
               </p>
             </div>
           </div>
@@ -308,7 +318,29 @@ export function ProjectsPage() {
             type="button"
             className="rounded-lg p-1 text-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/40"
             aria-label="Đóng thông báo"
-            onClick={() => setFlashDelete(false)}
+            onClick={() => setFlashUpdate(null)}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </Alert>
+      )}
+
+      {flashDelete && (
+        <Alert variant="success" className="flex items-start justify-between gap-3 shadow-sm">
+          <div className="flex items-start gap-2.5">
+            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+            <div>
+              <p className="font-semibold text-emerald-800 dark:text-emerald-300">Xoá dự án thành công!</p>
+              <p className="mt-0.5 text-xs text-emerald-700 dark:text-emerald-400">
+                Dự án <strong>{flashDelete}</strong> đã được xoá khỏi hệ thống.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="rounded-lg p-1 text-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/40"
+            aria-label="Đóng thông báo"
+            onClick={() => setFlashDelete(null)}
           >
             <X className="h-4 w-4" />
           </button>
@@ -325,16 +357,16 @@ export function ProjectsPage() {
               setFilter((prev) => ({ ...prev, statusCode: '', statusId: '' }))
             }}
             className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-bold transition-all ${activeTab === 'all'
-                ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/30'
-                : 'bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-700'
+              ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/30'
+              : 'bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-700'
               }`}
           >
             <Layers className="h-4 w-4" />
             Tất cả dự án
             <span
               className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold ${activeTab === 'all'
-                  ? 'bg-white/20 text-white'
-                  : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
+                ? 'bg-white/20 text-white'
+                : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
                 }`}
             >
               {counts.all}
@@ -348,16 +380,16 @@ export function ProjectsPage() {
               setFilter((prev) => ({ ...prev, statusCode: '', statusId: '' }))
             }}
             className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-bold transition-all ${activeTab === 'approved'
-                ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/30'
-                : 'bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-700'
+              ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/30'
+              : 'bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-700'
               }`}
           >
             <CheckCircle2 className="h-4 w-4 text-emerald-400" />
             Đã duyệt / Công khai
             <span
               className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold ${activeTab === 'approved'
-                  ? 'bg-white/20 text-white'
-                  : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+                ? 'bg-white/20 text-white'
+                : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
                 }`}
             >
               {counts.approved}
@@ -371,16 +403,16 @@ export function ProjectsPage() {
               setFilter((prev) => ({ ...prev, statusCode: '', statusId: '' }))
             }}
             className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-bold transition-all ${activeTab === 'pending'
-                ? 'bg-amber-600 text-white shadow-sm shadow-amber-600/30'
-                : 'bg-white text-amber-700 hover:bg-amber-50 hover:text-amber-800 border border-amber-200 dark:bg-slate-800 dark:text-amber-400 dark:border-amber-900/50 dark:hover:bg-amber-950/20'
+              ? 'bg-amber-600 text-white shadow-sm shadow-amber-600/30'
+              : 'bg-white text-amber-700 hover:bg-amber-50 hover:text-amber-800 border border-amber-200 dark:bg-slate-800 dark:text-amber-400 dark:border-amber-900/50 dark:hover:bg-amber-950/20'
               }`}
           >
             <Clock className={`h-4 w-4 ${counts.pending > 0 ? 'text-amber-500 animate-pulse' : 'text-amber-400'}`} />
             Chờ SXD duyệt
             <span
               className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold ${activeTab === 'pending'
-                  ? 'bg-white/20 text-white'
-                  : 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200'
+                ? 'bg-white/20 text-white'
+                : 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200'
                 }`}
             >
               {counts.pending}
@@ -395,16 +427,16 @@ export function ProjectsPage() {
                 setFilter((prev) => ({ ...prev, statusCode: '', statusId: '' }))
               }}
               className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-bold transition-all ${activeTab === 'rejected'
-                  ? 'bg-rose-600 text-white shadow-sm shadow-rose-600/30'
-                  : 'bg-white text-rose-700 hover:bg-rose-50 hover:text-rose-800 border border-rose-200 dark:bg-slate-800 dark:text-rose-400 dark:border-rose-900/50 dark:hover:bg-rose-950/20'
+                ? 'bg-rose-600 text-white shadow-sm shadow-rose-600/30'
+                : 'bg-white text-rose-700 hover:bg-rose-50 hover:text-rose-800 border border-rose-200 dark:bg-slate-800 dark:text-rose-400 dark:border-rose-900/50 dark:hover:bg-rose-950/20'
                 }`}
             >
               <AlertTriangle className="h-4 w-4 text-rose-500" />
               Bị từ chối
               <span
                 className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold ${activeTab === 'rejected'
-                    ? 'bg-white/20 text-white'
-                    : 'bg-rose-100 text-rose-800 dark:bg-rose-900/60 dark:text-rose-200'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-rose-100 text-rose-800 dark:bg-rose-900/60 dark:text-rose-200'
                   }`}
               >
                 {counts.rejected}
@@ -977,6 +1009,11 @@ export function ProjectDetailPage() {
   const [projectId] = useState(() => sessionStorage.getItem('projectId') ?? '')
   const [project, setProject] = useState<HousingProjectDto | null>(null)
   const [showEditModal, setShowEditModal] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+  const [updateSuccessMsg, setUpdateSuccessMsg] = useState<string | null>(null)
+
   const role = getRole()
   const logged = isLoggedIn()
   const isApplicant = role === 'Applicant'
@@ -985,6 +1022,16 @@ export function ProjectDetailPage() {
   const isStaffEditor = logged && (isDeveloper || isAdmin || role === 'Department Of Construction')
   const showPublicView = !logged || isApplicant || !isStaffEditor
   const canEditProject = Boolean(project) && isStaffEditor && isPending(project)
+
+  useEffect(() => {
+    const updateKey = sessionStorage.getItem(FLASH_UPDATE_PROJECT_KEY)
+    if (updateKey) {
+      sessionStorage.removeItem(FLASH_UPDATE_PROJECT_KEY)
+      setUpdateSuccessMsg(`Dự án "${updateKey}" đã được cập nhật thành công!`)
+      const t = window.setTimeout(() => setUpdateSuccessMsg(null), 6000)
+      return () => window.clearTimeout(t)
+    }
+  }, [])
 
   return (
     <div>
@@ -996,6 +1043,31 @@ export function ProjectDetailPage() {
         >
           ← {logged ? 'Danh sách dự án' : 'Tìm nhà ở'}
         </Button>
+
+        {updateSuccessMsg && (
+          <div className="mb-4">
+            <Alert variant="success" className="flex items-start justify-between gap-3 shadow-sm">
+              <div className="flex items-start gap-2.5">
+                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+                <div>
+                  <p className="font-semibold text-emerald-800 dark:text-emerald-300">Cập nhật dự án thành công!</p>
+                  <p className="mt-0.5 text-xs text-emerald-700 dark:text-emerald-400">
+                    {updateSuccessMsg}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="rounded-lg p-1 text-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/40"
+                aria-label="Đóng thông báo"
+                onClick={() => setUpdateSuccessMsg(null)}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </Alert>
+          </div>
+        )}
+
         {!projectId ? (
           <Alert variant="error">
             Không tìm thấy dự án. Quay lại danh sách và chọn lại dự án.
@@ -1082,15 +1154,9 @@ export function ProjectDetailPage() {
                       type="button"
                       variant="outline"
                       className="inline-flex items-center gap-1.5 border-rose-200 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:border-rose-900/60 dark:hover:bg-rose-950/40"
-                      onClick={async () => {
-                        if (!confirm('Bạn có chắc chắn muốn xóa dự án này? Hành động này sẽ xóa toàn bộ quỹ căn và không thể hoàn tác.')) return
-                        try {
-                          await housingProjectsApi.delete(projectId)
-                          sessionStorage.setItem(FLASH_DELETE_PROJECT_KEY, FLASH_DELETE_PROJECT_KEY)
-                          navigate('projects')
-                        } catch (err) {
-                          alert(formatError(err))
-                        }
+                      onClick={() => {
+                        setDeleteError('')
+                        setShowDeleteModal(true)
                       }}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -1113,12 +1179,94 @@ export function ProjectDetailPage() {
           </>
         )}
       </PageCard>
+
+      {/* Modal xác nhận xóa dự án */}
+      <Modal
+        open={showDeleteModal}
+        onClose={() => !deleting && setShowDeleteModal(false)}
+        title="Xác nhận xóa dự án"
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-3.5 rounded-xl border border-rose-200 bg-rose-50/80 p-4 dark:border-rose-900/60 dark:bg-rose-950/40">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-rose-600 dark:bg-rose-900/60 dark:text-rose-300 shadow-sm">
+              <Trash2 className="h-5 w-5" />
+            </div>
+            <div className="text-xs sm:text-sm text-slate-700 dark:text-slate-300">
+              <p className="font-bold text-rose-900 dark:text-rose-200 mb-1">
+                Hành động này không thể hoàn tác!
+              </p>
+              <p className="leading-relaxed">
+                Bạn có chắc chắn muốn xóa dự án{' '}
+                <strong className="text-slate-900 dark:text-white">
+                  {project?.projectName || project?.name || 'này'}
+                </strong>
+                ? Toàn bộ quỹ căn hộ, cơ cấu giá bán và tiến độ thanh toán của dự án sẽ bị xóa hoàn toàn khỏi hệ thống.
+              </p>
+            </div>
+          </div>
+
+          {deleteError && <Alert variant="error">{deleteError}</Alert>}
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={deleting}
+              onClick={() => setShowDeleteModal(false)}
+            >
+              Hủy
+            </Button>
+            <Button
+              type="button"
+              className="bg-rose-600 hover:bg-rose-700 text-white font-semibold shadow-sm transition"
+              disabled={deleting}
+              onClick={async () => {
+                setDeleting(true)
+                setDeleteError('')
+                try {
+                  await housingProjectsApi.delete(projectId)
+                  const name = project?.projectName || project?.name || 'Dự án'
+                  sessionStorage.setItem(FLASH_DELETE_PROJECT_KEY, name)
+                  setShowDeleteModal(false)
+                  navigate('projects')
+                } catch (err) {
+                  setDeleteError(formatError(err))
+                  setDeleting(false)
+                }
+              }}
+            >
+              {deleting ? (
+                <span className="flex items-center gap-1.5">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  Đang xóa...
+                </span>
+              ) : (
+                <span className="flex items-center gap-1.5">
+                  <Trash2 className="h-4 w-4" />
+                  Xác nhận xóa
+                </span>
+              )}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
       <EditProjectModal
         projectId={projectId}
         open={showEditModal}
         onClose={() => setShowEditModal(false)}
-        onUpdated={() => {
+        onUpdated={async () => {
           window.dispatchEvent(new CustomEvent('fecaps:project-status-changed'))
+          const name = project?.projectName || project?.name || 'Dự án'
+          setUpdateSuccessMsg(`Cập nhật thông tin và quỹ căn của "${name}" thành công!`)
+          window.setTimeout(() => setUpdateSuccessMsg(null), 6000)
+          try {
+            const fresh = await housingProjectsApi.getById(projectId)
+            const p = extractSingleProject(fresh)
+            if (p) setProject(p)
+          } catch {
+            // ignore
+          }
         }}
       />
     </div>
@@ -1550,12 +1698,12 @@ function ProjectDetailView({
             {intakeClose.closeAt && showApply && (
               <div
                 className={`mt-4 flex items-start gap-2.5 rounded-2xl border p-4 text-sm ${intakeClose.tone === 'closed'
-                    ? 'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300'
-                    : intakeClose.tone === 'urgent'
-                      ? 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200'
-                      : intakeClose.tone === 'soon'
-                        ? 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200'
-                        : 'border-teal-200 bg-teal-50 text-teal-800 dark:border-teal-900/60 dark:bg-teal-950/40 dark:text-teal-200'
+                  ? 'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300'
+                  : intakeClose.tone === 'urgent'
+                    ? 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200'
+                    : intakeClose.tone === 'soon'
+                      ? 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200'
+                      : 'border-teal-200 bg-teal-50 text-teal-800 dark:border-teal-900/60 dark:bg-teal-950/40 dark:text-teal-200'
                   }`}
               >
                 <Clock className="mt-0.5 h-4 w-4 shrink-0" />

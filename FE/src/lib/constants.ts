@@ -253,6 +253,7 @@ export const ROLE_OPTIONS = [
 
 export const FLASH_CREATE_PROJECT_KEY = 'flashCreateProjectSuccess'
 export const FLASH_DELETE_PROJECT_KEY = 'flashDeleteProjectSuccess'
+export const FLASH_UPDATE_PROJECT_KEY = 'flashUpdateProjectSuccess'
 
 /**
  * Map priorityGroup → danh sách giấy tờ bắt buộc khi submit.

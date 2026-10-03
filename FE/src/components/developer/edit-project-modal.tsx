@@ -23,6 +23,7 @@ import { housingProjectsApi, parseApartments } from '@/api/housing-projects'
 import { Modal } from '@/components/ui/modal'
 import { Alert } from '@/components/ui/alert'
 import { ensureHcmLocationsLoaded, HCM_PROVINCE } from '@/lib/vietnam-locations'
+import { FLASH_UPDATE_PROJECT_KEY } from '@/lib/constants'
 import { formatError } from '@/lib/format-error'
 import { formatHousingVnd } from '@/lib/money'
 import { extractSingleProject } from '@/lib/parsers'
@@ -581,6 +582,12 @@ export function EditProjectModal({
         }
       }
 
+      try {
+        sessionStorage.setItem(FLASH_UPDATE_PROJECT_KEY, body.projectName || 'Dự án')
+      } catch {
+        // ignore
+      }
+
       if (onUpdated) await onUpdated()
       onClose()
     } catch (err: any) {
@@ -901,22 +908,22 @@ export function EditProjectModal({
                       >
                         <Plus className="h-3.5 w-3.5" /> Thêm đợt
                       </button>
+                    </div>
                   </div>
-                </div>
 
-                <PaymentProgressPolicyNote />
+                  <PaymentProgressPolicyNote />
 
-                <PaymentRatioMeter milestones={milestones} />
+                  <PaymentRatioMeter milestones={milestones} />
 
-                <div className="mb-1 hidden gap-2 px-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400 sm:grid sm:grid-cols-[1.75rem_minmax(0,1.4fr)_4.75rem_minmax(10rem,1.3fr)_4.75rem_1.75rem] dark:text-slate-500">
-                  <span />
-                  <span>Tên đợt</span>
-                  <span className="text-center">Tỷ lệ</span>
-                  <span>Mốc mở</span>
-                  <span className="text-center">Hạn</span>
-                  <span />
-                </div>
-                <div className="space-y-2">
+                  <div className="mb-1 hidden gap-2 px-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400 sm:grid sm:grid-cols-[1.75rem_minmax(0,1.4fr)_4.75rem_minmax(10rem,1.3fr)_4.75rem_1.75rem] dark:text-slate-500">
+                    <span />
+                    <span>Tên đợt</span>
+                    <span className="text-center">Tỷ lệ</span>
+                    <span>Mốc mở</span>
+                    <span className="text-center">Hạn</span>
+                    <span />
+                  </div>
+                  <div className="space-y-2">
                     {milestones.map((m, idx) => (
                       <div
                         key={idx}
@@ -974,7 +981,7 @@ export function EditProjectModal({
                             setMilestones(n)
                           }}
                         >
-                            {allowedTriggersForPhase(milestones, idx).map((t) => (
+                          {allowedTriggersForPhase(milestones, idx).map((t) => (
                             <option key={t.code} value={t.code}>
                               {t.label}
                             </option>
