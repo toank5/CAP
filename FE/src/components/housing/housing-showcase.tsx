@@ -19,6 +19,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { navigate } from '@/hooks/useHashRoute'
 import { useHousingProjects } from '@/hooks/useHousingProjects'
 import { useWishlist } from '@/hooks/useWishlist'
+import { useExistingApplicationBlocker } from '@/hooks/useExistingApplicationBlocker'
 import { getRole, isLoggedIn } from '@/router'
 import { ensureVerifiedForApplication } from '@/lib/ekyc-gate'
 import type { ProjectCard } from '@/lib/projects'
@@ -38,6 +39,56 @@ function goToApply(house: ProjectCard) {
 function goToProjectDetail(house: ProjectCard) {
   sessionStorage.setItem('projectId', house.id)
   navigate('project-detail')
+}
+
+function ProjectFeaturedApplyButton({ house }: { house: ProjectCard }) {
+  const { canCreate, message: blockMessage } = useExistingApplicationBlocker()
+  const logged = isLoggedIn()
+  const isBlocked = logged && getRole() === 'Applicant' && !canCreate
+
+  return (
+    <Button
+      size="sm"
+      disabled={isBlocked}
+      title={isBlocked ? (blockMessage || 'Bạn đã có hồ sơ đang xử lý') : undefined}
+      className={`rounded-xl text-xs font-bold text-white shadow-sm ${
+        isBlocked
+          ? 'bg-slate-400 opacity-60 cursor-not-allowed'
+          : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'
+      }`}
+      onClick={() => {
+        if (isBlocked) return
+        goToApply(house)
+      }}
+    >
+      {isBlocked ? 'Đã có hồ sơ' : 'Nộp hồ sơ ngay'}
+    </Button>
+  )
+}
+
+function ProjectGridApplyButton({ house }: { house: ProjectCard }) {
+  const { canCreate, message: blockMessage } = useExistingApplicationBlocker()
+  const logged = isLoggedIn()
+  const isBlocked = logged && getRole() === 'Applicant' && !canCreate
+
+  return (
+    <Button
+      size="sm"
+      disabled={isBlocked}
+      title={isBlocked ? (blockMessage || 'Bạn đã có hồ sơ đang xử lý') : undefined}
+      className={`rounded-xl text-xs font-semibold px-3 h-8 text-white shadow-sm ${
+        isBlocked
+          ? 'bg-slate-400 opacity-60 cursor-not-allowed'
+          : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'
+      }`}
+      onClick={() => {
+        if (isBlocked) return
+        goToApply(house)
+      }}
+    >
+      {isBlocked ? 'Đã có hồ sơ' : 'Nộp hồ sơ'}
+    </Button>
+  )
 }
 
 // ─── Wishlist Toast ────────────────────────────────────────────────────────────
@@ -244,13 +295,7 @@ const SpotlightProjectCard = memo(function SpotlightProjectCard({
                 Chi tiết dự án <ArrowRight className="ml-1 h-3.5 w-3.5" />
               </Button>
               {(!isLoggedIn() || getRole() === 'Applicant') && (
-                <Button
-                  size="sm"
-                  className="rounded-xl bg-emerald-600 text-xs font-bold text-white hover:bg-emerald-700 shadow-sm shadow-emerald-600/20"
-                  onClick={() => goToApply(house)}
-                >
-                  Nộp hồ sơ ngay
-                </Button>
+                <ProjectFeaturedApplyButton house={house} />
               )}
             </div>
           </div>
@@ -356,13 +401,7 @@ const ProjectGridCard = memo(function ProjectGridCard({
               Chi tiết
             </Button>
             {(!isLoggedIn() || getRole() === 'Applicant') && (
-              <Button
-                size="sm"
-                className="rounded-xl bg-emerald-600 text-xs font-semibold px-3 h-8 text-white hover:bg-emerald-700 shadow-sm shadow-emerald-600/20"
-                onClick={() => goToApply(house)}
-              >
-                Nộp hồ sơ
-              </Button>
+              <ProjectGridApplyButton house={house} />
             )}
           </div>
         </div>

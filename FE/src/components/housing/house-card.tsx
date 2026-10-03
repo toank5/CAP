@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { navigate } from '@/hooks/useHashRoute'
 import { getRole, isLoggedIn } from '@/router'
 import { ensureVerifiedForApplication } from '@/lib/ekyc-gate'
+import { useExistingApplicationBlocker } from '@/hooks/useExistingApplicationBlocker'
 import type { ProjectCard } from '@/lib/projects'
 
 export const HouseCard = memo(function HouseCard({
@@ -20,6 +21,8 @@ export const HouseCard = memo(function HouseCard({
   const role = getRole()
   const logged = isLoggedIn()
   const isApplicant = !logged || role === 'Applicant'
+  const { canCreate, message: blockMessage } = useExistingApplicationBlocker()
+  const isBlocked = logged && isApplicant && !canCreate
 
   const goToDetail = () => {
     sessionStorage.setItem('projectId', house.id)
@@ -33,6 +36,7 @@ export const HouseCard = memo(function HouseCard({
       navigate('login')
       return
     }
+    if (isBlocked) return
     void ensureVerifiedForApplication({ projectId: house.id }).then((ok) => {
       if (ok) navigate('create-application')
     })
@@ -160,10 +164,16 @@ export const HouseCard = memo(function HouseCard({
                 </Button>
                 <Button
                   size="sm"
-                  className="rounded-xl bg-emerald-600 text-xs font-semibold px-3 h-8 text-white hover:bg-emerald-700 shadow-sm shadow-emerald-600/20"
+                  disabled={isBlocked}
+                  title={isBlocked ? (blockMessage || 'Bạn đã có hồ sơ đang xử lý') : undefined}
+                  className={`rounded-xl text-xs font-semibold px-3 h-8 text-white shadow-sm ${
+                    isBlocked
+                      ? 'bg-slate-400 opacity-60 cursor-not-allowed'
+                      : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'
+                  }`}
                   onClick={goToApply}
                 >
-                  Nộp hồ sơ
+                  {isBlocked ? 'Đã có hồ sơ' : 'Nộp hồ sơ'}
                 </Button>
               </>
             ) : (

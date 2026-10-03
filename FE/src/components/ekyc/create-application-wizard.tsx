@@ -14,7 +14,7 @@ import {
   X,
   ExternalLink,
 } from 'lucide-react'
-import { housingApplicationsApi, parseApplicationDetail } from '@/api/housing-applications'
+import { housingApplicationsApi, parseApplicationDetail, parsePagedApplications } from '@/api/housing-applications'
 import { housingProjectsApi } from '@/api/housing-projects'
 import { lookupApi } from '@/api/lookup'
 import { usersApi } from '@/api/users'
@@ -315,12 +315,12 @@ export function CreateApplicationWizard() {
       try {
         const paged = await housingApplicationsApi.getMy({ pageIndex: 1, pageSize: 50 })
         if (cancelled) return
-        const items = Array.isArray(paged?.items) ? paged.items : []
+        const items = parsePagedApplications(paged)
         const statuses = items
           .map((it) => (it?.applicationStatus ?? null) as string | null)
-          .filter(Boolean)
+          .filter(Boolean) as string[]
         if (!canCreateNewApplication(statuses)) {
-          const blockingLabel = APPLICATION_STATUS[statuses.find((s) =>
+          const blockingLabel = APPLICATION_STATUS[statuses.find((s: string) =>
             s ? BLOCKING_APPLICATION_STATUSES.includes(s as never) : false,
           ) || '']?.label
           setActiveBlock(

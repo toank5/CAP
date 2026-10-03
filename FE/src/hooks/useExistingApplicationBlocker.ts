@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { housingApplicationsApi } from '@/api/housing-applications'
+import { housingApplicationsApi, parsePagedApplications } from '@/api/housing-applications'
 import {
   APPLICATION_STATUS,
   BLOCKING_APPLICATION_STATUSES,
@@ -35,7 +35,7 @@ export function useExistingApplicationBlocker() {
       try {
         const paged = await housingApplicationsApi.getMy({ pageIndex: 1, pageSize: 50 })
         if (cancelled) return
-        const items = Array.isArray(paged?.items) ? paged.items : []
+        const items = parsePagedApplications(paged)
         const statuses = items
           .map((it) => (it?.applicationStatus ?? null) as string | null)
           .filter(Boolean) as string[]
