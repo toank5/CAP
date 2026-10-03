@@ -42,7 +42,7 @@ export function AdminSubNav({ inline = false }: { inline?: boolean }) {
 
   return (
     <nav aria-label="Điều hướng quản trị" className="flex items-center">
-      <div className={`flex items-center gap-1 xl:gap-2 ${inline ? '' : 'mx-auto max-w-[1760px] px-4 lg:px-6'}`}>
+      <div className={`flex items-center gap-0.5 xl:gap-1.5 ${inline ? '' : 'mx-auto max-w-[1760px] px-2 lg:px-4'}`}>
         {ITEMS.map((item) => {
           const active = isActive(route, item)
           const Icon = item.icon
@@ -51,12 +51,12 @@ export function AdminSubNav({ inline = false }: { inline?: boolean }) {
               key={item.route}
               type="button"
               onClick={() => navigate(item.route)}
-              className={`relative inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs xl:text-[13px] font-semibold transition-all duration-150 whitespace-nowrap ${active
+              className={`relative inline-flex items-center gap-1 xl:gap-1.5 rounded-xl px-2 xl:px-2.5 2xl:px-3 py-1.5 text-[11px] xl:text-xs 2xl:text-[13px] font-semibold transition-all duration-150 whitespace-nowrap ${active
                 ? 'bg-rose-600 font-bold text-white shadow-md shadow-rose-500/25 dark:bg-rose-600 dark:text-white'
                 : 'text-slate-700 hover:bg-rose-50 hover:text-rose-700 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white'
                 }`}
             >
-              <Icon className={`h-4 w-4 shrink-0 ${active ? 'text-white' : 'text-slate-500 dark:text-slate-400'}`} />
+              <Icon className={`h-3.5 w-3.5 xl:h-4 xl:w-4 shrink-0 ${active ? 'text-white' : 'text-slate-500 dark:text-slate-400'}`} />
               <span>{item.label}</span>
             </button>
           )

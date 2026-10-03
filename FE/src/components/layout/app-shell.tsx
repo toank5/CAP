@@ -85,8 +85,8 @@ function UserAccountCluster() {
           )}
         </div>
         {/* Name + badge */}
-        <div className="hidden min-w-0 text-left lg:block">
-          <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-100">{greeting}</p>
+        <div className="hidden min-w-0 text-left xl:block">
+          <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-100 max-w-[130px] 2xl:max-w-[180px]">{greeting}</p>
           <span className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold text-white ${theme.brandAccent}`}>
             <ThemeIcon className="h-2.5 w-2.5" />
             {theme.badge}
@@ -157,28 +157,28 @@ function InternalHeader({ logged, role }: { logged: boolean; role: string }) {
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur-md dark:border-slate-800/80 dark:bg-slate-900/95 shadow-xs">
-      <div className="mx-auto flex h-16 max-w-[1760px] items-center justify-between gap-3 px-3 sm:px-4 lg:px-6">
+      <div className="mx-auto flex h-16 max-w-[1760px] items-center justify-between gap-2 sm:gap-3 px-3 sm:px-4 lg:px-6">
         {/* Left: Logo & Portal Title */}
-        <div className="flex min-w-0 items-center gap-3 lg:gap-6">
+        <div className="flex shrink-0 min-w-0 items-center">
           <button
             type="button"
             onClick={() => navigate(logged ? (theme.homeRoute as RouteId) : 'landing')}
             className="flex shrink-0 min-w-0 items-center text-left transition hover:opacity-90"
             aria-label="Trang chủ"
           >
-            <BrandLogo size="sm" showPortal showAcronym={false} className="max-w-[240px] sm:max-w-[280px] xl:max-w-[320px]" />
+            <BrandLogo size="sm" showPortal showAcronym={false} className="max-w-[175px] sm:max-w-[200px] xl:max-w-[240px] 2xl:max-w-[290px]" />
           </button>
-
-          {/* Desktop TopNav inline */}
-          {logged && (
-            <div className="hidden items-center lg:flex">
-              {showApplicantNav && <ApplicantSubNav inline />}
-              {showAdminNav && <AdminSubNav inline />}
-              {showDeveloperNav && <DeveloperSubNav inline />}
-              {showSxdNav && <SxdSubNav inline />}
-            </div>
-          )}
         </div>
+
+        {/* Center: Desktop TopNav inline */}
+        {logged && (
+          <div className="hidden min-w-0 flex-1 items-center justify-center px-1 xl:px-2 lg:flex overflow-x-auto no-scrollbar">
+            {showApplicantNav && <ApplicantSubNav inline />}
+            {showAdminNav && <AdminSubNav inline />}
+            {showDeveloperNav && <DeveloperSubNav inline />}
+            {showSxdNav && <SxdSubNav inline />}
+          </div>
+        )}
 
         {/* Right cluster: ThemeToggle, Notifications, User Account */}
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
