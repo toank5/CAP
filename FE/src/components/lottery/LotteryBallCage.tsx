@@ -14,6 +14,7 @@ interface Props {
   sessionStatus?: string
   remaining?: number
   total?: number
+  sxdOnlineCount?: number
 }
 
 // Bảng màu 3D siêu thực cho từng quả bóng xổ số (Gradient bóng bẩy đa chiều)
@@ -87,6 +88,7 @@ export const LotteryBallCage: React.FC<Props> = ({
   sessionStatus = '',
   remaining = 0,
   total = 0,
+  sxdOnlineCount = 0,
 }) => {
   const [cageRotation, setCageRotation] = useState(0)
   const [highlightBallIdx, setHighlightBallIdx] = useState<number | null>(null)
@@ -272,7 +274,8 @@ export const LotteryBallCage: React.FC<Props> = ({
   const isLive = sessionStatus === 'Live'
   const isFinished = sessionStatus === 'Finished' || sessionStatus === 'Published'
   const isOutOfUnits = remaining === 0 && total > 0
-  const canDraw = !!isDev && isLive && !isOutOfUnits && !isFinished
+  const hasSxdOnline = sxdOnlineCount > 0
+  const canDraw = !!isDev && isLive && !isOutOfUnits && !isFinished && hasSxdOnline
 
   return (
     <div className="relative overflow-hidden rounded-3xl border border-amber-200/90 bg-white p-5 sm:p-6 shadow-lg shadow-amber-900/5">
@@ -727,26 +730,33 @@ export const LotteryBallCage: React.FC<Props> = ({
         )}
 
         {/* 2. KHU VỰC THAO TÁC / GIÁM SÁT */}
-        <div className="mt-2 flex items-center justify-center w-full z-10">
+        <div className="mt-2 flex flex-col items-center justify-center w-full z-10">
           {isDev ? (
-            <button
-              type="button"
-              onClick={canDraw ? onDrawNext : undefined}
-              disabled={!canDraw || !!busy || isSpinning}
-              className={`px-9 py-3 sm:py-3.5 min-w-[200px] max-w-[250px] flex items-center justify-center gap-2 rounded-2xl font-black text-sm sm:text-base tracking-widest uppercase transition-all select-none ${canDraw
-                ? 'bg-gradient-to-r from-amber-400 via-rose-500 to-amber-500 border-2 border-yellow-200 text-white shadow-xl shadow-rose-500/35 hover:scale-105 active:scale-95 cursor-pointer'
-                : 'bg-emerald-950/80 border border-emerald-800/70 text-emerald-200/40 opacity-40 cursor-not-allowed shadow-none'
-                }`}
-            >
-              {isSpinning || busy ? (
-                <>
-                  <Sparkles className="h-4.5 w-4.5 animate-spin text-amber-200" />
+            <>
+              <button
+                type="button"
+                onClick={canDraw ? onDrawNext : undefined}
+                disabled={!canDraw || !!busy || isSpinning}
+                className={`px-9 py-3 sm:py-3.5 min-w-[200px] max-w-[250px] flex items-center justify-center gap-2 rounded-2xl font-black text-sm sm:text-base tracking-widest uppercase transition-all select-none ${canDraw
+                  ? 'bg-gradient-to-r from-amber-400 via-rose-500 to-amber-500 border-2 border-yellow-200 text-white shadow-xl shadow-rose-500/35 hover:scale-105 active:scale-95 cursor-pointer'
+                  : 'bg-emerald-950/80 border border-emerald-800/70 text-emerald-200/40 opacity-40 cursor-not-allowed shadow-none'
+                  }`}
+              >
+                {isSpinning || busy ? (
+                  <>
+                    <Sparkles className="h-4.5 w-4.5 animate-spin text-amber-200" />
+                    <span>BỐC THĂM</span>
+                  </>
+                ) : (
                   <span>BỐC THĂM</span>
-                </>
-              ) : (
-                <span>BỐC THĂM</span>
+                )}
+              </button>
+              {isLive && !hasSxdOnline && (
+                <p className="mt-2 text-xs font-bold text-rose-500 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-xl text-center">
+                  ⚠️ Chưa thể bốc thăm: Cần ít nhất 1 cán bộ Sở Xây dựng đang online giám sát (NĐ 100/2024 Đ36.2.b).
+                </p>
               )}
-            </button>
+            </>
           ) : (
             <div className="flex items-center gap-2 rounded-2xl bg-emerald-950/80 border border-emerald-700/60 px-5 py-2.5 text-emerald-200 text-xs sm:text-sm font-bold shadow-md">
               {isSpinning ? (

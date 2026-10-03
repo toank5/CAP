@@ -103,6 +103,7 @@ export const LiveZone: React.FC<Props> = ({
         sessionStatus={sessionStatus}
         remaining={remaining}
         total={total}
+        sxdOnlineCount={state?.sxdOnlineCount ?? 0}
       />
 
       {/* 2. Bảng Thống Kê Tiến Độ Phân Bổ Sảnh Trực Tiếp */}
