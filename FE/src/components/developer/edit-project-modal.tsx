@@ -542,11 +542,8 @@ export function EditProjectModal({
         images: newUploadedImages.length > 0 ? newUploadedImages : undefined,
       }
 
-      try {
-        await housingProjectsApi.update(projectId, body)
-      } catch (err: any) {
-        console.warn('[EditProjectModal] Warning updating project main info:', err)
-      }
+      // 1. Cập nhật thông tin cơ bản dự án
+      await housingProjectsApi.update(projectId, body)
 
       // 2. Cập nhật tiến độ thanh toán qua endpoint riêng
       const milestonesPayload = milestones.map((m, i) => ({
@@ -738,11 +735,16 @@ export function EditProjectModal({
                     className={inputClass}
                     value={ward}
                     onChange={(e) => setWard(e.target.value)}
-                    disabled={submitting || wards.length === 0}
+                    disabled={submitting}
                   >
                     <option value="">
                       {wards.length ? '-- Chọn phường/xã --' : 'Đang tải...'}
                     </option>
+                    {ward && !wards.includes(ward) && (
+                      <option key={ward} value={ward}>
+                        {ward}
+                      </option>
+                    )}
                     {wards.map((w) => (
                       <option key={w} value={w}>
                         {w}
