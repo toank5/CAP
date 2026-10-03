@@ -359,6 +359,8 @@ function renderDetail(app: ApplicationDetailDto, host: HTMLElement, result: HTML
     'Thông tin đăng ký',
     detailRow('Họ tên', app.fullName),
     detailRow('CCCD', app.citizenId),
+    detailRow('Số điện thoại', app.phoneNumber || '—'),
+    detailRow('Email liên hệ', app.email || '—'),
     detailRow('Nghề nghiệp', app.occupation || '—'),
     detailRow('Nơi làm việc', app.workPlace || '—'),
     detailRow('Nơi ở hiện tại', app.currentResidence),

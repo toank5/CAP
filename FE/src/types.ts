@@ -427,6 +427,8 @@ export interface ApplicationSummaryDto {
   applicantId: string
   applicantFullName: string
   citizenId: string
+  phoneNumber?: string | null
+  email?: string | null
   applicationStatus: string
   createdAt: string
   submittedAt: string

@@ -39,6 +39,8 @@ import {
   FolderOpen,
   Plus,
   FileSignature,
+  Mail,
+  Phone,
 } from 'lucide-react'
 import {
   housingApplicationsApi,
@@ -586,6 +588,7 @@ export function ApplicationsPage() {
                     <tr>
                       {isDeveloper && <th className="px-4 py-3.5 w-10">Chọn</th>}
                       <th className="px-4 py-3.5">Người đăng ký</th>
+                      <th className="px-4 py-3.5">Liên hệ</th>
                       <th className="px-4 py-3.5">CCCD</th>
                       <th className="px-4 py-3.5">Dự án</th>
                       <th className="px-4 py-3.5">Trạng thái</th>
@@ -633,6 +636,25 @@ export function ApplicationsPage() {
                                 {app.applicantFullName ? app.applicantFullName.charAt(0).toUpperCase() : 'U'}
                               </div>
                               <span>{app.applicantFullName || '—'}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-xs">
+                            <div className="flex flex-col gap-1">
+                              {app.phoneNumber ? (
+                                <span className="inline-flex items-center gap-1 font-mono font-medium text-slate-800 dark:text-slate-200">
+                                  <Phone className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                                  {app.phoneNumber}
+                                </span>
+                              ) : null}
+                              {app.email ? (
+                                <span className="inline-flex items-center gap-1 text-slate-600 dark:text-slate-300">
+                                  <Mail className="h-3 w-3 text-blue-500" />
+                                  {app.email}
+                                </span>
+                              ) : null}
+                              {!app.phoneNumber && !app.email && (
+                                <span className="text-slate-400 italic">Chưa có liên hệ</span>
+                              )}
                             </div>
                           </td>
                           <td className="px-4 py-3 font-mono text-xs text-slate-600 dark:text-slate-300">
@@ -1073,6 +1095,20 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
       } catch {
         /* ignore */
       }
+    } else if (parsed && parsed.citizenId) {
+      try {
+        const raw = localStorage.getItem(`applicant_profile_${parsed.citizenId}`)
+        if (raw) {
+          const c = JSON.parse(raw) as Record<string, unknown>
+          parsed = {
+            ...parsed,
+            phoneNumber: parsed.phoneNumber || (c.phoneNumber as string) || (c.phone as string) || parsed.phoneNumber,
+            email: parsed.email || (c.email as string) || parsed.email,
+          }
+        }
+      } catch {
+        /* ignore */
+      }
     }
 
     const canDropStaleProofs =
@@ -1491,6 +1527,20 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
                   CCCD: <strong className="font-mono text-slate-700 dark:text-slate-200">{app.citizenId}</strong>
                   <CopyButton text={app.citizenId} />
                 </span>
+                {app.phoneNumber && (
+                  <span className="inline-flex items-center gap-1">
+                    <Phone className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                    SĐT: <strong className="font-mono text-slate-700 dark:text-slate-200">{app.phoneNumber}</strong>
+                    <CopyButton text={app.phoneNumber} />
+                  </span>
+                )}
+                {app.email && (
+                  <span className="inline-flex items-center gap-1">
+                    <Mail className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                    Email: <strong className="text-slate-700 dark:text-slate-200">{app.email}</strong>
+                    <CopyButton text={app.email} />
+                  </span>
+                )}
                 <span className="inline-flex items-center gap-1">
                   <FileText className="h-3.5 w-3.5 text-slate-400" />
                   Mã hồ sơ: <span className="font-mono text-slate-600 dark:text-slate-300">{app.applicationId.slice(0, 10)}...</span>
