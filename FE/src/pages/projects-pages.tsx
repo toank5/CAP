@@ -1781,23 +1781,23 @@ function ProjectDetailView({
               {showApply && (
                 <button
                   type="button"
-                  disabled={(!canApply && logged && isApplicant) || blockedByExisting}
+                  disabled={!canApply || blockedByExisting}
                   title={
-                    blockedByExisting
-                      ? applicantBlockMessage || undefined
-                      : !canApply && logged && isApplicant
-                        ? 'Dự án đã khóa nhận hồ sơ mới (đã đóng đăng ký hoặc đã mở lịch bốc thăm).'
+                    !canApply
+                      ? 'Dự án đã khóa nhận hồ sơ mới (đã đóng đăng ký hoặc đã mở lịch bốc thăm).'
+                      : blockedByExisting
+                        ? applicantBlockMessage || undefined
                         : undefined
                   }
                   onClick={() => void handleApply()}
                   className="flex-1 rounded-xl bg-gradient-to-r from-teal-600 to-teal-700 py-3 text-center text-sm font-bold text-white shadow-lg shadow-teal-700/20 transition hover:from-teal-700 hover:to-teal-800 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none sm:px-8"
                 >
-                  {!logged
-                    ? 'Đăng nhập để nộp hồ sơ'
-                    : blockedByExisting
-                      ? '⛔ Bạn đã có hồ sơ đang xử lý'
-                      : !canApply
-                        ? 'Đã khóa nhận hồ sơ'
+                  {!canApply
+                    ? 'Đã khóa nhận hồ sơ'
+                    : !logged
+                      ? 'Đăng nhập để nộp hồ sơ'
+                      : blockedByExisting
+                        ? '⛔ Bạn đã có hồ sơ đang xử lý'
                         : '📝 Nộp hồ sơ đăng ký'}
                 </button>
               )}

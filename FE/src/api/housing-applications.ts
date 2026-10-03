@@ -86,7 +86,7 @@ export function parsePagedApplications(data: unknown): ApplicationSummaryDto[] {
 
     let cached: Record<string, unknown> | null = null
     try {
-      const rawCache = citizenIdVal ? localStorage.getItem(`applicant_profile_${citizenIdVal}`) : localStorage.getItem('last_citizen_profile')
+      const rawCache = citizenIdVal ? localStorage.getItem(`applicant_profile_${citizenIdVal}`) : null
       if (rawCache) cached = JSON.parse(rawCache) as Record<string, unknown>
     } catch {
       /* ignore */
@@ -205,8 +205,7 @@ export function parseApplicationDetail(data: unknown): ApplicationDetailDto | nu
   try {
     const rawCitizen = citizenIdStr ? localStorage.getItem(`applicant_profile_${citizenIdStr}`) : null
     const rawApp = app.applicantId ? localStorage.getItem(`applicant_profile_${app.applicantId}`) : null
-    const rawLast = localStorage.getItem('last_citizen_profile')
-    const raw = rawCitizen || rawApp || rawLast
+    const raw = rawCitizen || rawApp
     if (raw) {
       cached = JSON.parse(raw) as Record<string, unknown>
     }

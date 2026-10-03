@@ -24,12 +24,15 @@ export const HouseCard = memo(function HouseCard({
   const { canCreate, message: blockMessage } = useExistingApplicationBlocker()
   const isBlocked = logged && isApplicant && !canCreate
 
+  const canApply = house.canApply ?? true
+
   const goToDetail = () => {
     sessionStorage.setItem('projectId', house.id)
     navigate('project-detail')
   }
 
   const goToApply = () => {
+    if (!canApply) return
     if (!logged) {
       sessionStorage.setItem('createApplicationProjectId', house.id)
       sessionStorage.setItem('projectId', house.id)
@@ -164,16 +167,22 @@ export const HouseCard = memo(function HouseCard({
                 </Button>
                 <Button
                   size="sm"
-                  disabled={isBlocked}
-                  title={isBlocked ? (blockMessage || 'Bạn đã có hồ sơ đang xử lý') : undefined}
+                  disabled={isBlocked || !canApply}
+                  title={
+                    !canApply
+                      ? 'Dự án đã khóa nhận hồ sơ mới (đã đóng đăng ký hoặc đã mở lịch bốc thăm)'
+                      : isBlocked
+                        ? (blockMessage || 'Bạn đã có hồ sơ đang xử lý')
+                        : undefined
+                  }
                   className={`rounded-xl text-xs font-semibold px-3 h-8 text-white shadow-sm ${
-                    isBlocked
+                    isBlocked || !canApply
                       ? 'bg-slate-400 opacity-60 cursor-not-allowed'
                       : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'
                   }`}
                   onClick={goToApply}
                 >
-                  {isBlocked ? 'Đã có hồ sơ' : 'Nộp hồ sơ'}
+                  {!canApply ? 'Đã khóa' : isBlocked ? 'Đã có hồ sơ' : 'Nộp hồ sơ'}
                 </Button>
               </>
             ) : (

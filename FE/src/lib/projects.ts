@@ -1,6 +1,7 @@
 import { labelProjectStatus } from '@/lib/labels'
 import { formatHousingVnd, formatHousingVndRange } from '@/lib/money'
 import { GOV_IMAGES } from '@/lib/media'
+import { isApplicationIntakeOpen } from '@/lib/project-status-flow'
 import type { HousingProjectDto } from '@/types'
 
 export interface ProjectCard {
@@ -19,6 +20,8 @@ export interface ProjectCard {
   minPrice: number
   maxPrice: number
   availableUnits: number
+  rawStatus?: string
+  canApply?: boolean
 }
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL ?? ''
@@ -73,5 +76,7 @@ export function mapProjectToCard(p: HousingProjectDto): ProjectCard {
     minPrice,
     maxPrice,
     availableUnits: p.availableUnits ?? 0,
+    rawStatus: p.status,
+    canApply: isApplicationIntakeOpen(p),
   }
 }

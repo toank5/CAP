@@ -45,23 +45,30 @@ function ProjectFeaturedApplyButton({ house }: { house: ProjectCard }) {
   const { canCreate, message: blockMessage } = useExistingApplicationBlocker()
   const logged = isLoggedIn()
   const isBlocked = logged && getRole() === 'Applicant' && !canCreate
+  const canApply = house.canApply ?? true
 
   return (
     <Button
       size="sm"
-      disabled={isBlocked}
-      title={isBlocked ? (blockMessage || 'Bạn đã có hồ sơ đang xử lý') : undefined}
+      disabled={isBlocked || !canApply}
+      title={
+        !canApply
+          ? 'Dự án đã khóa nhận hồ sơ mới (đã đóng đăng ký hoặc đã mở lịch bốc thăm)'
+          : isBlocked
+            ? (blockMessage || 'Bạn đã có hồ sơ đang xử lý')
+            : undefined
+      }
       className={`rounded-xl text-xs font-bold text-white shadow-sm ${
-        isBlocked
+        isBlocked || !canApply
           ? 'bg-slate-400 opacity-60 cursor-not-allowed'
           : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'
       }`}
       onClick={() => {
-        if (isBlocked) return
+        if (isBlocked || !canApply) return
         goToApply(house)
       }}
     >
-      {isBlocked ? 'Đã có hồ sơ' : 'Nộp hồ sơ ngay'}
+      {!canApply ? 'Đã khóa' : isBlocked ? 'Đã có hồ sơ' : 'Nộp hồ sơ ngay'}
     </Button>
   )
 }
@@ -70,23 +77,30 @@ function ProjectGridApplyButton({ house }: { house: ProjectCard }) {
   const { canCreate, message: blockMessage } = useExistingApplicationBlocker()
   const logged = isLoggedIn()
   const isBlocked = logged && getRole() === 'Applicant' && !canCreate
+  const canApply = house.canApply ?? true
 
   return (
     <Button
       size="sm"
-      disabled={isBlocked}
-      title={isBlocked ? (blockMessage || 'Bạn đã có hồ sơ đang xử lý') : undefined}
+      disabled={isBlocked || !canApply}
+      title={
+        !canApply
+          ? 'Dự án đã khóa nhận hồ sơ mới (đã đóng đăng ký hoặc đã mở lịch bốc thăm)'
+          : isBlocked
+            ? (blockMessage || 'Bạn đã có hồ sơ đang xử lý')
+            : undefined
+      }
       className={`rounded-xl text-xs font-semibold px-3 h-8 text-white shadow-sm ${
-        isBlocked
+        isBlocked || !canApply
           ? 'bg-slate-400 opacity-60 cursor-not-allowed'
           : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'
       }`}
       onClick={() => {
-        if (isBlocked) return
+        if (isBlocked || !canApply) return
         goToApply(house)
       }}
     >
-      {isBlocked ? 'Đã có hồ sơ' : 'Nộp hồ sơ'}
+      {!canApply ? 'Đã khóa' : isBlocked ? 'Đã có hồ sơ' : 'Nộp hồ sơ'}
     </Button>
   )
 }
