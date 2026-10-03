@@ -166,15 +166,8 @@ export const LotteryLivePage: React.FC = () => {
           if (cid && appPriorityMap.has(cid)) return appPriorityMap.get(cid)!
           if (name && appPriorityMap.has(name.trim().toLowerCase())) return appPriorityMap.get(name.trim().toLowerCase())!
 
-          const upperName = (name || '').toUpperCase()
-          if (cid === '083203009700' || upperName.includes('TOÀN') || upperName.includes('TOAN')) {
-            return 'LOW_INCOME_URBAN'
-          }
-          if (res === 'PRIORITY_WON' || upperName.includes('VĂN AN')) {
+          if (res === 'PRIORITY_WON') {
             return 'MERIT_PERSON'
-          }
-          if (res === 'WON') {
-            return 'LOW_INCOME_URBAN'
           }
           return 'LOW_INCOME_URBAN'
         }

@@ -83,7 +83,6 @@ export function parsePagedApplications(data: unknown): ApplicationSummaryDto[] {
       str(x.FullName)
     const applicantObj = (x.applicant ?? x.Applicant ?? x.user ?? x.User ?? {}) as Record<string, unknown>
     const citizenIdVal = str(x.citizenId ?? x.CitizenId ?? applicantObj.citizenId ?? applicantObj.CitizenId)
-    const isSeedToan = citizenIdVal === '083203009700' || fullName.toUpperCase().includes('TOÀN')
 
     let cached: Record<string, unknown> | null = null
     try {
@@ -108,7 +107,7 @@ export function parsePagedApplications(data: unknown): ApplicationSummaryDto[] {
         applicantObj.Phone ??
         (cached?.phoneNumber as string) ??
         (cached?.phone as string) ??
-        (isSeedToan ? '0338054618' : ''),
+        '',
     )
     const email = str(
       x.email ??
@@ -120,7 +119,7 @@ export function parsePagedApplications(data: unknown): ApplicationSummaryDto[] {
         applicantObj.email ??
         applicantObj.Email ??
         (cached?.email as string) ??
-        (isSeedToan ? 'toannmse170238@fpt.edu.vn' : ''),
+        '',
     )
 
     return {
@@ -215,18 +214,13 @@ export function parseApplicationDetail(data: unknown): ApplicationDetailDto | nu
     /* ignore */
   }
 
-  // Seed / verified fallback info for applicant demo account (083203009700 / Nguyễn Minh Toàn)
-  const isSeedToan = citizenIdStr === '083203009700' || String(o.fullName ?? applicantObj.fullName ?? app.fullName ?? '').toUpperCase().includes('TOÀN')
-  const defaultEmail = isSeedToan ? 'toannmse170238@fpt.edu.vn' : null
-  const defaultPhone = isSeedToan ? '0338054618' : null
-  const defaultDob = isSeedToan ? '2003-02-15' : (inferredYear ? `${inferredYear}` : null)
-  const defaultAddress = isSeedToan ? 'Mỹ Sơn Đông,Phú Mỹ, Mỏ Cày Bắc, Bến Tre' : null
+  const defaultDob = inferredYear ? `${inferredYear}` : null
 
-  const phone = (o.phoneNumber ?? o.PhoneNumber ?? o.phone ?? o.Phone ?? o.applicantPhone ?? o.ApplicantPhone ?? o.applicantPhoneNumber ?? o.ApplicantPhoneNumber ?? applicantObj.phoneNumber ?? applicantObj.PhoneNumber ?? applicantObj.phone ?? applicantObj.Phone ?? app.phoneNumber ?? (cached?.phoneNumber as string) ?? (cached?.phone as string) ?? defaultPhone) as string | null | undefined
-  const email = (o.email ?? o.Email ?? o.applicantEmail ?? o.ApplicantEmail ?? o.userEmail ?? o.UserEmail ?? applicantObj.email ?? applicantObj.Email ?? app.email ?? (cached?.email as string) ?? defaultEmail) as string | null | undefined
+  const phone = (o.phoneNumber ?? o.PhoneNumber ?? o.phone ?? o.Phone ?? o.applicantPhone ?? o.ApplicantPhone ?? o.applicantPhoneNumber ?? o.ApplicantPhoneNumber ?? applicantObj.phoneNumber ?? applicantObj.PhoneNumber ?? applicantObj.phone ?? applicantObj.Phone ?? app.phoneNumber ?? (cached?.phoneNumber as string) ?? (cached?.phone as string)) as string | null | undefined
+  const email = (o.email ?? o.Email ?? o.applicantEmail ?? o.ApplicantEmail ?? o.userEmail ?? o.UserEmail ?? applicantObj.email ?? applicantObj.Email ?? app.email ?? (cached?.email as string)) as string | null | undefined
   const dobRaw = (o.dateOfBirth ?? o.DateOfBirth ?? o.dob ?? o.Dob ?? o.birthDate ?? o.BirthDate ?? applicantObj.dateOfBirth ?? applicantObj.DateOfBirth ?? applicantObj.dob ?? applicantObj.Dob ?? app.dateOfBirth ?? (cached?.dateOfBirth as string) ?? (cached?.dob as string) ?? defaultDob) as string | null | undefined
   const genderRaw = (o.gender ?? o.Gender ?? o.sex ?? o.Sex ?? applicantObj.gender ?? applicantObj.Gender ?? applicantObj.sex ?? applicantObj.Sex ?? app.gender ?? (cached?.gender as string) ?? (cached?.sex as string) ?? inferredGender) as string | null | undefined
-  const placeOfOrigin = (o.placeOfOrigin ?? o.PlaceOfOrigin ?? o.hometown ?? o.Hometown ?? o.homeTown ?? o.HomeTown ?? o.home ?? o.Home ?? applicantObj.placeOfOrigin ?? applicantObj.PlaceOfOrigin ?? applicantObj.hometown ?? applicantObj.home ?? app.placeOfOrigin ?? (cached?.placeOfOrigin as string) ?? (cached?.hometown as string) ?? defaultAddress ?? inferredProvince) as string | null | undefined
+  const placeOfOrigin = (o.placeOfOrigin ?? o.PlaceOfOrigin ?? o.hometown ?? o.Hometown ?? o.homeTown ?? o.HomeTown ?? o.home ?? o.Home ?? applicantObj.placeOfOrigin ?? applicantObj.PlaceOfOrigin ?? applicantObj.hometown ?? applicantObj.home ?? app.placeOfOrigin ?? (cached?.placeOfOrigin as string) ?? (cached?.hometown as string) ?? inferredProvince) as string | null | undefined
   const nationality = (o.nationality ?? o.Nationality ?? applicantObj.nationality ?? applicantObj.Nationality ?? app.nationality ?? 'Việt Nam') as string | null | undefined
 
   const isEkyc = Boolean(
@@ -259,8 +253,8 @@ export function parseApplicationDetail(data: unknown): ApplicationDetailDto | nu
     isEkycVerified: isEkyc,
     occupation: (o.occupation ?? o.Occupation ?? app.occupation) as string | null | undefined,
     workPlace: (o.workPlace ?? o.WorkPlace ?? app.workPlace) as string | null | undefined,
-    currentResidence: String(o.currentResidence ?? o.CurrentResidence ?? applicantObj.address ?? applicantObj.Address ?? app.currentResidence ?? defaultAddress ?? ''),
-    permanentAddress: String(o.permanentAddress ?? o.PermanentAddress ?? applicantObj.address ?? applicantObj.Address ?? app.permanentAddress ?? defaultAddress ?? ''),
+    currentResidence: String(o.currentResidence ?? o.CurrentResidence ?? applicantObj.address ?? applicantObj.Address ?? app.currentResidence ?? ''),
+    permanentAddress: String(o.permanentAddress ?? o.PermanentAddress ?? applicantObj.address ?? applicantObj.Address ?? app.permanentAddress ?? ''),
     housingStatus: String(o.housingStatus ?? o.HousingStatus ?? app.housingStatus ?? ''),
     totalHousingArea: o.totalHousingArea != null ? Number(o.totalHousingArea ?? o.TotalHousingArea) : (app.totalHousingArea ?? null),
     maritalStatus: (o.maritalStatus ?? o.MaritalStatus ?? app.maritalStatus) as string | null | undefined,
@@ -298,41 +292,19 @@ export function parseApplicationDetail(data: unknown): ApplicationDetailDto | nu
         members = cached.householdMembers as Record<string, unknown>[]
       }
 
-      // If still empty or matching demo citizen Nguyễn Minh Toàn (083203009700):
-      if (isSeedToan && members.length === 0) {
-        members = [
-          {
-            memberId: 'seed-member-1',
-            fullName: 'Phạm Thị Thuý Oanh',
-            relationship: 'Cha / Mẹ',
-            citizenId: '091234567890',
-            dateOfBirth: '1975-11-30',
-            occupation: 'Công Nhân',
-            monthlyIncome: 10000000,
-            isDependent: false,
-            dependentReason: null,
-            hasMeritService: false,
-            meritDetails: null,
-            note: null,
-          }
-        ]
-      }
-
       return members.map((m: Record<string, unknown>) => {
         const memberName = String(m.fullName ?? m.FullName ?? '')
-        // If this member is Phạm Thị Thuý Oanh, ensure full data if missing from backend
-        const isOanh = memberName.includes('Oanh') || String(m.citizenId ?? '').includes('091234567890')
         const incomeVal = m.monthlyIncome ?? m.MonthlyIncome
-        const occVal = m.occupation ?? m.Occupation ?? (isOanh ? 'Công Nhân' : null)
-        const dobVal = m.dateOfBirth ?? m.DateOfBirth ?? (isOanh ? '1975-11-30' : null)
-        const income = incomeVal != null && incomeVal !== '' && Number(incomeVal) > 0 ? Number(incomeVal) : (isOanh ? 10000000 : 0)
+        const occVal = m.occupation ?? m.Occupation
+        const dobVal = m.dateOfBirth ?? m.DateOfBirth
+        const income = incomeVal != null && incomeVal !== '' && Number(incomeVal) > 0 ? Number(incomeVal) : 0
 
         return {
-          memberId: (m.memberId ?? m.MemberId ?? (isOanh ? 'seed-member-1' : null)) as string | null,
-          fullName: memberName || (isOanh ? 'Phạm Thị Thuý Oanh' : ''),
-          citizenId: (m.citizenId != null ? String(m.citizenId) : (isOanh ? '091234567890' : null)),
+          memberId: (m.memberId ?? m.MemberId) as string | null,
+          fullName: memberName,
+          citizenId: (m.citizenId != null ? String(m.citizenId) : null),
           dateOfBirth: dobVal != null ? String(dobVal) : null,
-          relationship: String(m.relationship ?? m.Relationship ?? (isOanh ? 'Cha / Mẹ' : '')),
+          relationship: String(m.relationship ?? m.Relationship ?? ''),
           occupation: occVal ? String(occVal) : undefined,
           monthlyIncome: income,
           isDependent: Boolean(m.isDependent ?? m.IsDependent),
@@ -346,49 +318,6 @@ export function parseApplicationDetail(data: unknown): ApplicationDetailDto | nu
     documents: (() => {
       const raw = o.documents ?? o.Documents
       const docs: Record<string, unknown>[] = Array.isArray(raw) ? [...raw] : []
-
-      // If docs are empty or missing poverty/housing proof for seed/cached citizen
-      if (isSeedToan && docs.length < 2) {
-        const seedDocs = [
-          {
-            documentId: 'doc-seed-1',
-            documentType: 'POVERTY_HOUSEHOLD_CERTIFICATE',
-            fileName: 'mau-giay-chung-nhan-ho-ngheo-ho-can-ngheo-moi-nhat.docx.pdf',
-            fileUrl: 'https://rhs-backend-api.onrender.com/uploads/sample-docs/mau-giay-chung-nhan-ho-ngheo-ho-can-ngheo-moi-nhat.docx.pdf',
-            fileSizeBytes: 102400,
-            uploadedAt: o.submittedAt ?? o.createdAt ?? new Date().toISOString(),
-          },
-          {
-            documentId: 'doc-seed-2',
-            documentType: 'HOUSING_CONDITION_PROOF',
-            fileName: 'Mau-03-Giay-xac-nhan-dieu-kien-nha-o-chua-co-nha-o-doc_1763629393[1700000404].doc.pdf',
-            fileUrl: 'https://rhs-backend-api.onrender.com/uploads/sample-docs/Mau-03-Giay-xac-nhan-dieu-kien-nha-o-chua-co-nha-o-doc_1763629393[1700000404].doc.pdf',
-            fileSizeBytes: 154800,
-            uploadedAt: o.submittedAt ?? o.createdAt ?? new Date().toISOString(),
-          },
-          {
-            documentId: 'doc-seed-3',
-            documentType: 'CITIZEN_CARD',
-            fileName: 'CCCD_Nguyen_Minh_Toan_083203009700.pdf',
-            fileUrl: 'https://rhs-backend-api.onrender.com/uploads/sample-docs/cccd-sample.pdf',
-            fileSizeBytes: 204800,
-            uploadedAt: o.submittedAt ?? o.createdAt ?? new Date().toISOString(),
-          },
-          {
-            documentId: 'doc-seed-4',
-            documentType: 'RELATIVE_CITIZEN_CARD',
-            fileName: 'CCCD_Pham_Thi_Thuy_Oanh_091234567890.pdf',
-            fileUrl: 'https://rhs-backend-api.onrender.com/uploads/sample-docs/cccd-sample.pdf',
-            fileSizeBytes: 184000,
-            uploadedAt: o.submittedAt ?? o.createdAt ?? new Date().toISOString(),
-          }
-        ]
-        for (const sd of seedDocs) {
-          if (!docs.some(d => (d.documentType ?? d.DocumentType) === sd.documentType)) {
-            docs.push(sd)
-          }
-        }
-      }
 
       return docs.map((d: Record<string, unknown>) => ({
         documentId: String(d.documentId ?? d.DocumentId ?? d.id ?? d.Id ?? ''),

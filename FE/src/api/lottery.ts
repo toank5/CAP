@@ -222,14 +222,7 @@ export function parseCandidate(raw: unknown): LiveNextCandidate | null {
 
   let pg = (o.priorityGroup ?? o.PriorityGroup ?? o.policyGroup ?? o.PolicyGroup ?? null) as string | null
   if (!pg || pg === 'NONE' || pg === 'NULL' || pg === 'DEFAULT') {
-    const upperName = (name || '').toUpperCase()
-    if (cid === '083203009700' || upperName.includes('TOÀN') || upperName.includes('TOAN')) {
-      pg = 'LOW_INCOME_URBAN'
-    } else if (upperName.includes('VĂN AN') || (upperName.includes('AN') && !upperName.includes('TOÀN'))) {
-      pg = 'MERIT_PERSON'
-    } else {
-      pg = 'LOW_INCOME_URBAN'
-    }
+    pg = 'LOW_INCOME_URBAN'
   }
 
   return {
@@ -279,13 +272,8 @@ export function parseWinner(raw: unknown): LiveWinnerEntry | null {
 
   let pg = (o.priorityGroup ?? o.PriorityGroup ?? o.policyGroup ?? o.PolicyGroup ?? null) as string | null
   if (!pg || pg === 'NONE' || pg === 'NULL' || pg === 'DEFAULT') {
-    const upperName = name.toUpperCase()
-    if (cid === '083203009700' || upperName.includes('TOÀN') || upperName.includes('TOAN')) {
-      pg = 'LOW_INCOME_URBAN'
-    } else if (finalResult === 'PRIORITY_WON' || upperName.includes('VĂN AN')) {
+    if (finalResult === 'PRIORITY_WON') {
       pg = 'MERIT_PERSON'
-    } else if (finalResult === 'WON') {
-      pg = 'LOW_INCOME_URBAN'
     } else {
       pg = 'LOW_INCOME_URBAN'
     }
@@ -676,13 +664,8 @@ export function parseLotteryResult(data: unknown): LotteryResultDto | null {
 
     let pg = (p.priorityGroup ?? p.PriorityGroup ?? p.policyGroup ?? p.PolicyGroup ?? null) as string | null
     if (!pg || pg === 'NONE' || pg === 'NULL' || pg === 'DEFAULT') {
-      const upperName = name.toUpperCase()
-      if (cid === '083203009700' || upperName.includes('TOÀN') || upperName.includes('TOAN')) {
-        pg = 'LOW_INCOME_URBAN'
-      } else if (res === 'PRIORITY_WON' || upperName.includes('VĂN AN')) {
+      if (res === 'PRIORITY_WON') {
         pg = 'MERIT_PERSON'
-      } else if (res === 'WON') {
-        pg = 'LOW_INCOME_URBAN'
       } else {
         pg = 'LOW_INCOME_URBAN'
       }
@@ -785,10 +768,7 @@ export function parseEligibleList(data: unknown): LotteryEligibleEntry[] {
 
       let pg = (o.priorityGroup ?? o.PriorityGroup ?? o.policyGroup ?? o.PolicyGroup ?? null) as string | null
       if (!pg || pg === 'NONE' || pg === 'NULL' || pg === 'DEFAULT') {
-        const upperName = name.toUpperCase()
-        if (cid === '083203009700' || upperName.includes('TOÀN') || upperName.includes('TOAN')) {
-          pg = 'LOW_INCOME_URBAN'
-        } else if (res === 'PRIORITY_WON' || upperName.includes('VĂN AN')) {
+        if (res === 'PRIORITY_WON') {
           pg = 'MERIT_PERSON'
         } else {
           pg = 'LOW_INCOME_URBAN'
