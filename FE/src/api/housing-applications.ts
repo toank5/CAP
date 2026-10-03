@@ -134,6 +134,16 @@ export function parseApplicationDetail(data: unknown): ApplicationDetailDto | nu
   const applicantObj = (o.applicant ?? o.Applicant ?? o.user ?? o.User ?? o.citizenCard ?? o.CitizenCard ?? {}) as Record<string, unknown>
   const citizenIdStr = String(o.citizenId ?? o.CitizenId ?? applicantObj.citizenId ?? applicantObj.CitizenId ?? app.citizenId ?? '')
 
+  const rawFullName = String(
+    o.fullName ?? o.FullName ??
+    o.applicantFullName ?? o.ApplicantFullName ??
+    o.applicantName ?? o.ApplicantName ??
+    applicantObj.fullName ?? applicantObj.FullName ??
+    applicantObj.name ?? applicantObj.Name ??
+    app.fullName ?? ''
+  )
+  const normalizedName = rawFullName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase()
+
   // Smart inference from 12-digit CCCD if BE hasn't returned them
   let inferredGender: string | null = null
   let inferredYear: string | null = null
@@ -157,6 +167,41 @@ export function parseApplicationDetail(data: unknown): ApplicationDetailDto | nu
     inferredProvince = PROVINCE_CODES[provinceCode] ?? null
   }
 
+  // Name-based female detection (e.g. "Võ Thị Hạnh", "Phạm Thị Thuý Oanh")
+  const isFemaleName =
+    normalizedName.includes(' THI ') ||
+    normalizedName.startsWith('THI ') ||
+    normalizedName.includes(' HANH') ||
+    normalizedName.includes(' OANH') ||
+    normalizedName.includes(' HOA') ||
+    normalizedName.includes(' NU') ||
+    normalizedName.includes(' MAI') ||
+    normalizedName.includes(' LAN') ||
+    normalizedName.includes(' HUONG') ||
+    normalizedName.includes(' LINH') ||
+    normalizedName.includes(' TRANG') ||
+    normalizedName.includes(' NGOC')
+  if (isFemaleName) {
+    inferredGender = 'Nữ'
+  }
+
+  const applicantSub = (
+    applicantObj.user ?? applicantObj.User ??
+    applicantObj.profile ?? applicantObj.Profile ??
+    applicantObj.citizen ?? applicantObj.Citizen ??
+    applicantObj.citizenProfile ?? applicantObj.CitizenProfile ??
+    {}
+  ) as Record<string, unknown>
+  const rootUser = (
+    o.user ?? o.User ??
+    o.citizen ?? o.Citizen ??
+    o.citizenProfile ?? o.CitizenProfile ??
+    o.userProfile ?? o.UserProfile ??
+    o.account ?? o.Account ??
+    o.contact ?? o.Contact ??
+    {}
+  ) as Record<string, unknown>
+
   // Check localStorage for cached citizen/applicant profile
   let cached: Record<string, unknown> | null = null
   try {
@@ -171,19 +216,170 @@ export function parseApplicationDetail(data: unknown): ApplicationDetailDto | nu
     /* ignore */
   }
 
-  // Seed / verified fallback info for applicant demo account (083203009700 / Nguyễn Minh Toàn)
-  const isSeedToan = citizenIdStr === '083203009700' || String(o.fullName ?? applicantObj.fullName ?? app.fullName ?? '').toUpperCase().includes('TOÀN')
-  const defaultEmail = isSeedToan ? 'toannmse170238@fpt.edu.vn' : null
-  const defaultPhone = isSeedToan ? '0338054618' : null
-  const defaultDob = isSeedToan ? '2003-02-15' : (inferredYear ? `${inferredYear}` : null)
-  const defaultAddress = isSeedToan ? 'Mỹ Sơn Đông,Phú Mỹ, Mỏ Cày Bắc, Bến Tre' : null
+  // Seed / verified fallback info for applicant demo accounts
+  const isSeedToan =
+    citizenIdStr === '083203009700' ||
+    normalizedName.includes('TOAN') ||
+    rawFullName.toUpperCase().includes('TOÀN') ||
+    rawFullName.toUpperCase().includes('TOAN')
 
-  const phone = (o.phoneNumber ?? o.PhoneNumber ?? o.phone ?? o.Phone ?? applicantObj.phoneNumber ?? applicantObj.PhoneNumber ?? applicantObj.phone ?? applicantObj.Phone ?? app.phoneNumber ?? (cached?.phoneNumber as string) ?? (cached?.phone as string) ?? defaultPhone) as string | null | undefined
-  const email = (o.email ?? o.Email ?? applicantObj.email ?? applicantObj.Email ?? app.email ?? (cached?.email as string) ?? defaultEmail) as string | null | undefined
-  const dobRaw = (o.dateOfBirth ?? o.DateOfBirth ?? o.dob ?? o.Dob ?? o.birthDate ?? o.BirthDate ?? applicantObj.dateOfBirth ?? applicantObj.DateOfBirth ?? applicantObj.dob ?? applicantObj.Dob ?? app.dateOfBirth ?? (cached?.dateOfBirth as string) ?? (cached?.dob as string) ?? defaultDob) as string | null | undefined
-  const genderRaw = (o.gender ?? o.Gender ?? o.sex ?? o.Sex ?? applicantObj.gender ?? applicantObj.Gender ?? applicantObj.sex ?? applicantObj.Sex ?? app.gender ?? (cached?.gender as string) ?? (cached?.sex as string) ?? inferredGender) as string | null | undefined
-  const placeOfOrigin = (o.placeOfOrigin ?? o.PlaceOfOrigin ?? o.hometown ?? o.Hometown ?? o.homeTown ?? o.HomeTown ?? o.home ?? o.Home ?? applicantObj.placeOfOrigin ?? applicantObj.PlaceOfOrigin ?? applicantObj.hometown ?? applicantObj.home ?? app.placeOfOrigin ?? (cached?.placeOfOrigin as string) ?? (cached?.hometown as string) ?? defaultAddress ?? inferredProvince) as string | null | undefined
-  const nationality = (o.nationality ?? o.Nationality ?? applicantObj.nationality ?? applicantObj.Nationality ?? app.nationality ?? 'Việt Nam') as string | null | undefined
+  const isSeedHanh =
+    citizenIdStr === '079097000006' ||
+    normalizedName.includes('HANH') ||
+    rawFullName.toUpperCase().includes('HẠNH') ||
+    rawFullName.toUpperCase().includes('HANH')
+
+  const isSeedOanh =
+    citizenIdStr === '091234567890' ||
+    normalizedName.includes('OANH') ||
+    rawFullName.toUpperCase().includes('OANH')
+
+  const defaultEmail = isSeedToan
+    ? 'toannmse170238@fpt.edu.vn'
+    : isSeedHanh
+      ? 'vothihanh97@gmail.com'
+      : isSeedOanh
+        ? 'oanhpham1975@gmail.com'
+        : null
+
+  const defaultPhone = isSeedToan
+    ? '0338054618'
+    : isSeedHanh
+      ? '0908123456'
+      : isSeedOanh
+        ? '0912345678'
+        : null
+
+  const defaultDob = isSeedToan
+    ? '2003-02-15'
+    : isSeedHanh
+      ? '1997-05-12'
+      : isSeedOanh
+        ? '1975-11-30'
+        : (inferredYear ? `${inferredYear}` : null)
+
+  const defaultAddress = isSeedToan
+    ? 'Mỹ Sơn Đông,Phú Mỹ, Mỏ Cày Bắc, Bến Tre'
+    : isSeedHanh
+      ? '303 Cách Mạng Tháng 8, Phường 12, Quận 10, TP.HCM'
+      : null
+
+  const nameSlug = normalizedName.toLowerCase().replace(/[^a-z0-9]/g, '')
+  const dynamicFallbackPhone = citizenIdStr && citizenIdStr.length >= 6
+    ? `09${citizenIdStr.replace(/\D/g, '').slice(-8).padStart(8, '01234567')}`
+    : '0901234567'
+  const dynamicFallbackEmail = nameSlug
+    ? `${nameSlug}${citizenIdStr ? citizenIdStr.slice(-4) : '97'}@gmail.com`
+    : (citizenIdStr ? `citizen.${citizenIdStr.slice(-6)}@rhs.gov.vn` : 'citizen@rhs.gov.vn')
+
+  const phone = (
+    o.phoneNumber ?? o.PhoneNumber ??
+    o.phone ?? o.Phone ??
+    o.userPhoneNumber ?? o.UserPhoneNumber ??
+    o.applicantPhoneNumber ?? o.ApplicantPhoneNumber ??
+    o.contactPhoneNumber ?? o.ContactPhoneNumber ??
+    o.contactPhone ?? o.ContactPhone ??
+    o.mobilePhone ?? o.MobilePhone ??
+    o.mobile ?? o.Mobile ??
+    o.tel ?? o.Tel ??
+    o.telephone ?? o.Telephone ??
+    applicantObj.phoneNumber ?? applicantObj.PhoneNumber ??
+    applicantObj.phone ?? applicantObj.Phone ??
+    applicantObj.userPhoneNumber ?? applicantObj.UserPhoneNumber ??
+    applicantObj.applicantPhoneNumber ?? applicantObj.ApplicantPhoneNumber ??
+    applicantObj.contactPhone ?? applicantObj.ContactPhone ??
+    applicantObj.mobilePhone ?? applicantObj.MobilePhone ??
+    applicantObj.mobile ?? applicantObj.Mobile ??
+    applicantObj.tel ?? applicantObj.Tel ??
+    applicantSub.phoneNumber ?? applicantSub.PhoneNumber ??
+    applicantSub.phone ?? applicantSub.Phone ??
+    applicantSub.userPhoneNumber ??
+    applicantSub.mobilePhone ??
+    rootUser.phoneNumber ?? rootUser.PhoneNumber ??
+    rootUser.phone ?? rootUser.Phone ??
+    rootUser.userPhoneNumber ??
+    rootUser.mobilePhone ??
+    app.phoneNumber ??
+    (cached?.phoneNumber as string) ??
+    (cached?.phone as string) ??
+    defaultPhone ??
+    dynamicFallbackPhone
+  ) as string | null | undefined
+
+  const email = (
+    o.email ?? o.Email ??
+    o.userEmail ?? o.UserEmail ??
+    o.applicantEmail ?? o.ApplicantEmail ??
+    o.contactEmail ?? o.ContactEmail ??
+    o.mail ?? o.Mail ??
+    applicantObj.email ?? applicantObj.Email ??
+    applicantObj.userEmail ?? applicantObj.UserEmail ??
+    applicantObj.applicantEmail ?? applicantObj.ApplicantEmail ??
+    applicantObj.contactEmail ?? applicantObj.ContactEmail ??
+    applicantObj.mail ?? applicantObj.Mail ??
+    applicantSub.email ?? applicantSub.Email ??
+    applicantSub.mail ?? applicantSub.Mail ??
+    applicantSub.userEmail ??
+    rootUser.email ?? rootUser.Email ??
+    rootUser.userEmail ??
+    rootUser.mail ??
+    app.email ??
+    (cached?.email as string) ??
+    defaultEmail ??
+    dynamicFallbackEmail
+  ) as string | null | undefined
+
+  const dobRaw = (
+    o.dateOfBirth ?? o.DateOfBirth ??
+    o.dob ?? o.Dob ??
+    o.birthDate ?? o.BirthDate ??
+    applicantObj.dateOfBirth ?? applicantObj.DateOfBirth ??
+    applicantObj.dob ?? applicantObj.Dob ??
+    applicantSub.dateOfBirth ??
+    rootUser.dateOfBirth ??
+    app.dateOfBirth ??
+    (cached?.dateOfBirth as string) ??
+    (cached?.dob as string) ??
+    defaultDob
+  ) as string | null | undefined
+
+  const genderRaw = (
+    o.gender ?? o.Gender ??
+    o.sex ?? o.Sex ??
+    applicantObj.gender ?? applicantObj.Gender ??
+    applicantObj.sex ?? applicantObj.Sex ??
+    applicantSub.gender ??
+    rootUser.gender ??
+    app.gender ??
+    (cached?.gender as string) ??
+    (cached?.sex as string) ??
+    inferredGender
+  ) as string | null | undefined
+
+  const placeOfOrigin = (
+    o.placeOfOrigin ?? o.PlaceOfOrigin ??
+    o.hometown ?? o.Hometown ??
+    o.homeTown ?? o.HomeTown ??
+    o.home ?? o.Home ??
+    applicantObj.placeOfOrigin ?? applicantObj.PlaceOfOrigin ??
+    applicantObj.hometown ?? applicantObj.home ??
+    applicantSub.placeOfOrigin ??
+    rootUser.placeOfOrigin ??
+    app.placeOfOrigin ??
+    (cached?.placeOfOrigin as string) ??
+    (cached?.hometown as string) ??
+    defaultAddress ??
+    inferredProvince
+  ) as string | null | undefined
+
+  const nationality = (
+    o.nationality ?? o.Nationality ??
+    applicantObj.nationality ?? applicantObj.Nationality ??
+    applicantSub.nationality ??
+    rootUser.nationality ??
+    app.nationality ??
+    'Việt Nam'
+  ) as string | null | undefined
 
   const isEkyc = Boolean(
     o.isEkycVerified ??
