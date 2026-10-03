@@ -274,8 +274,69 @@ export const LotteryBallCage: React.FC<Props> = ({
   const isLive = sessionStatus === 'Live'
   const isFinished = sessionStatus === 'Finished' || sessionStatus === 'Published'
   const isOutOfUnits = remaining === 0 && total > 0
+  const isSessionCompleted = isFinished || isOutOfUnits || (remaining === 0 && total > 0)
+  const isLobby = sessionStatus === 'WaitingLobby' || sessionStatus === 'LobbyOpen'
+  const isPaused = sessionStatus === 'Paused'
   const hasSxdOnline = sxdOnlineCount > 0
   const canDraw = !!isDev && isLive && !isOutOfUnits && !isFinished && hasSxdOnline
+
+  // Trạng thái hiển thị trên huy hiệu tiêu đề lồng cầu
+  const statusBadge = (() => {
+    if (isSpinning) {
+      return {
+        text: '⚡ Đang đảo bóng...',
+        containerClass: 'bg-rose-100 text-rose-700 border border-rose-200',
+        dotClass: 'bg-rose-600 animate-ping',
+      }
+    }
+    if (isSessionCompleted) {
+      return {
+        text: '✓ Đã hoàn tất bốc thăm',
+        containerClass: 'bg-emerald-100 text-emerald-800 border border-emerald-200',
+        dotClass: 'bg-emerald-600',
+      }
+    }
+    if (isLive) {
+      if (canDraw) {
+        return {
+          text: '● Đang trực tiếp (Sẵn sàng)',
+          containerClass: 'bg-emerald-100 text-emerald-800 border border-emerald-200',
+          dotClass: 'bg-emerald-600 animate-pulse',
+        }
+      }
+      return {
+        text: '● Đang bốc thăm trực tiếp',
+        containerClass: 'bg-rose-100 text-rose-700 border border-rose-200',
+        dotClass: 'bg-rose-600 animate-pulse',
+      }
+    }
+    if (isLobby) {
+      return {
+        text: '● Sảnh chờ mở',
+        containerClass: 'bg-amber-100 text-amber-800 border border-amber-200',
+        dotClass: 'bg-amber-600 animate-pulse',
+      }
+    }
+    if (isPaused) {
+      return {
+        text: '⏸ Tạm dừng',
+        containerClass: 'bg-amber-100 text-amber-800 border border-amber-200',
+        dotClass: 'bg-amber-500',
+      }
+    }
+    if (latestWinner || (recentWinners && recentWinners.length > 0)) {
+      return {
+        text: '✓ Đã có kết quả',
+        containerClass: 'bg-emerald-100 text-emerald-800 border border-emerald-200',
+        dotClass: 'bg-emerald-600',
+      }
+    }
+    return {
+      text: 'Chưa mở',
+      containerClass: 'bg-slate-100 text-slate-600 border border-slate-200',
+      dotClass: 'bg-slate-400',
+    }
+  })()
 
   return (
     <div className="relative overflow-hidden rounded-3xl border border-amber-200/90 bg-white p-5 sm:p-6 shadow-lg shadow-amber-900/5">
@@ -297,18 +358,10 @@ export const LotteryBallCage: React.FC<Props> = ({
 
         <div className="flex items-center gap-2">
           <span
-            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${isSpinning
-              ? 'bg-rose-100 text-rose-700 border border-rose-200'
-              : canDraw
-                ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                : 'bg-slate-100 text-slate-600 border border-slate-200'
-              }`}
+            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${statusBadge.containerClass}`}
           >
-            <span
-              className={`h-2 w-2 rounded-full ${isSpinning ? 'bg-rose-600 animate-ping' : canDraw ? 'bg-emerald-600' : 'bg-slate-400'
-                }`}
-            />
-            {isSpinning ? '⚡ Đang đảo bóng...' : canDraw ? 'Sẵn sàng' : 'Chưa mở'}
+            <span className={`h-2 w-2 rounded-full ${statusBadge.dotClass}`} />
+            {statusBadge.text}
           </span>
         </div>
       </div>
