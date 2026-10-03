@@ -172,7 +172,7 @@ function InternalHeader({ logged, role }: { logged: boolean; role: string }) {
 
         {/* Center: Desktop TopNav inline */}
         {logged && (
-          <div className="hidden min-w-0 flex-1 items-center justify-center px-1 xl:px-2 lg:flex overflow-x-auto no-scrollbar">
+          <div className="hidden min-w-0 flex-1 items-center justify-center px-1 xl:px-2 lg:flex">
             {showApplicantNav && <ApplicantSubNav inline />}
             {showAdminNav && <AdminSubNav inline />}
             {showDeveloperNav && <DeveloperSubNav inline />}

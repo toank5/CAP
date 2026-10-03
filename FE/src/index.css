@@ -444,8 +444,13 @@
     scrollbar-width: thin;
     scrollbar-color: rgb(203 213 225 / 0.6) transparent;
   }
-  .dark * {
-    scrollbar-color: rgb(51 65 85 / 0.7) transparent;
+  /* ==== No scrollbar utility ==== */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none !important;
   }
 
   ::selection {
