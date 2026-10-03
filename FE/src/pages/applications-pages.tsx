@@ -1434,10 +1434,10 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
     }
   }
 
-  // Phải gọi trước mọi return. Lần render đang tải không được bỏ hook này.
+  // Hiển thị đầy đủ tất cả tài liệu người dân đã đính kèm trong hồ sơ
   const visibleDocuments = useMemo(
-    () => documentsForPriorityGroup(app?.documents ?? [], app?.priorityGroup),
-    [app?.documents, app?.priorityGroup],
+    () => app?.documents ?? [],
+    [app?.documents],
   )
 
   if (loading) return (
