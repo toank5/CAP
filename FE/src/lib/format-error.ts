@@ -22,6 +22,13 @@ function cleanMessage(text: string): string {
   if (s.startsWith('ApiError: ')) s = s.slice(10).trim()
 
   const lower = s.toLowerCase()
+  if (
+    lower.includes('housing project with id') ||
+    (lower.includes('project') && lower.includes('not found')) ||
+    (lower.includes('dự án') && lower.includes('not found'))
+  ) {
+    return 'Dự án không tồn tại hoặc đã bị xóa.'
+  }
   if (lower.includes('resource_exhausted') || lower.includes('check quota')) {
     return 'Dịch vụ AI Gemini tạm thời hết hạn ngạch/lượt gọi (Quota / Token Limit). Vui lòng thử lại sau hoặc liên hệ quản trị viên.'
   }
@@ -101,7 +108,7 @@ export function formatError(err: unknown): string {
         return 'Yêu cầu không hợp lệ hoặc điều kiện mở đợt thanh toán chưa thỏa mãn (cần người dân thanh toán đợt trước đó).'
       }
       if (err.status === 404) {
-        return 'Không tìm thấy dữ liệu yêu cầu.'
+        return 'Dự án không tồn tại hoặc đã bị xóa.'
       }
       if (err.status === 403) {
         return 'Tài khoản không có quyền thực hiện thao tác này.'
