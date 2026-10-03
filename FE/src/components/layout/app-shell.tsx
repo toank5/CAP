@@ -85,8 +85,8 @@ function UserAccountCluster() {
           )}
         </div>
         {/* Name + badge */}
-        <div className="hidden min-w-0 text-left xl:block">
-          <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-100 max-w-[130px] 2xl:max-w-[180px]">{greeting}</p>
+        <div className="hidden min-w-0 text-left lg:block">
+          <p className="whitespace-nowrap text-xs font-semibold text-slate-900 dark:text-slate-100">{greeting}</p>
           <span className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold text-white ${theme.brandAccent}`}>
             <ThemeIcon className="h-2.5 w-2.5" />
             {theme.badge}
