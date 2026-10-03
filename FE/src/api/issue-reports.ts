@@ -44,8 +44,7 @@ export interface GetIssueReportsQuery {
 
 export const ISSUE_REPORT_STATUSES = [
   'Open',
-  'New',
-  'InReview',
+  'InProgress',
   'Resolved',
   'Closed',
   'Rejected',
@@ -55,6 +54,7 @@ export type IssueReportStatus = (typeof ISSUE_REPORT_STATUSES)[number]
 export const ISSUE_TYPES = [
   'Bug',
   'FeatureRequest',
+  'Improvement',
   'DataIssue',
   'AccountIssue',
   'Other',
@@ -62,8 +62,9 @@ export const ISSUE_TYPES = [
 
 export function statusLabel(s: string): string {
   switch (s) {
-    case 'Open': return 'Mới tiếp nhận'
+    case 'Open':
     case 'New': return 'Mới tiếp nhận'
+    case 'InProgress':
     case 'InReview': return 'Đang xử lý'
     case 'Resolved': return 'Đã giải quyết'
     case 'Closed': return 'Đã đóng'
@@ -78,6 +79,7 @@ export function statusTone(
   switch (s) {
     case 'Open':
     case 'New': return 'warning'
+    case 'InProgress':
     case 'InReview': return 'default'
     case 'Resolved': return 'success'
     case 'Closed': return 'secondary'
@@ -90,6 +92,7 @@ export function issueTypeLabel(t: string): string {
   switch (t) {
     case 'Bug': return 'Lỗi kỹ thuật'
     case 'FeatureRequest': return 'Yêu cầu tính năng'
+    case 'Improvement': return 'Cải thiện'
     case 'DataIssue': return 'Sai dữ liệu'
     case 'AccountIssue': return 'Vấn đề tài khoản'
     case 'Other': return 'Khác'
@@ -97,17 +100,34 @@ export function issueTypeLabel(t: string): string {
   }
 }
 
+function parseListItem(it: unknown): IssueReportListItemDto {
+  const row = (it && typeof it === 'object' ? it : {}) as Record<string, unknown>
+  return {
+    id: String(row.id ?? row.Id ?? ''),
+    title: String(row.title ?? row.Title ?? ''),
+    issueType: String(row.issueType ?? row.IssueType ?? ''),
+    status: String(row.status ?? row.Status ?? ''),
+    createdAt: String(row.createdAt ?? row.CreatedAt ?? ''),
+    reporterName: String(row.reporterName ?? row.ReporterName ?? ''),
+  }
+}
+
 function parseListResponse(data: unknown): PagedResultDto<IssueReportListItemDto> {
   const root = (data ?? {}) as Record<string, unknown>
   const o = (root.data ?? root.Data ?? root) as Record<string, unknown>
-  const items = (o.items ?? o.Items) as IssueReportListItemDto[] | undefined
-  const safe = Array.isArray(items) ? items : []
+  const raw = (o.items ?? o.Items) as unknown[] | undefined
+  const items = Array.isArray(raw) ? raw.map(parseListItem).filter((x) => x.id) : []
+  const pageSize = Number(o.pageSize ?? o.PageSize ?? (items.length || 12))
+  const totalCount = Number(o.totalCount ?? o.TotalCount ?? items.length)
+  const totalPages = Number(
+    o.totalPages ?? o.TotalPages ?? (pageSize > 0 ? Math.max(1, Math.ceil(totalCount / pageSize)) : 1),
+  )
   return {
-    items: safe,
+    items,
     pageIndex: Number(o.pageIndex ?? o.PageIndex ?? 1),
-    pageSize: Number(o.pageSize ?? o.PageSize ?? safe.length),
-    totalCount: Number(o.totalCount ?? o.TotalCount ?? safe.length),
-    totalPages: Number(o.totalPages ?? o.TotalPages ?? 1),
+    pageSize,
+    totalCount,
+    totalPages,
     hasNextPage: Boolean(o.hasNextPage ?? o.HasNextPage ?? false),
     hasPreviousPage: Boolean(o.hasPreviousPage ?? o.HasPreviousPage ?? false),
   }
@@ -170,7 +190,7 @@ export const issueReportsApi = {
     if (q.issueType) params.set('issueType', q.issueType)
     return request<ApiResult>(`/api/admin/issue-reports?${params.toString()}`, {
       auth: true,
-    })
+    }).then(parseListResponse)
   },
 
   updateStatus: (id: string, body: UpdateIssueReportStatusRequestDto) =>

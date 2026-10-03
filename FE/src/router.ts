@@ -52,6 +52,7 @@ export type RouteId =
   | 'audit-create'
   // Reporter issue (Applicant)
   | 'report-issue'
+  | 'admin-issue-reports'
   // Admin extras (mock)
   | 'admin-logs'
   | 'admin-categories'
@@ -352,6 +353,16 @@ export const routes: RouteConfig[] = [
     title: 'Báo cáo sự cố',
     subtitle: 'Gửi phản ánh về lỗi kỹ thuật, dữ liệu hoặc tài khoản tới quản trị viên.',
     cta: 'Gửi báo cáo',
+  },
+  {
+    id: 'admin-issue-reports',
+    label: 'Báo cáo sự cố',
+    group: 'workspace',
+    auth: true,
+    roles: ['System Administrator'],
+    title: 'Báo cáo sự cố',
+    subtitle: 'Xem ticket người dân gửi và cập nhật trạng thái xử lý.',
+    cta: '',
   },
   // ====== SXD Duyệt dự án ======
   {
@@ -699,6 +710,7 @@ const ROLE_ACCESS: Record<string, RouteId[]> = {
     'admin-logs',
     'admin-categories',
     'admin-transactions',
+    'admin-issue-reports',
     'notifications',
     'profile',
     'change-password',
@@ -789,7 +801,7 @@ export function publicNavRoutes(): RouteId[] {
 }
 
 const NAV_BY_ROLE: Record<string, RouteId[]> = {
-  'System Administrator': ['admin-staff', 'admin-logs', 'admin-categories', 'admin-transactions', 'notifications', 'profile'],
+  'System Administrator': ['admin-staff', 'admin-logs', 'admin-categories', 'admin-transactions', 'admin-issue-reports', 'notifications', 'profile'],
   'Housing Developer': ['home-developer', 'applications', 'projects', 'lottery-sessions', 'lottery-live', 'contracts', 'notifications', 'profile'],
   'Department Of Construction': ['home-sxd', 'applications', 'sxd-projects', 'sxd-announcements', 'lottery-sessions', 'lottery-live', 'sxd-payments', 'audit-list', 'contracts', 'notifications', 'profile'],
   Applicant: ['home-user', 'quan-tam', 'applications', 'projects', 'my-lottery', 'contracts', 'notifications', 'profile'],

@@ -54,6 +54,7 @@ const CreateStaffPage = lazy(() => import('@/pages/admin-pages').then(m => ({ de
 const StaffDetailPage = lazy(() => import('@/pages/admin-pages').then(m => ({ default: m.StaffDetailPage })))
 const NotificationsPage = lazy(() => import('@/pages/notifications-page').then(m => ({ default: m.NotificationsPage })))
 const ReportIssuePage = lazy(() => import('@/pages/report-issue-page').then(m => ({ default: m.ReportIssuePage })))
+const AdminIssueReportsPage = lazy(() => import('@/pages/admin-issue-reports-page').then(m => ({ default: m.AdminIssueReportsPage })))
 
 const LotterySessionsPage = lazy(() => import('@/pages/lottery-pages').then(m => ({ default: m.LotterySessionsPage })))
 const LotteryCreatePage = lazy(() => import('@/pages/lottery-pages').then(m => ({ default: m.LotteryCreatePage })))
@@ -121,6 +122,7 @@ function RouteView({ route }: { route: RouteId }) {
     case 'staff-detail': return <StaffDetailPage />
     case 'notifications': return <NotificationsPage />
     case 'report-issue': return <ReportIssuePage />
+    case 'admin-issue-reports': return <AdminIssueReportsPage />
     case 'lottery-sessions': return <LotterySessionsPage />
     case 'lottery-create': return <LotteryCreatePage />
     case 'lottery-detail': return <LotteryDetailPage />

@@ -4,6 +4,7 @@ import {
   ArrowRight,
   CreditCard,
   Database,
+  Flag,
   ShieldCheck,
   Sparkles,
   UserCheck,
@@ -212,6 +213,9 @@ export function AdminHomePage() {
               </Button>
               <Button size="sm" variant="outline" onClick={() => navigate('admin-transactions')} className="rounded-md border-primary/30 bg-white font-semibold text-primary hover:bg-primary/5">
                 <CreditCard className="mr-1 h-3.5 w-3.5 text-emerald-600" /> Lịch sử thanh toán
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => navigate('admin-issue-reports')} className="rounded-md border-primary/30 bg-white font-semibold text-primary hover:bg-primary/5">
+                <Flag className="mr-1 h-3.5 w-3.5 text-rose-600" /> Báo cáo sự cố
               </Button>
             </div>
           </div>
