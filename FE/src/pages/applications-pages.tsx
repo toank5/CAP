@@ -1872,34 +1872,8 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
                   />
                   <DetailRow label="Ngày sinh" value={formatDobDisplay(app.dateOfBirth)} />
                   <DetailRow label="Giới tính" value={GENDER_LABELS[app.gender || ''] ?? app.gender ?? '—'} />
-                  <DetailRow
-                    label="Số điện thoại"
-                    value={
-                      app.phoneNumber ||
-                      String(
-                        (app as any).userPhoneNumber ||
-                        (app as any).applicantPhoneNumber ||
-                        (app as any).phone ||
-                        (app as any).user?.phoneNumber ||
-                        (app as any).applicant?.phoneNumber ||
-                        '—'
-                      )
-                    }
-                  />
-                  <DetailRow
-                    label="Email liên hệ"
-                    value={
-                      app.email ||
-                      String(
-                        (app as any).userEmail ||
-                        (app as any).applicantEmail ||
-                        (app as any).contactEmail ||
-                        (app as any).user?.email ||
-                        (app as any).applicant?.email ||
-                        '—'
-                      )
-                    }
-                  />
+                  <DetailRow label="Số điện thoại" value={app.phoneNumber || '—'} />
+                  <DetailRow label="Email liên hệ" value={app.email || '—'} />
                   <DetailRow label="Quê quán" value={app.placeOfOrigin || '—'} />
                   <DetailRow label="Quốc tịch" value={app.nationality || 'Việt Nam'} />
                   <DetailRow label="Nghề nghiệp" value={app.occupation || '—'} />
