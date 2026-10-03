@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import {
   ChevronLeft,
   ChevronRight,
+  Flag,
   Loader2,
   Search,
 } from 'lucide-react'
@@ -22,7 +23,6 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Input, Select } from '@/components/ui/input'
-import { GovHeroBanner } from '@/components/layout/gov-hero-banner'
 import { Modal } from '@/components/ui/modal'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatError, formatSuccess } from '@/lib/format-error'
@@ -130,12 +130,23 @@ export function AdminIssueReportsPage() {
 
   return (
     <div className="space-y-6">
-      <GovHeroBanner
-        badge="Hỗ trợ người dùng"
-        title="Báo cáo sự cố"
-        subtitle="Tiếp nhận ticket người dân gửi từ app hoặc cổng thông tin, cập nhật tiến độ xử lý."
-        compact
-      />
+      {/* Banner Header Quản trị (Không dùng ảnh nền) */}
+      <div className="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-gradient-to-br from-rose-500/10 via-amber-500/5 to-transparent p-6 shadow-sm dark:border-slate-800 dark:from-rose-950/30 dark:via-amber-950/20">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-1">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-100 px-3 py-0.5 text-xs font-bold text-rose-800 dark:bg-rose-950/60 dark:text-rose-300">
+              <Flag className="h-3.5 w-3.5" />
+              HỖ TRỢ NGƯỜI DÙNG · SYSTEM ADMINISTRATOR
+            </span>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-3xl">
+              Báo cáo sự cố
+            </h1>
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              Tiếp nhận ticket người dân gửi từ app hoặc cổng thông tin, cập nhật tiến độ xử lý.
+            </p>
+          </div>
+        </div>
+      </div>
 
       <div className="gov-card space-y-4 p-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
